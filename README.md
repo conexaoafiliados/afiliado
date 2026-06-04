@@ -23,14 +23,20 @@ Se der erro `already exists`, o schema já foi criado — use `supabase/seed.sql
 cp .env.example .env
 ```
 
-Preencha com valores reais do Supabase → **Settings** → **API** e **Database**.
+Preencha com valores **reais** do Supabase (não deixe `SEU_PROJETO` nem `sua_anon_key`):
 
-Em **Authentication** → **URL Configuration**:
+| Variável | Onde pegar |
+|----------|------------|
+| `VITE_SUPABASE_URL` | Settings → API → Project URL |
+| `VITE_SUPABASE_ANON_KEY` | Settings → API → anon public |
+| `DATABASE_URL` | Settings → Database → URI (Transaction pooler) |
+
+**Authentication** → **URL Configuration**:
 
 - Site URL: `http://localhost:3000`
 - Redirect URLs: `http://localhost:3000/dashboard`
 
-Reinicie o servidor após editar o `.env`: `npm run dev`
+**Importante:** após salvar o `.env`, reinicie o servidor (`Ctrl+C` → `npm run dev`).
 
 ### 3. Rodar
 

@@ -30,7 +30,7 @@ const nav = [
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { loading, user, logout } = useAuth();
+  const { loading, user, isAuthenticated, logout } = useAuth();
   const [location] = useLocation();
 
   if (loading) {
@@ -41,7 +41,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  if (!user) {
+  if (!isAuthenticated) {
     return (
       <div className="flex min-h-screen items-center justify-center p-8">
         <div className="max-w-md text-center space-y-4">

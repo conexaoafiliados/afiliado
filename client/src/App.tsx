@@ -20,9 +20,14 @@ import Login from "./pages/Login";
 import DashboardLayout from "./components/DashboardLayout";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Loader2 } from "lucide-react";
+import type { ReactNode } from "react";
+
+function Protected({ children }: { children: ReactNode }) {
+  return <DashboardLayout>{children}</DashboardLayout>;
+}
 
 function Router() {
-  const { isAuthenticated, loading } = useAuth();
+  const { loading } = useAuth();
 
   if (loading) {
     return (
@@ -36,23 +41,18 @@ function Router() {
     <Switch>
       <Route path={"/"} component={Home} />
       <Route path={"/login"} component={Login} />
-      {isAuthenticated && (
-        <>
-          <Route path={"/dashboard"} component={() => <DashboardLayout><Dashboard /></DashboardLayout>} />
-          <Route path={"/profile/edit"} component={() => <DashboardLayout><ProfileEdit /></DashboardLayout>} />
-          <Route path={"/growth/missions"} component={() => <DashboardLayout><Missions /></DashboardLayout>} />
-          <Route path={"/growth/achievements"} component={() => <DashboardLayout><Achievements /></DashboardLayout>} />
-          <Route path={"/growth/progress"} component={() => <DashboardLayout><GrowthProgress /></DashboardLayout>} />
-          <Route path={"/courses/browse"} component={() => <DashboardLayout><Courses /></DashboardLayout>} />
-          <Route path={"/shop/browse"} component={() => <DashboardLayout><Shop /></DashboardLayout>} />
-          <Route path={"/community/feed"} component={() => <DashboardLayout><Community /></DashboardLayout>} />
-          <Route path={"/analytics/overview"} component={() => <DashboardLayout><Analytics /></DashboardLayout>} />
-          <Route path={"/checkout"} component={() => <DashboardLayout><Checkout /></DashboardLayout>} />
-          <Route path={"/orders"} component={() => <DashboardLayout><Orders /></DashboardLayout>} />
-        </>
-      )}
+      <Route path={"/dashboard"} component={() => <Protected><Dashboard /></Protected>} />
+      <Route path={"/profile/edit"} component={() => <Protected><ProfileEdit /></Protected>} />
+      <Route path={"/growth/missions"} component={() => <Protected><Missions /></Protected>} />
+      <Route path={"/growth/achievements"} component={() => <Protected><Achievements /></Protected>} />
+      <Route path={"/growth/progress"} component={() => <Protected><GrowthProgress /></Protected>} />
+      <Route path={"/courses/browse"} component={() => <Protected><Courses /></Protected>} />
+      <Route path={"/shop/browse"} component={() => <Protected><Shop /></Protected>} />
+      <Route path={"/community/feed"} component={() => <Protected><Community /></Protected>} />
+      <Route path={"/analytics/overview"} component={() => <Protected><Analytics /></Protected>} />
+      <Route path={"/checkout"} component={() => <Protected><Checkout /></Protected>} />
+      <Route path={"/orders"} component={() => <Protected><Orders /></Protected>} />
       <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
       <Route component={NotFound} />
     </Switch>
   );
@@ -61,9 +61,7 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-      >
+      <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
           <Router />

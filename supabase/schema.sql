@@ -1,14 +1,15 @@
 -- Conexões Creator — execute no SQL Editor do Supabase
--- https://supabase.com/dashboard → seu projeto → SQL Editor
+-- Se aparecer "type already exists", o schema JÁ foi criado — não rode de novo.
+-- Use apenas supabase/seed.sql para dados de exemplo.
 
-CREATE TYPE user_role AS ENUM ('user', 'admin');
-CREATE TYPE mission_category AS ENUM ('growth', 'engagement', 'learning');
-CREATE TYPE mission_difficulty AS ENUM ('easy', 'medium', 'hard');
-CREATE TYPE mission_status AS ENUM ('pending', 'in_progress', 'completed');
-CREATE TYPE course_category AS ENUM ('content', 'growth', 'monetization');
-CREATE TYPE course_level AS ENUM ('beginner', 'intermediate', 'advanced');
-CREATE TYPE product_category AS ENUM ('digital', 'physical');
-CREATE TYPE order_status AS ENUM ('pending', 'paid', 'shipped', 'delivered');
+DO $$ BEGIN CREATE TYPE user_role AS ENUM ('user', 'admin'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE mission_category AS ENUM ('growth', 'engagement', 'learning'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE mission_difficulty AS ENUM ('easy', 'medium', 'hard'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE mission_status AS ENUM ('pending', 'in_progress', 'completed'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE course_category AS ENUM ('content', 'growth', 'monetization'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE course_level AS ENUM ('beginner', 'intermediate', 'advanced'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE product_category AS ENUM ('digital', 'physical'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE order_status AS ENUM ('pending', 'paid', 'shipped', 'delivered'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,

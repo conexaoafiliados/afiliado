@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { APP_NAME } from "@/const";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseConfigError, supabase } from "@/lib/supabase";
 import { Link, useLocation } from "wouter";
 import { Zap } from "lucide-react";
 
@@ -14,12 +14,16 @@ export default function Login() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  if (!supabase) {
+  const configError = getSupabaseConfigError();
+
+  if (!supabase || configError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-8">
-        <p className="text-center text-muted-foreground">
-          Configure <code>VITE_SUPABASE_URL</code> e <code>VITE_SUPABASE_ANON_KEY</code> no arquivo .env
-        </p>
+        <div className="max-w-md text-center space-y-3 text-muted-foreground">
+          <p className="font-medium text-foreground">Configuração do Supabase incompleta</p>
+          <p className="text-sm">{configError}</p>
+          <p className="text-xs">Depois de editar o .env, pare o terminal (Ctrl+C) e rode <code>npm run dev</code> de novo.</p>
+        </div>
       </div>
     );
   }
@@ -35,8 +39,14 @@ export default function Login() {
       options: { emailRedirectTo: redirectTo },
     });
     setLoading(false);
-    if (err) setError(err.message);
-    else setMessage("Enviamos um link de acesso para seu e-mail.");
+    if (err) {
+      const msg = err.message === "Failed to fetch"
+        ? "Não foi possível conectar ao Supabase. Confira o .env (URL e anon key reais) e as URLs em Authentication → URL Configuration."
+        : err.message;
+      setError(msg);
+    } else {
+      setMessage("Enviamos um link de acesso para seu e-mail. Verifique a caixa de entrada e o spam.");
+    }
   }
 
   return (
