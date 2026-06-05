@@ -1,12 +1,12 @@
 {
-  "name": "Conexões Creator",
-  "short_name": "Conexões",
+  "name": "Conexões Creators",
+  "short_name": "Creators",
   "description": "Plataforma para creators iniciantes crescerem, aprenderem e venderem",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "theme_color": "#7c3aed",
+  "theme_color": "#ffffff",
   "background_color": "#ffffff",
   "categories": ["productivity", "education"],
   "icons": [

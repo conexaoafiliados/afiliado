@@ -3,7 +3,6 @@ import { BackButton } from "@/components/BackButton";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { APP_NAME } from "@/const";
 import { getLoginUrl } from "@/lib/supabase";
 import {
   Award,

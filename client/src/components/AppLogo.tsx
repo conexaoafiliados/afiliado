@@ -1,3 +1,4 @@
+import { useTheme } from "@/contexts/ThemeContext";
 import { Link } from "wouter";
 
 /** `light` = fundo claro/branco → logo com fundo branco. `dark` = fundo escuro/preto → logo com fundo preto. */
@@ -9,16 +10,19 @@ const LOGO_SRC: Record<LogoBackground, string> = {
 };
 
 interface AppLogoProps {
+  /** Omitir para seguir o tema do app (claro/escuro). */
   background?: LogoBackground;
   className?: string;
   height?: number;
   href?: string | null;
 }
 
-export function AppLogo({ background = "light", className = "", height = 36, href = "/" }: AppLogoProps) {
+export function AppLogo({ background, className = "", height = 36, href = "/" }: AppLogoProps) {
+  const { theme } = useTheme();
+  const resolvedBackground = background ?? (theme === "dark" ? "dark" : "light");
   const img = (
     <img
-      src={LOGO_SRC[background]}
+      src={LOGO_SRC[resolvedBackground]}
       alt="Conexões Creators"
       className={`w-auto max-w-full object-contain ${className}`.trim()}
       style={{ height }}
