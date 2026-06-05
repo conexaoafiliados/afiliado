@@ -228,6 +228,51 @@ export const courseLessons = pgTable("course_lessons", {
   duration: integer("duration"),
 });
 
+export const learningTracks = pgTable("learning_tracks", {
+  slug: varchar("slug", { length: 64 }).primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  emoji: varchar("emoji", { length: 16 }),
+  welcomeEnabled: boolean("welcomeEnabled").default(false).notNull(),
+  sortOrder: integer("sortOrder").default(0).notNull(),
+});
+
+export const learningSections = pgTable("learning_sections", {
+  id: serial("id").primaryKey(),
+  trackSlug: varchar("trackSlug", { length: 64 }).notNull().references(() => learningTracks.slug),
+  slug: varchar("slug", { length: 128 }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  sectionNumber: integer("sectionNumber"),
+  sortOrder: integer("sortOrder").notNull(),
+});
+
+export const learningLessons = pgTable("learning_lessons", {
+  id: serial("id").primaryKey(),
+  sectionId: integer("sectionId").notNull().references(() => learningSections.id),
+  slug: varchar("slug", { length: 128 }).notNull().unique(),
+  lessonLabel: varchar("lessonLabel", { length: 32 }),
+  title: varchar("title", { length: 255 }).notNull(),
+  durationSeconds: integer("durationSeconds"),
+  /** ID ou URL do YouTube — preencher no Supabase quando o vídeo estiver pronto */
+  youtubeVideoId: varchar("youtubeVideoId", { length: 128 }),
+  sortOrder: integer("sortOrder").notNull(),
+});
+
+export const lessonLikes = pgTable("lesson_likes", {
+  id: serial("id").primaryKey(),
+  lessonSlug: varchar("lessonSlug", { length: 128 }).notNull(),
+  userId: integer("userId").notNull().references(() => users.id),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const lessonComments = pgTable("lesson_comments", {
+  id: serial("id").primaryKey(),
+  lessonSlug: varchar("lessonSlug", { length: 128 }).notNull(),
+  userId: integer("userId").notNull().references(() => users.id),
+  parentCommentId: integer("parentCommentId"),
+  content: text("content").notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const communityEvents = pgTable("community_events", {
   id: serial("id").primaryKey(),
   title: varchar("title", { length: 255 }).notNull(),
@@ -235,6 +280,35 @@ export const communityEvents = pgTable("community_events", {
   startDate: timestamp("startDate", { withTimezone: true }).notNull(),
   endDate: timestamp("endDate", { withTimezone: true }),
   imageUrl: varchar("imageUrl", { length: 512 }),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const announcements = pgTable("announcements", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull().references(() => users.id),
+  title: varchar("title", { length: 500 }).notNull(),
+  content: text("content").notNull(),
+  imageUrl: varchar("imageUrl", { length: 512 }),
+  attachmentUrl: varchar("attachmentUrl", { length: 512 }),
+  attachmentName: varchar("attachmentName", { length: 255 }),
+  likes: integer("likes").default(0).notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const announcementLikes = pgTable("announcement_likes", {
+  id: serial("id").primaryKey(),
+  announcementId: integer("announcementId").notNull().references(() => announcements.id),
+  userId: integer("userId").notNull().references(() => users.id),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const announcementComments = pgTable("announcement_comments", {
+  id: serial("id").primaryKey(),
+  announcementId: integer("announcementId").notNull().references(() => announcements.id),
+  userId: integer("userId").notNull().references(() => users.id),
+  parentCommentId: integer("parentCommentId"),
+  content: text("content").notNull(),
   createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
 });
 

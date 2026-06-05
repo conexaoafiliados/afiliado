@@ -27,6 +27,8 @@ import { analyticsRouter } from "./analytics";
 import { tiktokRouter } from "./tiktok";
 import { notificationsRouter } from "./notifications";
 import { followsRouter } from "./follows";
+import { learningRouter } from "./learning";
+import { announcementsRouter } from "./announcements";
 
 export const appRouter = router({
   system: systemRouter,
@@ -171,6 +173,8 @@ export const appRouter = router({
   analytics: analyticsRouter,
   notifications: notificationsRouter,
   follows: followsRouter,
+  learning: learningRouter,
+  announcements: announcementsRouter,
 
   users: router({
     search: protectedProcedure

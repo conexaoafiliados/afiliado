@@ -21,6 +21,10 @@ import Register from "./pages/Register";
 import Login from "./pages/Login";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import FirstStep from "./pages/FirstStep";
+import FirstStepLesson from "./pages/FirstStepLesson";
+import DeepDive from "./pages/DeepDive";
+import DeepDiveLesson from "./pages/DeepDiveLesson";
 import DashboardLayout from "./components/DashboardLayout";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Loader2 } from "lucide-react";
@@ -52,6 +56,10 @@ const CommunityPage = withProtected(Community);
 const AnalyticsPage = withProtected(Analytics);
 const CheckoutPage = withProtected(Checkout);
 const OrdersPage = withProtected(Orders);
+const FirstStepPage = withProtected(FirstStep);
+const FirstStepLessonPage = withProtected(FirstStepLesson);
+const DeepDivePage = withProtected(DeepDive);
+const DeepDiveLessonPage = withProtected(DeepDiveLesson);
 
 function Router() {
   const { loading } = useAuth();
@@ -82,6 +90,10 @@ function Router() {
       <Route path={"/community/feed"} component={CommunityPage} />
       <Route path={"/analytics/overview"} component={AnalyticsPage} />
       <Route path={"/checkout"} component={CheckoutPage} />
+      <Route path={"/vender/aprofunde/:slug"} component={DeepDiveLessonPage} />
+      <Route path={"/vender/aprofunde"} component={DeepDivePage} />
+      <Route path={"/vender/primeiro-passo/:slug"} component={FirstStepLessonPage} />
+      <Route path={"/vender/primeiro-passo"} component={FirstStepPage} />
       <Route path={"/orders"} component={OrdersPage} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />

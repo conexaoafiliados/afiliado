@@ -2,6 +2,9 @@ import { and, asc, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import {
+  announcementComments,
+  announcementLikes,
+  announcements,
   communityPosts,
   courses,
   creatorProfiles,
@@ -12,6 +15,11 @@ import {
   InsertUser,
   type FollowerHistory,
   achievements,
+  learningLessons,
+  learningSections,
+  learningTracks,
+  lessonComments,
+  lessonLikes,
   missions,
   notifications,
   postComments,
@@ -1314,4 +1322,446 @@ export async function getUserAchievements(userId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(userAchievements).where(eq(userAchievements.userId, userId));
+}
+
+export async function getLessonEngagement(lessonSlug: string, userId: number) {
+  const db = await getDb();
+  if (!db) return { likes: 0, liked: false, commentCount: 0 };
+
+  const [likeRows, userLike, commentRows] = await Promise.all([
+    db.select({ id: lessonLikes.id }).from(lessonLikes).where(eq(lessonLikes.lessonSlug, lessonSlug)),
+    db
+      .select({ id: lessonLikes.id })
+      .from(lessonLikes)
+      .where(and(eq(lessonLikes.lessonSlug, lessonSlug), eq(lessonLikes.userId, userId)))
+      .limit(1),
+    db
+      .select({ id: lessonComments.id })
+      .from(lessonComments)
+      .where(eq(lessonComments.lessonSlug, lessonSlug)),
+  ]);
+
+  return {
+    likes: likeRows.length,
+    liked: userLike.length > 0,
+    commentCount: commentRows.length,
+  };
+}
+
+export async function toggleLessonLike(userId: number, lessonSlug: string) {
+  const db = await getDb();
+  if (!db) return { liked: false, likes: 0 };
+
+  const existing = await db
+    .select()
+    .from(lessonLikes)
+    .where(and(eq(lessonLikes.lessonSlug, lessonSlug), eq(lessonLikes.userId, userId)))
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db.delete(lessonLikes).where(eq(lessonLikes.id, existing[0].id));
+    const likeRows = await db
+      .select({ id: lessonLikes.id })
+      .from(lessonLikes)
+      .where(eq(lessonLikes.lessonSlug, lessonSlug));
+    return { liked: false, likes: likeRows.length };
+  }
+
+  await db.insert(lessonLikes).values({ lessonSlug, userId });
+  const likeRows = await db
+    .select({ id: lessonLikes.id })
+    .from(lessonLikes)
+    .where(eq(lessonLikes.lessonSlug, lessonSlug));
+  return { liked: true, likes: likeRows.length };
+}
+
+export async function getLessonComments(lessonSlug: string) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const comments = await db
+    .select()
+    .from(lessonComments)
+    .where(eq(lessonComments.lessonSlug, lessonSlug))
+    .orderBy(asc(lessonComments.createdAt));
+
+  if (comments.length === 0) return [];
+
+  const userIds = [...new Set(comments.map(c => c.userId))];
+  const authors = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      username: users.username,
+      profileImageUrl: creatorProfiles.profileImageUrl,
+    })
+    .from(users)
+    .leftJoin(creatorProfiles, eq(creatorProfiles.userId, users.id))
+    .where(inArray(users.id, userIds));
+  const authorMap = new Map(authors.map(a => [a.id, a]));
+
+  return comments.map(c => {
+    const author = authorMap.get(c.userId);
+    return {
+      id: c.id,
+      lessonSlug: c.lessonSlug,
+      userId: c.userId,
+      parentCommentId: c.parentCommentId ?? null,
+      content: c.content,
+      createdAt: c.createdAt,
+      authorName: author?.name || author?.username || "Creator",
+      authorUsername: author?.username ?? null,
+      authorProfileImageUrl: author?.profileImageUrl ?? null,
+    };
+  });
+}
+
+export async function createLessonComment(
+  userId: number,
+  lessonSlug: string,
+  content: string,
+  parentCommentId?: number
+) {
+  const db = await getDb();
+  if (!db) return null;
+
+  if (parentCommentId) {
+    const parent = await db
+      .select()
+      .from(lessonComments)
+      .where(eq(lessonComments.id, parentCommentId))
+      .limit(1);
+    if (parent.length === 0 || parent[0].lessonSlug !== lessonSlug) return null;
+  }
+
+  const rows = await db
+    .insert(lessonComments)
+    .values({ lessonSlug, userId, content, parentCommentId: parentCommentId ?? null })
+    .returning({ id: lessonComments.id });
+
+  return rows[0]?.id ?? null;
+}
+
+export type LearningLessonRow = {
+  id: number;
+  slug: string;
+  lessonLabel: string | null;
+  title: string;
+  durationSeconds: number | null;
+  youtubeVideoId: string | null;
+  sectionId: number;
+  sectionTitle: string;
+  sectionSlug: string;
+  trackSlug: string;
+  trackTitle: string;
+  trackEmoji: string | null;
+};
+
+export type LearningTrackPayload = {
+  slug: string;
+  title: string;
+  emoji: string | null;
+  welcomeEnabled: boolean;
+  sections: Array<{
+    id: number;
+    slug: string;
+    title: string;
+    lessons: Array<{
+      id: number;
+      slug: string;
+      lessonLabel: string | null;
+      title: string;
+      durationSeconds: number | null;
+      youtubeVideoId: string | null;
+    }>;
+  }>;
+};
+
+export async function learningLessonExists(lessonSlug: string) {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db
+    .select({ id: learningLessons.id })
+    .from(learningLessons)
+    .where(eq(learningLessons.slug, lessonSlug))
+    .limit(1);
+  return rows.length > 0;
+}
+
+export async function getLearningTrack(trackSlug: string): Promise<LearningTrackPayload | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const tracks = await db.select().from(learningTracks).where(eq(learningTracks.slug, trackSlug)).limit(1);
+  const track = tracks[0];
+  if (!track) return null;
+
+  const sections = await db
+    .select()
+    .from(learningSections)
+    .where(eq(learningSections.trackSlug, trackSlug))
+    .orderBy(asc(learningSections.sortOrder));
+
+  const sectionIds = sections.map(s => s.id);
+  const lessons =
+    sectionIds.length === 0
+      ? []
+      : await db
+          .select()
+          .from(learningLessons)
+          .where(inArray(learningLessons.sectionId, sectionIds))
+          .orderBy(asc(learningLessons.sortOrder));
+
+  const lessonsBySection = new Map<number, typeof lessons>();
+  for (const lesson of lessons) {
+    const arr = lessonsBySection.get(lesson.sectionId) ?? [];
+    arr.push(lesson);
+    lessonsBySection.set(lesson.sectionId, arr);
+  }
+
+  return {
+    slug: track.slug,
+    title: track.title,
+    emoji: track.emoji,
+    welcomeEnabled: track.welcomeEnabled,
+    sections: sections.map(section => ({
+      id: section.id,
+      slug: section.slug,
+      title: section.title,
+      lessons: (lessonsBySection.get(section.id) ?? []).map(lesson => ({
+        id: lesson.id,
+        slug: lesson.slug,
+        lessonLabel: lesson.lessonLabel,
+        title: lesson.title,
+        durationSeconds: lesson.durationSeconds,
+        youtubeVideoId: lesson.youtubeVideoId,
+      })),
+    })),
+  };
+}
+
+export async function getLearningLesson(lessonSlug: string): Promise<LearningLessonRow | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const rows = await db
+    .select({
+      id: learningLessons.id,
+      slug: learningLessons.slug,
+      lessonLabel: learningLessons.lessonLabel,
+      title: learningLessons.title,
+      durationSeconds: learningLessons.durationSeconds,
+      youtubeVideoId: learningLessons.youtubeVideoId,
+      sectionId: learningSections.id,
+      sectionTitle: learningSections.title,
+      sectionSlug: learningSections.slug,
+      trackSlug: learningTracks.slug,
+      trackTitle: learningTracks.title,
+      trackEmoji: learningTracks.emoji,
+    })
+    .from(learningLessons)
+    .innerJoin(learningSections, eq(learningSections.id, learningLessons.sectionId))
+    .innerJoin(learningTracks, eq(learningTracks.slug, learningSections.trackSlug))
+    .where(eq(learningLessons.slug, lessonSlug))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+async function getAnnouncementById(announcementId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(announcements).where(eq(announcements.id, announcementId)).limit(1);
+  return rows[0];
+}
+
+export async function getAnnouncementsFeed(viewerUserId: number, limit = 50, offset = 0) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const items = await db
+    .select()
+    .from(announcements)
+    .orderBy(desc(announcements.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  if (items.length === 0) return [];
+
+  const ids = items.map(a => a.id);
+  const authorIds = [...new Set(items.map(a => a.userId))];
+
+  const authors = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      username: users.username,
+      role: users.role,
+      createdAt: users.createdAt,
+      profileImageUrl: creatorProfiles.profileImageUrl,
+    })
+    .from(users)
+    .leftJoin(creatorProfiles, eq(creatorProfiles.userId, users.id))
+    .where(inArray(users.id, authorIds));
+  const authorMap = new Map(authors.map(a => [a.id, a]));
+
+  const commentCounts = await db
+    .select({
+      announcementId: announcementComments.announcementId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(announcementComments)
+    .where(inArray(announcementComments.announcementId, ids))
+    .groupBy(announcementComments.announcementId);
+  const countMap = new Map(commentCounts.map(c => [c.announcementId, c.count]));
+
+  const viewerLikes = await db
+    .select({ announcementId: announcementLikes.announcementId })
+    .from(announcementLikes)
+    .where(and(eq(announcementLikes.userId, viewerUserId), inArray(announcementLikes.announcementId, ids)));
+  const likedSet = new Set(viewerLikes.map(l => l.announcementId));
+
+  return items.map(item => {
+    const author = authorMap.get(item.userId);
+    return {
+      id: item.id,
+      userId: item.userId,
+      title: item.title,
+      content: item.content,
+      imageUrl: item.imageUrl,
+      attachmentUrl: item.attachmentUrl,
+      attachmentName: item.attachmentName,
+      likes: item.likes,
+      commentCount: countMap.get(item.id) ?? 0,
+      liked: likedSet.has(item.id),
+      createdAt: item.createdAt,
+      authorName: author?.name || author?.username || "Equipe",
+      authorUsername: author?.username ?? null,
+      authorProfileImageUrl: author?.profileImageUrl ?? null,
+      authorRole: author?.role ?? "user",
+      authorMemberSince: author?.createdAt ?? item.createdAt,
+    };
+  });
+}
+
+export async function createAnnouncement(
+  userId: number,
+  data: {
+    title: string;
+    content: string;
+    imageUrl?: string;
+    attachmentUrl?: string;
+    attachmentName?: string;
+  }
+) {
+  const db = await getDb();
+  if (!db) return null;
+  const now = new Date();
+  const [row] = await db
+    .insert(announcements)
+    .values({
+      userId,
+      title: data.title,
+      content: data.content,
+      imageUrl: data.imageUrl ?? null,
+      attachmentUrl: data.attachmentUrl ?? null,
+      attachmentName: data.attachmentName ?? null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning({ id: announcements.id });
+  return row?.id ?? null;
+}
+
+export async function toggleAnnouncementLike(userId: number, announcementId: number) {
+  const db = await getDb();
+  if (!db) return { liked: false, likes: 0 };
+  const item = await getAnnouncementById(announcementId);
+  if (!item) return { liked: false, likes: 0 };
+
+  const existing = await db
+    .select()
+    .from(announcementLikes)
+    .where(and(eq(announcementLikes.announcementId, announcementId), eq(announcementLikes.userId, userId)))
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db.delete(announcementLikes).where(eq(announcementLikes.id, existing[0].id));
+    const newCount = Math.max(0, item.likes - 1);
+    await db.update(announcements).set({ likes: newCount, updatedAt: new Date() }).where(eq(announcements.id, announcementId));
+    return { liked: false, likes: newCount };
+  }
+
+  await db.insert(announcementLikes).values({ announcementId, userId });
+  const newCount = item.likes + 1;
+  await db.update(announcements).set({ likes: newCount, updatedAt: new Date() }).where(eq(announcements.id, announcementId));
+  return { liked: true, likes: newCount };
+}
+
+export async function getAnnouncementComments(announcementId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const comments = await db
+    .select()
+    .from(announcementComments)
+    .where(eq(announcementComments.announcementId, announcementId))
+    .orderBy(asc(announcementComments.createdAt));
+
+  if (comments.length === 0) return [];
+
+  const userIds = [...new Set(comments.map(c => c.userId))];
+  const authors = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      username: users.username,
+      profileImageUrl: creatorProfiles.profileImageUrl,
+    })
+    .from(users)
+    .leftJoin(creatorProfiles, eq(creatorProfiles.userId, users.id))
+    .where(inArray(users.id, userIds));
+  const authorMap = new Map(authors.map(a => [a.id, a]));
+
+  return comments.map(c => {
+    const author = authorMap.get(c.userId);
+    return {
+      id: c.id,
+      announcementId: c.announcementId,
+      userId: c.userId,
+      parentCommentId: c.parentCommentId ?? null,
+      content: c.content,
+      createdAt: c.createdAt,
+      authorName: author?.name || author?.username || "Creator",
+      authorUsername: author?.username ?? null,
+      authorProfileImageUrl: author?.profileImageUrl ?? null,
+    };
+  });
+}
+
+export async function createAnnouncementComment(
+  userId: number,
+  announcementId: number,
+  content: string,
+  parentCommentId?: number
+) {
+  const db = await getDb();
+  if (!db) return null;
+  const item = await getAnnouncementById(announcementId);
+  if (!item) return null;
+
+  if (parentCommentId) {
+    const parent = await db
+      .select()
+      .from(announcementComments)
+      .where(eq(announcementComments.id, parentCommentId))
+      .limit(1);
+    if (parent.length === 0 || parent[0].announcementId !== announcementId) return null;
+  }
+
+  const rows = await db
+    .insert(announcementComments)
+    .values({ announcementId, userId, content, parentCommentId: parentCommentId ?? null })
+    .returning({ id: announcementComments.id });
+  return rows[0]?.id ?? null;
 }
