@@ -25,6 +25,7 @@ import FirstStep from "./pages/FirstStep";
 import FirstStepLesson from "./pages/FirstStepLesson";
 import DeepDive from "./pages/DeepDive";
 import DeepDiveLesson from "./pages/DeepDiveLesson";
+import Announcements from "./pages/Announcements";
 import DashboardLayout from "./components/DashboardLayout";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Loader2 } from "lucide-react";
@@ -60,6 +61,7 @@ const FirstStepPage = withProtected(FirstStep);
 const FirstStepLessonPage = withProtected(FirstStepLesson);
 const DeepDivePage = withProtected(DeepDive);
 const DeepDiveLessonPage = withProtected(DeepDiveLesson);
+const AnnouncementsPage = withProtected(Announcements);
 
 function Router() {
   const { loading } = useAuth();
@@ -90,6 +92,7 @@ function Router() {
       <Route path={"/community/feed"} component={CommunityPage} />
       <Route path={"/analytics/overview"} component={AnalyticsPage} />
       <Route path={"/checkout"} component={CheckoutPage} />
+      <Route path={"/acessos/avisos"} component={AnnouncementsPage} />
       <Route path={"/vender/aprofunde/:slug"} component={DeepDiveLessonPage} />
       <Route path={"/vender/aprofunde"} component={DeepDivePage} />
       <Route path={"/vender/primeiro-passo/:slug"} component={FirstStepLessonPage} />
