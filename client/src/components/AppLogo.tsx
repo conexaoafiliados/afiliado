@@ -17,7 +17,7 @@ interface AppLogoProps {
   href?: string | null;
 }
 
-export function AppLogo({ background, className = "", height = 36, href = "/" }: AppLogoProps) {
+export function AppLogo({ background, className = "", height = 54, href = "/" }: AppLogoProps) {
   const { theme } = useTheme();
   const resolvedBackground = background ?? (theme === "dark" ? "dark" : "light");
   const img = (

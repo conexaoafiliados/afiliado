@@ -17,7 +17,7 @@ export function LegalLayout({
       <header className="border-b border-border/50">
         <div className="container max-w-3xl py-4 flex items-center justify-between gap-4">
           <BackButton fallback="/" />
-          <AppLogo background="light" height={32} />
+          <AppLogo background="light" height={48} />
         </div>
       </header>
       <main className="container max-w-3xl py-10 pb-16">

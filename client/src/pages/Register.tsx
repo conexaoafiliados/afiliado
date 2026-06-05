@@ -132,7 +132,7 @@ export default function Register() {
       <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-lg space-y-6">
         <div className="text-center space-y-3">
           <div className="flex justify-center">
-            <AppLogo background="light" height={52} href={null} />
+            <AppLogo background="light" height={78} href={null} />
           </div>
           <h1 className="text-xl font-semibold">Criar conta</h1>
           <p className="text-sm text-muted-foreground">Cadastro em {APP_NAME}</p>

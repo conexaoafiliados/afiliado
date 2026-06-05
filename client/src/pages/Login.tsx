@@ -51,7 +51,7 @@ export default function Login() {
       <div className="w-full max-w-md space-y-8 rounded-2xl border border-border bg-card p-8 shadow-lg">
         <div className="text-center space-y-3">
           <div className="flex justify-center">
-            <AppLogo background="light" height={52} href={null} />
+            <AppLogo background="light" height={78} href={null} />
           </div>
           <p className="text-sm text-muted-foreground">Entre com usuário e senha</p>
         </div>

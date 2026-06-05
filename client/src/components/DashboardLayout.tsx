@@ -65,7 +65,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen bg-background">
       <aside className="hidden md:flex w-64 flex-col border-r border-border bg-card/50 p-4 gap-2">
         <div className="px-2 py-4 mb-2">
-          <AppLogo background="light" height={36} />
+          <AppLogo background="light" height={54} />
         </div>
         <nav className="flex-1 space-y-1">
           {nav.map(item => {
@@ -96,7 +96,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 flex flex-col min-w-0">
         <header className="flex items-center justify-between border-b h-14 px-4 gap-2">
           <div className="md:hidden">
-            <AppLogo background="light" height={28} href={null} />
+            <AppLogo background="light" height={42} href={null} />
           </div>
           <div className="hidden md:block flex-1" />
           <NotificationBell />
