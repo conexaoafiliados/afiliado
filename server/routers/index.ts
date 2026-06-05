@@ -29,6 +29,7 @@ import { notificationsRouter } from "./notifications";
 import { followsRouter } from "./follows";
 import { learningRouter } from "./learning";
 import { announcementsRouter } from "./announcements";
+import { trainingsRouter } from "./trainings";
 
 export const appRouter = router({
   system: systemRouter,
@@ -175,6 +176,7 @@ export const appRouter = router({
   follows: followsRouter,
   learning: learningRouter,
   announcements: announcementsRouter,
+  trainings: trainingsRouter,
 
   users: router({
     search: protectedProcedure

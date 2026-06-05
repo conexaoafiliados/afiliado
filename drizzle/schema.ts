@@ -283,6 +283,28 @@ export const communityEvents = pgTable("community_events", {
   createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const trainingEvents = pgTable("training_events", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  imageUrl: varchar("imageUrl", { length: 512 }),
+  category: varchar("category", { length: 64 }).default("geral").notNull(),
+  eventType: varchar("eventType", { length: 32 }).default("live").notNull(),
+  hostName: varchar("hostName", { length: 120 }),
+  startDate: timestamp("startDate", { withTimezone: true }).notNull(),
+  endDate: timestamp("endDate", { withTimezone: true }),
+  liveStreamUrl: varchar("liveStreamUrl", { length: 512 }),
+  seedParticipants: integer("seedParticipants").default(0).notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const trainingEventRegistrations = pgTable("training_event_registrations", {
+  id: serial("id").primaryKey(),
+  eventId: integer("eventId").notNull().references(() => trainingEvents.id),
+  userId: integer("userId").notNull().references(() => users.id),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const announcements = pgTable("announcements", {
   id: serial("id").primaryKey(),
   userId: integer("userId").notNull().references(() => users.id),

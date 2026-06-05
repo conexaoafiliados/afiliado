@@ -26,6 +26,8 @@ import {
   postLikes,
   productOrders,
   products,
+  trainingEventRegistrations,
+  trainingEvents,
   userAchievements,
   userCourses,
   userFollows,
@@ -1764,4 +1766,95 @@ export async function createAnnouncementComment(
     .values({ announcementId, userId, content, parentCommentId: parentCommentId ?? null })
     .returning({ id: announcementComments.id });
   return rows[0]?.id ?? null;
+}
+
+export type TrainingEventItem = {
+  id: number;
+  title: string;
+  description: string | null;
+  imageUrl: string | null;
+  category: string;
+  eventType: string;
+  hostName: string | null;
+  startDate: Date;
+  endDate: Date | null;
+  liveStreamUrl: string | null;
+  participantCount: number;
+  registered: boolean;
+};
+
+export async function getTrainingEvents(
+  userId: number,
+  options: { upcomingOnly?: boolean; category?: string } = {}
+): Promise<TrainingEventItem[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const now = new Date();
+  const events = await db.select().from(trainingEvents).orderBy(asc(trainingEvents.startDate));
+  let filtered = events;
+
+  if (options.upcomingOnly) {
+    filtered = filtered.filter(e => e.startDate >= now || (e.endDate && e.endDate >= now));
+  }
+
+  if (options.category && options.category !== "all") {
+    filtered = filtered.filter(e => e.category === options.category);
+  }
+
+  if (filtered.length === 0) return [];
+
+  const eventIds = filtered.map(e => e.id);
+  const regCounts = await db
+    .select({
+      eventId: trainingEventRegistrations.eventId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(trainingEventRegistrations)
+    .where(inArray(trainingEventRegistrations.eventId, eventIds))
+    .groupBy(trainingEventRegistrations.eventId);
+  const countMap = new Map(regCounts.map(r => [r.eventId, r.count]));
+
+  const userRegs = await db
+    .select({ eventId: trainingEventRegistrations.eventId })
+    .from(trainingEventRegistrations)
+    .where(and(eq(trainingEventRegistrations.userId, userId), inArray(trainingEventRegistrations.eventId, eventIds)));
+  const registeredSet = new Set(userRegs.map(r => r.eventId));
+
+  return filtered.map(event => ({
+    id: event.id,
+    title: event.title,
+    description: event.description,
+    imageUrl: event.imageUrl,
+    category: event.category,
+    eventType: event.eventType,
+    hostName: event.hostName,
+    startDate: event.startDate,
+    endDate: event.endDate,
+    liveStreamUrl: event.liveStreamUrl,
+    participantCount: (countMap.get(event.id) ?? 0) + (event.seedParticipants ?? 0),
+    registered: registeredSet.has(event.id),
+  }));
+}
+
+export async function toggleTrainingRegistration(userId: number, eventId: number) {
+  const db = await getDb();
+  if (!db) return { registered: false };
+
+  const event = await db.select().from(trainingEvents).where(eq(trainingEvents.id, eventId)).limit(1);
+  if (event.length === 0) return { registered: false };
+
+  const existing = await db
+    .select()
+    .from(trainingEventRegistrations)
+    .where(and(eq(trainingEventRegistrations.eventId, eventId), eq(trainingEventRegistrations.userId, userId)))
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db.delete(trainingEventRegistrations).where(eq(trainingEventRegistrations.id, existing[0].id));
+    return { registered: false };
+  }
+
+  await db.insert(trainingEventRegistrations).values({ eventId, userId });
+  return { registered: true };
 }
