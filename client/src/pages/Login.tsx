@@ -8,6 +8,7 @@ import { getSupabaseConfigError, supabase } from "@/lib/supabase";
 import { trpc } from "@/lib/trpc";
 import { Link, useLocation } from "wouter";
 import { Zap } from "lucide-react";
+import { BackButton } from "@/components/BackButton";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -42,7 +43,11 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-muted/30 p-4">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-muted/30 p-4">
+      <div className="w-full max-w-md mx-auto pt-2">
+        <BackButton fallback="/" />
+      </div>
+      <div className="flex-1 flex items-center justify-center">
       <div className="w-full max-w-md space-y-8 rounded-2xl border border-border bg-card p-8 shadow-lg">
         <div className="text-center space-y-2">
           <div className="mx-auto h-12 w-12 rounded-xl bg-gradient-to-br from-accent to-secondary flex items-center justify-center">
@@ -85,8 +90,13 @@ export default function Login() {
             <Link href="/cadastro" className="text-accent hover:underline">Cadastre-se</Link>
           </span>
           <br />
-          <Link href="/" className="text-muted-foreground hover:underline">Voltar ao início</Link>
+          <span className="text-muted-foreground">
+            <Link href="/termos" className="hover:underline">Termos</Link>
+            {" · "}
+            <Link href="/privacidade" className="hover:underline">Privacidade</Link>
+          </span>
         </p>
+      </div>
       </div>
     </div>
   );

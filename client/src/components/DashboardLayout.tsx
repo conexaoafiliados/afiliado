@@ -1,3 +1,4 @@
+import { BackButton } from "@/components/BackButton";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { APP_NAME } from "@/const";
@@ -97,7 +98,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             Sair
           </Button>
         </header>
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main className="flex-1 p-4 md:p-6">
+          <BackButton fallback="/dashboard" className="mb-4" />
+          {children}
+        </main>
       </div>
     </div>
   );

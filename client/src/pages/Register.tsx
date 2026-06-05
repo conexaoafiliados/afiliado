@@ -10,6 +10,7 @@ import { getSupabaseConfigError, supabase } from "@/lib/supabase";
 import { trpc } from "@/lib/trpc";
 import { Link, useLocation } from "wouter";
 import { Loader2, User, Zap } from "lucide-react";
+import { BackButton } from "@/components/BackButton";
 import { TRPCClientError } from "@trpc/client";
 import { toast } from "sonner";
 
@@ -125,7 +126,9 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 py-8 px-4">
-      <div className="max-w-2xl mx-auto rounded-2xl border border-border bg-card p-6 md:p-8 shadow-lg space-y-6">
+      <div className="max-w-2xl mx-auto">
+        <BackButton fallback="/" className="mb-4" />
+      <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-lg space-y-6">
         <div className="text-center space-y-2">
           <div className="mx-auto h-12 w-12 rounded-xl bg-gradient-to-br from-accent to-secondary flex items-center justify-center">
             <Zap className="h-6 w-6 text-white" />
@@ -237,6 +240,13 @@ export default function Register() {
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
+          <p className="text-xs text-muted-foreground text-center">
+            Ao criar conta, você concorda com os{" "}
+            <Link href="/termos" className="text-accent hover:underline">Termos de Serviço</Link>
+            {" e a "}
+            <Link href="/privacidade" className="text-accent hover:underline">Política de Privacidade</Link>.
+          </p>
+
           <Button type="submit" className="w-full btn-primary" disabled={register.isPending}>
             {register.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Criando conta…</> : "Criar conta"}
           </Button>
@@ -246,6 +256,7 @@ export default function Register() {
           Já tem conta?{" "}
           <Link href="/login" className="text-accent hover:underline">Entrar</Link>
         </p>
+      </div>
       </div>
     </div>
   );

@@ -106,8 +106,12 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-border/50 py-8 mt-20">
-        <div className="container text-center text-muted-foreground">
+        <div className="container text-center text-muted-foreground text-sm space-y-2">
           <p>&copy; 2026 Conexões Creator. Todos os direitos reservados.</p>
+          <p className="flex flex-wrap justify-center gap-4">
+            <Link href="/termos" className="hover:text-foreground hover:underline">Termos de Serviço</Link>
+            <Link href="/privacidade" className="hover:text-foreground hover:underline">Política de Privacidade</Link>
+          </p>
         </div>
       </footer>
     </div>

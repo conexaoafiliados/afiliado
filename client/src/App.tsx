@@ -18,6 +18,8 @@ import Checkout from "./pages/Checkout";
 import Orders from "./pages/Orders";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
+import TermsOfService from "./pages/TermsOfService";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import DashboardLayout from "./components/DashboardLayout";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Loader2 } from "lucide-react";
@@ -65,6 +67,8 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/login"} component={Login} />
       <Route path={"/cadastro"} component={Register} />
+      <Route path={"/termos"} component={TermsOfService} />
+      <Route path={"/privacidade"} component={PrivacyPolicy} />
       <Route path={"/dashboard"} component={DashboardPage} />
       <Route path={"/profile/edit"} component={ProfileEditPage} />
       <Route path={"/growth/missions"} component={MissionsPage} />

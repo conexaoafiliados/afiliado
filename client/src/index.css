@@ -245,6 +245,19 @@
       max-width: 1280px;
     }
   }
+
+  .prose-legal h2 {
+    @apply text-xl font-semibold mt-2;
+  }
+
+  .prose-legal h3 {
+    @apply text-base font-medium;
+  }
+
+  .prose-legal p,
+  .prose-legal li {
+    @apply leading-relaxed;
+  }
 }
 
 @layer utilities {
