@@ -96,6 +96,8 @@ export default function Community() {
               key={post.id}
               id={post.id}
               author={post.authorName}
+              authorUsername={post.authorUsername}
+              authorProfileImageUrl={post.authorProfileImageUrl}
               content={post.content}
               timestamp={formatRelativeTime(post.createdAt)}
               likes={post.likes}

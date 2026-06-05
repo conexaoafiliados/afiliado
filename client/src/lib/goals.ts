@@ -1,3 +1,11 @@
+/** Próxima meta após completar a atual (só para mensagem de parabéns). */
+export function getNextGoalHint(completedTarget: number): number {
+  if (completedTarget < 2000) return 2000;
+  if (completedTarget === 2000) return 5000;
+  if (completedTarget < 20000) return completedTarget + 5000;
+  return completedTarget + 10000;
+}
+
 export function formatGoalLabel(target: number): string {
   if (target >= 1000) return `${(target / 1000).toFixed(target % 1000 === 0 ? 0 : 1)}K`;
   return String(target);

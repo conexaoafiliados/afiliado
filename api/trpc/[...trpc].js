@@ -2929,7 +2929,12 @@ async function getCommunityFeed(viewerUserId, limit = 50, offset = 0) {
   if (posts.length === 0) return [];
   const postIds = posts.map((p) => p.id);
   const authorIds = [...new Set(posts.map((p) => p.userId))];
-  const authors = await db.select({ id: users.id, name: users.name, username: users.username }).from(users).where((0, import_drizzle_orm.inArray)(users.id, authorIds));
+  const authors = await db.select({
+    id: users.id,
+    name: users.name,
+    username: users.username,
+    profileImageUrl: creatorProfiles.profileImageUrl
+  }).from(users).leftJoin(creatorProfiles, (0, import_drizzle_orm.eq)(creatorProfiles.userId, users.id)).where((0, import_drizzle_orm.inArray)(users.id, authorIds));
   const authorMap = new Map(authors.map((a) => [a.id, a]));
   const commentCounts = await db.select({
     postId: postComments.postId,
@@ -2950,9 +2955,68 @@ async function getCommunityFeed(viewerUserId, limit = 50, offset = 0) {
       liked: likedSet.has(post.id),
       createdAt: post.createdAt,
       authorName: author?.name || author?.username || "Creator",
-      authorUsername: author?.username ?? null
+      authorUsername: author?.username ?? null,
+      authorProfileImageUrl: author?.profileImageUrl ?? null
     };
   });
+}
+async function getCommunityPostsByUser(userId, limit = 20) {
+  const db = await getDb();
+  if (!db) return [];
+  const posts = await db.select().from(communityPosts).where((0, import_drizzle_orm.eq)(communityPosts.userId, userId)).orderBy((0, import_drizzle_orm.desc)(communityPosts.createdAt)).limit(limit);
+  if (posts.length === 0) return [];
+  const postIds = posts.map((p) => p.id);
+  const commentCounts = await db.select({
+    postId: postComments.postId,
+    count: import_drizzle_orm.sql`count(*)::int`
+  }).from(postComments).where((0, import_drizzle_orm.inArray)(postComments.postId, postIds)).groupBy(postComments.postId);
+  const countMap = new Map(commentCounts.map((c) => [c.postId, c.count]));
+  return posts.map((post) => ({
+    id: post.id,
+    content: post.content,
+    likes: post.likes,
+    commentCount: countMap.get(post.id) ?? 0,
+    createdAt: post.createdAt
+  }));
+}
+async function getUserPublicProfile(username, viewerId) {
+  const user = await getUserByUsername(username);
+  if (!user) return null;
+  const profile = await getCreatorProfile(user.id);
+  const stats = await getFollowStats(user.id);
+  const progress = await getFollowerProgress(user.id);
+  const posts = await getCommunityPostsByUser(user.id, 20);
+  const [card] = await enrichCreatorsWithFollowData(viewerId, [
+    {
+      id: user.id,
+      name: user.name,
+      username: user.username,
+      bio: profile?.bio ?? null,
+      profileImageUrl: profile?.profileImageUrl ?? null,
+      tiktokFollowers: progress?.currentFollowers ?? 0
+    }
+  ]);
+  return {
+    id: user.id,
+    name: user.name,
+    username: user.username,
+    bio: profile?.bio ?? null,
+    profileImageUrl: profile?.profileImageUrl ?? null,
+    bannerImageUrl: profile?.bannerImageUrl ?? null,
+    instagramHandle: profile?.instagramHandle ?? null,
+    tiktokHandle: profile?.tiktokHandle ?? null,
+    youtubeHandle: profile?.youtubeHandle ?? null,
+    twitterHandle: profile?.twitterHandle ?? null,
+    websiteUrl: profile?.websiteUrl ?? null,
+    platformObjective: profile?.platformObjective ?? null,
+    tiktokFollowers: progress?.currentFollowers ?? 0,
+    targetFollowers: progress?.targetFollowers ?? 2e3,
+    platformFollowers: stats.followers,
+    platformFollowing: stats.following,
+    followStatus: card?.followStatus ?? "none",
+    isSelf: user.id === viewerId,
+    posts
+  };
 }
 async function createCommunityPost(userId, content) {
   const db = await getDb();
@@ -3008,7 +3072,12 @@ async function getPostComments(postId) {
   const comments = await db.select().from(postComments).where((0, import_drizzle_orm.eq)(postComments.postId, postId)).orderBy((0, import_drizzle_orm.desc)(postComments.createdAt));
   if (comments.length === 0) return [];
   const userIds = [...new Set(comments.map((c) => c.userId))];
-  const authors = await db.select({ id: users.id, name: users.name, username: users.username }).from(users).where((0, import_drizzle_orm.inArray)(users.id, userIds));
+  const authors = await db.select({
+    id: users.id,
+    name: users.name,
+    username: users.username,
+    profileImageUrl: creatorProfiles.profileImageUrl
+  }).from(users).leftJoin(creatorProfiles, (0, import_drizzle_orm.eq)(creatorProfiles.userId, users.id)).where((0, import_drizzle_orm.inArray)(users.id, userIds));
   const authorMap = new Map(authors.map((a) => [a.id, a]));
   return comments.map((c) => {
     const author = authorMap.get(c.userId);
@@ -3019,7 +3088,8 @@ async function getPostComments(postId) {
       content: c.content,
       createdAt: c.createdAt,
       authorName: author?.name || author?.username || "Creator",
-      authorUsername: author?.username ?? null
+      authorUsername: author?.username ?? null,
+      authorProfileImageUrl: author?.profileImageUrl ?? null
     };
   });
 }
@@ -9163,6 +9233,11 @@ var appRouter = router({
     getPublic: publicProcedure.input(external_exports.object({ userId: external_exports.number() })).query(async ({ input }) => {
       const profile = await getCreatorProfile(input.userId);
       if (!profile) throw new TRPCError({ code: "NOT_FOUND", message: "Perfil n\xE3o encontrado" });
+      return profile;
+    }),
+    getByUsername: protectedProcedure.input(external_exports.object({ username: external_exports.string().min(1).max(50) })).query(async ({ ctx, input }) => {
+      const profile = await getUserPublicProfile(input.username, ctx.user.id);
+      if (!profile) throw new TRPCError({ code: "NOT_FOUND", message: "Creator n\xE3o encontrado" });
       return profile;
     })
   }),

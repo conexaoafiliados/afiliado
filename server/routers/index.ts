@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   getCreatorProfile,
   getFollowerProgress,
+  getUserPublicProfile,
   recordFollowerSnapshot,
   searchUsersByUsername,
   updateUserById,
@@ -89,6 +90,14 @@ export const appRouter = router({
       .query(async ({ input }) => {
         const profile = await getCreatorProfile(input.userId);
         if (!profile) throw new TRPCError({ code: "NOT_FOUND", message: "Perfil não encontrado" });
+        return profile;
+      }),
+
+    getByUsername: protectedProcedure
+      .input(z.object({ username: z.string().min(1).max(50) }))
+      .query(async ({ ctx, input }) => {
+        const profile = await getUserPublicProfile(input.username, ctx.user.id);
+        if (!profile) throw new TRPCError({ code: "NOT_FOUND", message: "Creator não encontrado" });
         return profile;
       }),
   }),

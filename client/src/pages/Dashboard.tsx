@@ -2,7 +2,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatBox } from "@/components/StatBox";
-import { formatGoalLabel } from "@/lib/goals";
+import { formatGoalLabel, getNextGoalHint } from "@/lib/goals";
 import { trpc } from "@/lib/trpc";
 import { Users, Zap, TrendingUp, Award, BookOpen, ShoppingBag, MessageSquare } from "lucide-react";
 import { Link } from "wouter";
@@ -14,9 +14,11 @@ export default function Dashboard() {
     enabled: hasDbUser,
     retry: false,
   });
-  const { data: progress } = trpc.progress.get.useQuery(undefined, {
+  const { data: progress, isLoading: progressLoading } = trpc.progress.get.useQuery(undefined, {
     enabled: hasDbUser,
     retry: false,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   if (!user) {
@@ -37,6 +39,12 @@ export default function Dashboard() {
   const followersRemaining = Math.max(0, targetFollowers - currentFollowers);
   const goalLabel = formatGoalLabel(targetFollowers);
 
+  const welcomeMetaText = progressLoading
+    ? "Carregando sua meta de seguidores…"
+    : followersRemaining === 0
+      ? `Parabéns! Você atingiu ${targetFollowers.toLocaleString("pt-BR")} seguidores no TikTok — próxima meta: ${formatGoalLabel(getNextGoalHint(targetFollowers))}.`
+      : `Sua meta atual é ${targetFollowers.toLocaleString("pt-BR")} seguidores no TikTok (${goalLabel}) — faltam ${followersRemaining.toLocaleString("pt-BR")} para chegar lá.`;
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -44,7 +52,7 @@ export default function Dashboard() {
         <div>
           <h1 className="text-4xl font-bold mb-2">Bem-vindo, {user.name}!</h1>
           <p className="text-muted-foreground">
-            Meta: {targetFollowers.toLocaleString("pt-BR")} seguidores no TikTok ({goalLabel})
+            {welcomeMetaText}
             {profile?.tiktokHandle ? ` · @${profile.tiktokHandle}` : ""}
           </p>
         </div>

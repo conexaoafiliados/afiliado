@@ -1,6 +1,8 @@
+import { UserAvatar } from "@/components/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
+import { Link } from "wouter";
 import { Loader2, UserCheck, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,15 +52,20 @@ export function CreatorCard({ creator }: { creator: CreatorCardData }) {
   return (
     <Card className="card-elegant p-4 flex flex-col gap-3 min-w-[220px] max-w-full">
       <div className="flex items-center gap-3">
-        <div className="h-12 w-12 rounded-full overflow-hidden bg-gradient-to-br from-accent to-secondary flex items-center justify-center shrink-0">
-          {creator.profileImageUrl ? (
-            <img src={creator.profileImageUrl} alt={displayName} className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-white font-bold text-lg">{displayName.charAt(0).toUpperCase()}</span>
-          )}
-        </div>
+        <UserAvatar
+          src={creator.profileImageUrl}
+          name={displayName}
+          size={52}
+          username={creator.username}
+        />
         <div className="min-w-0 flex-1">
-          <p className="font-semibold truncate">{displayName}</p>
+          {creator.username ? (
+            <Link href={`/profile/${creator.username}`}>
+              <a className="font-semibold truncate block hover:underline">{displayName}</a>
+            </Link>
+          ) : (
+            <p className="font-semibold truncate">{displayName}</p>
+          )}
           {creator.username && (
             <p className="text-xs text-muted-foreground truncate">@{creator.username}</p>
           )}
@@ -79,22 +86,31 @@ export function CreatorCard({ creator }: { creator: CreatorCardData }) {
         )}
       </div>
 
-      <Button
-        size="sm"
-        variant={isFollowing || creator.followStatus === "mutual" ? "outline" : "default"}
-        className={!isFollowing && creator.followStatus !== "mutual" ? "btn-primary" : ""}
-        disabled={toggle.isPending}
-        onClick={() => toggle.mutate({ userId: creator.id })}
-      >
-        {toggle.isPending ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : creator.followStatus === "mutual" ? (
-          <UserCheck className="h-4 w-4 mr-1.5" />
-        ) : (
-          <UserPlus className="h-4 w-4 mr-1.5" />
+      <div className="flex gap-2">
+        {creator.username && (
+          <Link href={`/profile/${creator.username}`} className="flex-1">
+            <Button variant="outline" size="sm" className="w-full">
+              Ver perfil
+            </Button>
+          </Link>
         )}
-        {followButtonLabel(creator.followStatus, toggle.isPending)}
-      </Button>
+        <Button
+          size="sm"
+          variant={isFollowing || creator.followStatus === "mutual" ? "outline" : "default"}
+          className={`${!isFollowing && creator.followStatus !== "mutual" ? "btn-primary" : ""} ${creator.username ? "flex-1" : "w-full"}`}
+          disabled={toggle.isPending}
+          onClick={() => toggle.mutate({ userId: creator.id })}
+        >
+          {toggle.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : creator.followStatus === "mutual" ? (
+            <UserCheck className="h-4 w-4 mr-1.5" />
+          ) : (
+            <UserPlus className="h-4 w-4 mr-1.5" />
+          )}
+          {followButtonLabel(creator.followStatus, toggle.isPending)}
+        </Button>
+      </div>
     </Card>
   );
 }

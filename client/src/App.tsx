@@ -7,6 +7,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import ProfileEdit from "./pages/ProfileEdit";
+import PublicProfile from "./pages/PublicProfile";
 import Missions from "./pages/Missions";
 import Achievements from "./pages/Achievements";
 import GrowthProgress from "./pages/GrowthProgress";
@@ -41,6 +42,7 @@ function withProtected(Page: () => React.JSX.Element) {
 
 const DashboardPage = withProtected(Dashboard);
 const ProfileEditPage = withProtected(ProfileEdit);
+const PublicProfilePage = withProtected(PublicProfile);
 const MissionsPage = withProtected(Missions);
 const AchievementsPage = withProtected(Achievements);
 const GrowthProgressPage = withProtected(GrowthProgress);
@@ -71,6 +73,7 @@ function Router() {
       <Route path={"/privacidade"} component={PrivacyPolicy} />
       <Route path={"/dashboard"} component={DashboardPage} />
       <Route path={"/profile/edit"} component={ProfileEditPage} />
+      <Route path={"/profile/:username"} component={PublicProfilePage} />
       <Route path={"/growth/missions"} component={MissionsPage} />
       <Route path={"/growth/achievements"} component={AchievementsPage} />
       <Route path={"/growth/progress"} component={GrowthProgressPage} />
