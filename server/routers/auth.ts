@@ -62,6 +62,7 @@ export const authRouter = router({
   }),
 
   register: publicProcedure.input(registerSchema).mutation(async ({ input }) => {
+    try {
     const admin = getSupabaseAdmin();
     if (!admin) {
       throw new TRPCError({
@@ -100,14 +101,18 @@ export const authRouter = router({
       profileImageUrl = await uploadAvatar(openId, input.profileImageBase64, input.profileImageMime);
     }
 
-    await upsertUser({
-      openId,
-      username: input.username.toLowerCase(),
-      name: input.name,
-      email,
-      loginMethod: "password",
-      lastSignedIn: new Date(),
-    });
+    try {
+      await upsertUser({
+        openId,
+        username: input.username.toLowerCase(),
+        name: input.name,
+        email,
+        loginMethod: "password",
+        lastSignedIn: new Date(),
+      });
+    } catch (e) {
+      console.warn("[Register] upsertUser failed — check DATABASE_URL e migration_auth_fields.sql:", e);
+    }
 
     const dbUser = await getUserByUsername(input.username);
     if (dbUser) {
@@ -157,6 +162,14 @@ export const authRouter = router({
       refreshToken: signIn.session.refresh_token,
       expiresIn: signIn.session.expires_in,
     };
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+      console.error("[Register]", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: error instanceof Error ? error.message : "Erro ao criar conta",
+      });
+    }
   }),
 
   login: publicProcedure

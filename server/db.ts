@@ -25,7 +25,11 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && ENV.databaseUrl) {
     try {
-      const client = postgres(ENV.databaseUrl, { prepare: false });
+      const client = postgres(ENV.databaseUrl, {
+        prepare: false,
+        ssl: "require",
+        connect_timeout: 10,
+      });
       _db = drizzle(client);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
@@ -69,13 +73,18 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   if (!values.lastSignedIn) values.lastSignedIn = new Date();
   if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
 
-  await db
-    .insert(users)
-    .values(values)
-    .onConflictDoUpdate({
-      target: users.openId,
-      set: { ...updateSet, updatedAt: sql`NOW()` },
-    });
+  try {
+    await db
+      .insert(users)
+      .values(values)
+      .onConflictDoUpdate({
+        target: users.openId,
+        set: { ...updateSet, updatedAt: sql`NOW()` },
+      });
+  } catch (error) {
+    console.error("[Database] upsertUser failed:", error);
+    throw error;
+  }
 }
 
 export async function getUserByOpenId(openId: string) {
@@ -88,12 +97,17 @@ export async function getUserByOpenId(openId: string) {
 export async function getUserByUsername(username: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db
-    .select()
-    .from(users)
-    .where(eq(users.username, username.toLowerCase().trim()))
-    .limit(1);
-  return result[0];
+  try {
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, username.toLowerCase().trim()))
+      .limit(1);
+    return result[0];
+  } catch (error) {
+    console.error("[Database] getUserByUsername failed:", error);
+    return undefined;
+  }
 }
 
 export async function getCreatorProfile(userId: number) {
