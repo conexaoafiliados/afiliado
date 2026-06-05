@@ -1,13 +1,17 @@
-import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import type { User } from "../../drizzle/schema";
 import { getUserByOpenId, upsertUser } from "../db";
 import { ENV } from "./env";
 
 export type TrpcContext = {
-  req: CreateExpressContextOptions["req"];
-  res: CreateExpressContextOptions["res"];
+  req: { headers: Record<string, string | string[] | undefined> };
+  res: { clearCookie?: (name: string) => void };
   user: User | null;
+};
+
+export type CreateContextInput = {
+  req: TrpcContext["req"];
+  res?: TrpcContext["res"];
 };
 
 async function verifySupabaseToken(token: string): Promise<{ sub: string; email?: string; name?: string } | null> {
@@ -31,11 +35,14 @@ async function verifySupabaseToken(token: string): Promise<{ sub: string; email?
   }
 }
 
-export async function createContext({ req, res }: CreateExpressContextOptions): Promise<TrpcContext> {
+export async function createContext({ req, res = {} }: CreateContextInput): Promise<TrpcContext> {
   let user: User | null = null;
 
   const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const token =
+    typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : null;
 
   if (token) {
     const claims = await verifySupabaseToken(token);
