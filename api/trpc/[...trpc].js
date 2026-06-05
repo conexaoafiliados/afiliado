@@ -2766,16 +2766,24 @@ async function createContext({ req, res = {} }) {
   const authHeader = req.headers.authorization;
   const token = typeof authHeader === "string" && authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (token) {
-    const claims = await verifySupabaseToken(token);
-    if (claims?.sub) {
-      await upsertUser({
-        openId: claims.sub,
-        email: claims.email ?? null,
-        name: claims.name ?? null,
-        loginMethod: "supabase",
-        lastSignedIn: /* @__PURE__ */ new Date()
-      });
-      user = await getUserByOpenId(claims.sub) ?? null;
+    try {
+      const claims = await verifySupabaseToken(token);
+      if (claims?.sub) {
+        try {
+          await upsertUser({
+            openId: claims.sub,
+            email: claims.email ?? null,
+            name: claims.name ?? null,
+            loginMethod: "supabase",
+            lastSignedIn: /* @__PURE__ */ new Date()
+          });
+        } catch (e) {
+          console.warn("[Auth] upsertUser skipped:", e);
+        }
+        user = await getUserByOpenId(claims.sub) ?? null;
+      }
+    } catch (e) {
+      console.warn("[Auth] createContext failed:", e);
     }
   }
   return { req, res, user };

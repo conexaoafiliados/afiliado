@@ -11,14 +11,34 @@ function cleanAuthHashFromUrl() {
   }
 }
 
+function sessionFallbackUser(session: Session) {
+  const meta = session.user.user_metadata as Record<string, unknown> | undefined;
+  return {
+    id: 0,
+    openId: session.user.id,
+    name:
+      (typeof meta?.name === "string" && meta.name) ||
+      (typeof meta?.full_name === "string" && meta.full_name) ||
+      session.user.email?.split("@")[0] ||
+      "Creator",
+    email: session.user.email ?? null,
+    loginMethod: "supabase",
+    role: "user" as const,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastSignedIn: new Date(),
+  };
+}
+
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const utils = trpc.useUtils();
 
-  const { data: appUser, isLoading: appUserLoading, refetch } = trpc.auth.me.useQuery(undefined, {
+  const { data: appUser } = trpc.auth.me.useQuery(undefined, {
     enabled: authReady && !!session,
-    retry: 2,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
@@ -29,31 +49,28 @@ export function useAuth() {
 
     let mounted = true;
 
-    const applySession = (next: Session | null) => {
-      if (!mounted) return;
-      setSession(next);
-      if (next) {
-        cleanAuthHashFromUrl();
-        void utils.auth.me.invalidate();
-        void refetch();
-      }
-    };
-
     supabase.auth.getSession().then(({ data }) => {
-      applySession(data.session);
+      if (!mounted) return;
+      setSession(data.session);
       setAuthReady(true);
+      if (data.session) cleanAuthHashFromUrl();
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      applySession(nextSession);
+      if (!mounted) return;
+      setSession(nextSession);
       setAuthReady(true);
+      if (nextSession) {
+        cleanAuthHashFromUrl();
+        void utils.auth.me.invalidate();
+      }
     });
 
     return () => {
       mounted = false;
       sub.subscription.unsubscribe();
     };
-  }, [utils, refetch]);
+  }, [utils]);
 
   const logout = async () => {
     if (supabase) await supabase.auth.signOut();
@@ -61,22 +78,9 @@ export function useAuth() {
     await utils.auth.me.invalidate();
   };
 
-  const displayUser = appUser ?? (session?.user
-    ? {
-        id: 0,
-        openId: session.user.id,
-        name: session.user.user_metadata?.full_name ?? session.user.email?.split("@")[0] ?? "Creator",
-        email: session.user.email ?? null,
-        loginMethod: "supabase",
-        role: "user" as const,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        lastSignedIn: new Date(),
-      }
-    : null);
-
+  const displayUser = appUser ?? (session ? sessionFallbackUser(session) : null);
   const isAuthenticated = !!session;
-  const loading = !authReady || (isAuthenticated && appUserLoading && !appUser);
+  const loading = !authReady;
 
   return {
     user: displayUser,

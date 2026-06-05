@@ -45,16 +45,24 @@ export async function createContext({ req, res = {} }: CreateContextInput): Prom
       : null;
 
   if (token) {
-    const claims = await verifySupabaseToken(token);
-    if (claims?.sub) {
-      await upsertUser({
-        openId: claims.sub,
-        email: claims.email ?? null,
-        name: claims.name ?? null,
-        loginMethod: "supabase",
-        lastSignedIn: new Date(),
-      });
-      user = (await getUserByOpenId(claims.sub)) ?? null;
+    try {
+      const claims = await verifySupabaseToken(token);
+      if (claims?.sub) {
+        try {
+          await upsertUser({
+            openId: claims.sub,
+            email: claims.email ?? null,
+            name: claims.name ?? null,
+            loginMethod: "supabase",
+            lastSignedIn: new Date(),
+          });
+        } catch (e) {
+          console.warn("[Auth] upsertUser skipped:", e);
+        }
+        user = (await getUserByOpenId(claims.sub)) ?? null;
+      }
+    } catch (e) {
+      console.warn("[Auth] createContext failed:", e);
     }
   }
 
