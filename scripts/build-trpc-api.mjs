@@ -9,9 +9,18 @@ await esbuild.build({
   bundle: true,
   platform: "node",
   target: "node20",
-  format: "esm",
-  outfile: path.join(root, "api/trpc/[...trpc].js"),
+  format: "cjs",
+  outfile: path.join(root, "api/trpc/[...trpc].cjs"),
   logLevel: "info",
+  external: [
+    "postgres",
+    "drizzle-orm",
+    "drizzle-orm/*",
+    "@supabase/supabase-js",
+    "jose",
+    "stripe",
+    "@vercel/node",
+  ],
 });
 
-console.log("[build-trpc-api] api/trpc/[...trpc].js gerado");
+console.log("[build-trpc-api] api/trpc/[...trpc].cjs gerado");
