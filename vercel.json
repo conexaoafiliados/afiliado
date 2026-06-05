@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "node scripts/prepare-api.mjs && npm run build",
+  "buildCommand": "node scripts/build-trpc-api.mjs && npm run build",
   "outputDirectory": "dist/public",
   "installCommand": "npm install",
   "framework": null,
