@@ -11,8 +11,7 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
       {/* Navigation */}
       <nav className="border-b border-border/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container flex items-center justify-between h-16">
-          <AppLogo background="light" height={60} />
+        <div className="container flex items-center justify-end h-16">
           <div className="flex items-center gap-4">
             {isAuthenticated ? (
               <Link href="/dashboard">
