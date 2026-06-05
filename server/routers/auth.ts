@@ -2,8 +2,8 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
   getUserByUsername,
+  recordFollowerSnapshot,
   upsertCreatorProfile,
-  upsertFollowerProgress,
   upsertUser,
 } from "../db";
 import { authEmailForUsername, getSupabaseAdmin } from "../_core/supabaseAdmin";
@@ -132,12 +132,7 @@ export const authRouter = router({
         });
 
         const target = 2000;
-        const pct = Math.min(100, (input.currentFollowers / target) * 100);
-        await upsertFollowerProgress(dbUser.id, {
-          currentFollowers: input.currentFollowers,
-          targetFollowers: target,
-          progressPercentage: pct.toFixed(2),
-        });
+        await recordFollowerSnapshot(dbUser.id, input.currentFollowers, "manual");
       } catch (e) {
         console.warn("[Register] Profile save failed — check DATABASE_URL:", e);
       }

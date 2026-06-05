@@ -1,168 +1,134 @@
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { StatBox } from "@/components/StatBox";
-import { TrendingUp, Users, Eye, Heart, MessageSquare, Share2 } from "lucide-react";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-
-const CHART_DATA = [
-  { date: "01 Jun", followers: 1200, engagement: 45, views: 3200 },
-  { date: "02 Jun", followers: 1350, engagement: 52, views: 3800 },
-  { date: "03 Jun", followers: 1500, engagement: 48, views: 3500 },
-  { date: "04 Jun", followers: 1680, engagement: 61, views: 4200 },
-  { date: "05 Jun", followers: 1850, engagement: 58, views: 4100 },
-  { date: "06 Jun", followers: 2000, engagement: 67, views: 4800 },
-];
-
-const ENGAGEMENT_DATA = [
-  { name: "Curtidas", value: 1250 },
-  { name: "Comentários", value: 450 },
-  { name: "Compartilhamentos", value: 320 },
-  { name: "Salvos", value: 680 },
-];
+import { trpc } from "@/lib/trpc";
+import { Loader2, ShoppingBag, TrendingUp, Users } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 export default function Analytics() {
+  const { hasDbUser } = useAuth();
+  const { data, isLoading } = trpc.analytics.overview.useQuery(undefined, {
+    enabled: hasDbUser,
+    retry: false,
+  });
+
+  if (!hasDbUser || isLoading) {
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  const followers = data?.followers;
+  const sales = data?.sales;
+  const chartData =
+    data?.followerChart?.length
+      ? data.followerChart
+      : followers
+        ? [{ date: "Hoje", followers: followers.current, source: "manual" }]
+        : [];
+
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div>
         <h1 className="text-4xl font-bold mb-2">Analytics</h1>
-        <p className="text-muted-foreground">Acompanhe seu crescimento e engajamento</p>
+        <p className="text-muted-foreground">
+          Evolução de seguidores no TikTok e vendas na plataforma
+        </p>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatBox
           icon={<Users className="w-8 h-8" />}
-          label="Total de Seguidores"
-          value="2.000"
-          trend={{ value: 15, isPositive: true }}
+          label="Seguidores TikTok"
+          value={followers?.current.toLocaleString("pt-BR") ?? "0"}
         />
-
-        <StatBox
-          icon={<Eye className="w-8 h-8" />}
-          label="Visualizações (últimos 30 dias)"
-          value="24.500"
-          trend={{ value: 8, isPositive: true }}
-        />
-
-        <StatBox
-          icon={<Heart className="w-8 h-8" />}
-          label="Taxa de Engajamento"
-          value="8.5%"
-          trend={{ value: 2, isPositive: true }}
-        />
-
-        <StatBox
-          icon={<MessageSquare className="w-8 h-8" />}
-          label="Comentários"
-          value="450"
-          trend={{ value: 12, isPositive: true }}
-        />
-
-        <StatBox
-          icon={<Share2 className="w-8 h-8" />}
-          label="Compartilhamentos"
-          value="320"
-          trend={{ value: 5, isPositive: true }}
-        />
-
         <StatBox
           icon={<TrendingUp className="w-8 h-8" />}
-          label="Crescimento Mensal"
-          value="+800"
-          trend={{ value: 40, isPositive: true }}
+          label="Faltam para 2K"
+          value={followers?.remaining.toLocaleString("pt-BR") ?? "2.000"}
+        />
+        <StatBox
+          icon={<ShoppingBag className="w-8 h-8" />}
+          label="Vendas pagas"
+          value={sales?.paidOrders ?? 0}
+        />
+        <StatBox
+          icon={<ShoppingBag className="w-8 h-8" />}
+          label="Receita (paga)"
+          value={`R$ ${(sales?.totalRevenue ?? 0).toFixed(2)}`}
         />
       </div>
 
-      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Followers Growth */}
-        <Card className="card-elegant">
-          <h3 className="text-lg font-semibold mb-4">Crescimento de Seguidores</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={CHART_DATA}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="date" stroke="var(--muted-foreground)" />
-              <YAxis stroke="var(--muted-foreground)" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "var(--card)",
-                  border: `1px solid var(--border)`,
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="followers"
-                stroke="var(--accent)"
-                strokeWidth={2}
-                dot={{ fill: "var(--accent)", r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+        <Card className="card-elegant p-6">
+          <h3 className="text-lg font-semibold mb-4">Evolução de seguidores (TikTok)</h3>
+          {chartData.length < 2 ? (
+            <p className="text-sm text-muted-foreground">
+              Conecte o TikTok em Progresso 2K ou salve atualizações para ver o gráfico.
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Line type="monotone" dataKey="followers" stroke="hsl(var(--accent))" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+          {data?.tiktok.linked && (
+            <p className="text-xs text-muted-foreground mt-3">
+              @{data.tiktok.handle} · última sync:{" "}
+              {data.tiktok.lastSyncAt
+                ? new Date(data.tiktok.lastSyncAt).toLocaleString("pt-BR")
+                : "—"}
+            </p>
+          )}
         </Card>
 
-        {/* Engagement Over Time */}
-        <Card className="card-elegant">
-          <h3 className="text-lg font-semibold mb-4">Engajamento ao Longo do Tempo</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={CHART_DATA}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="date" stroke="var(--muted-foreground)" />
-              <YAxis stroke="var(--muted-foreground)" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "var(--card)",
-                  border: `1px solid var(--border)`,
-                }}
-              />
-              <Bar dataKey="engagement" fill="var(--secondary)" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-
-        {/* Views Growth */}
-        <Card className="card-elegant">
-          <h3 className="text-lg font-semibold mb-4">Visualizações</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={CHART_DATA}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="date" stroke="var(--muted-foreground)" />
-              <YAxis stroke="var(--muted-foreground)" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "var(--card)",
-                  border: `1px solid var(--border)`,
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="views"
-                stroke="var(--secondary)"
-                strokeWidth={2}
-                dot={{ fill: "var(--secondary)", r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </Card>
-
-        {/* Engagement Breakdown */}
-        <Card className="card-elegant">
-          <h3 className="text-lg font-semibold mb-4">Tipos de Engajamento</h3>
-          <div className="space-y-4">
-            {ENGAGEMENT_DATA.map((item, index) => (
-              <div key={index}>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium">{item.name}</span>
-                  <span className="text-sm font-bold text-accent">{item.value}</span>
-                </div>
-                <div className="progress-bar">
-                  <div
-                    className="progress-bar-fill"
-                    style={{ width: `${(item.value / 1250) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+        <Card className="card-elegant p-6">
+          <h3 className="text-lg font-semibold mb-4">Vendas na plataforma</h3>
+          <div className="space-y-3 mb-4 text-sm">
+            <p>
+              <span className="text-muted-foreground">Pedidos totais:</span>{" "}
+              <strong>{sales?.totalOrders ?? 0}</strong>
+            </p>
+            <p>
+              <span className="text-muted-foreground">Pagos / enviados:</span>{" "}
+              <strong>{sales?.paidOrders ?? 0}</strong>
+            </p>
+            <p>
+              <span className="text-muted-foreground">Pendentes (valor):</span>{" "}
+              <strong>R$ {(sales?.pendingRevenue ?? 0).toFixed(2)}</strong>
+            </p>
           </div>
+          {sales?.recentOrders?.length ? (
+            <ul className="space-y-2 text-sm border-t border-border pt-3">
+              {sales.recentOrders.slice(0, 6).map(o => (
+                <li key={o.id} className="flex justify-between gap-2">
+                  <span className="truncate">{o.productTitle}</span>
+                  <span className="shrink-0 text-muted-foreground">
+                    R$ {parseFloat(o.totalPrice).toFixed(2)} · {o.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Nenhuma venda ainda. Publique produtos na Loja e use o checkout Stripe.
+            </p>
+          )}
         </Card>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import {
@@ -6,6 +6,7 @@ import {
   courses,
   creatorProfiles,
   followerProgress,
+  followerHistory,
   InsertCreatorProfile,
   InsertFollowerProgress,
   InsertUser,
@@ -144,10 +145,96 @@ export async function upsertFollowerProgress(userId: number, progress: Partial<I
   if (!db) return;
   const existing = await getFollowerProgress(userId);
   if (existing) {
-    await db.update(followerProgress).set(progress).where(eq(followerProgress.userId, userId));
+    await db.update(followerProgress).set({ ...progress, lastUpdated: new Date() }).where(eq(followerProgress.userId, userId));
   } else {
     await db.insert(followerProgress).values({ userId, ...progress });
   }
+}
+
+export async function recordFollowerSnapshot(
+  userId: number,
+  followers: number,
+  source: "manual" | "tiktok" = "manual"
+) {
+  const db = await getDb();
+  if (!db) return;
+  const target = 2000;
+  const pct = Math.min(100, (followers / target) * 100);
+  await upsertFollowerProgress(userId, {
+    currentFollowers: followers,
+    targetFollowers: target,
+    progressPercentage: pct.toFixed(2),
+    source,
+    tiktokLastSyncAt: source === "tiktok" ? new Date() : undefined,
+    lastUpdated: new Date(),
+  });
+  try {
+    await db.insert(followerHistory).values({ userId, followers, source });
+  } catch (e) {
+    console.warn("[Database] follower_history insert failed:", e);
+  }
+}
+
+export async function getFollowerHistory(userId: number, limit = 30) {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    return db
+      .select()
+      .from(followerHistory)
+      .where(eq(followerHistory.userId, userId))
+      .orderBy(desc(followerHistory.recordedAt))
+      .limit(limit);
+  } catch {
+    return [];
+  }
+}
+
+export async function saveTikTokConnection(
+  userId: number,
+  data: {
+    openId: string;
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: Date;
+    displayName?: string;
+    username?: string;
+  }
+) {
+  await upsertCreatorProfile(userId, {
+    tiktokOpenId: data.openId,
+    tiktokAccessToken: data.accessToken,
+    tiktokRefreshToken: data.refreshToken,
+    tiktokTokenExpiresAt: data.expiresAt,
+    tiktokLinkedAt: new Date(),
+    tiktokDisplayName: data.displayName,
+    tiktokHandle: data.username ?? undefined,
+  });
+}
+
+export async function getTikTokTokens(userId: number) {
+  const profile = await getCreatorProfile(userId);
+  if (!profile?.tiktokAccessToken || !profile.tiktokRefreshToken) return null;
+  return {
+    openId: profile.tiktokOpenId,
+    accessToken: profile.tiktokAccessToken,
+    refreshToken: profile.tiktokRefreshToken,
+    expiresAt: profile.tiktokTokenExpiresAt,
+    displayName: profile.tiktokDisplayName,
+    username: profile.tiktokHandle,
+    linkedAt: profile.tiktokLinkedAt,
+  };
+}
+
+export async function clearTikTokConnection(userId: number) {
+  await upsertCreatorProfile(userId, {
+    tiktokOpenId: null,
+    tiktokAccessToken: null,
+    tiktokRefreshToken: null,
+    tiktokTokenExpiresAt: null,
+    tiktokLinkedAt: null,
+    tiktokDisplayName: null,
+  });
 }
 
 export async function getMissionsByUserId(userId: number) {

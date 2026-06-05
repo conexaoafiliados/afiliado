@@ -9,11 +9,11 @@ var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-var __copyProps = (to, from, except, desc) => {
+var __copyProps = (to, from, except, desc2) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc2 = __getOwnPropDesc(from, key)) || desc2.enumerable });
   }
   return to;
 };
@@ -136,12 +136,12 @@ var __hasOwnProp2 = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function() {
   return mod || (0, cb[__getOwnPropNames2(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
-var __copyProps2 = (to, from, except, desc) => {
+var __copyProps2 = (to, from, except, desc2) => {
   if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames2(from), i = 0, n = keys.length, key; i < n; i++) {
     key = keys[i];
     if (!__hasOwnProp2.call(to, key) && key !== except) __defProp2(to, key, {
       get: ((k) => from[k]).bind(null, key),
-      enumerable: !(desc = __getOwnPropDesc2(from, key)) || desc.enumerable
+      enumerable: !(desc2 = __getOwnPropDesc2(from, key)) || desc2.enumerable
     });
   }
   return to;
@@ -2413,6 +2413,12 @@ var creatorProfiles = (0, import_pg_core.pgTable)("creator_profiles", {
   platformObjective: (0, import_pg_core.text)("platformObjective"),
   instagramHandle: (0, import_pg_core.varchar)("instagramHandle", { length: 100 }),
   tiktokHandle: (0, import_pg_core.varchar)("tiktokHandle", { length: 100 }),
+  tiktokOpenId: (0, import_pg_core.varchar)("tiktokOpenId", { length: 64 }),
+  tiktokAccessToken: (0, import_pg_core.text)("tiktokAccessToken"),
+  tiktokRefreshToken: (0, import_pg_core.text)("tiktokRefreshToken"),
+  tiktokTokenExpiresAt: (0, import_pg_core.timestamp)("tiktokTokenExpiresAt", { withTimezone: true }),
+  tiktokLinkedAt: (0, import_pg_core.timestamp)("tiktokLinkedAt", { withTimezone: true }),
+  tiktokDisplayName: (0, import_pg_core.varchar)("tiktokDisplayName", { length: 120 }),
   youtubeHandle: (0, import_pg_core.varchar)("youtubeHandle", { length: 100 }),
   twitterHandle: (0, import_pg_core.varchar)("twitterHandle", { length: 100 }),
   websiteUrl: (0, import_pg_core.varchar)("websiteUrl", { length: 512 }),
@@ -2425,7 +2431,16 @@ var followerProgress = (0, import_pg_core.pgTable)("follower_progress", {
   currentFollowers: (0, import_pg_core.integer)("currentFollowers").default(0).notNull(),
   targetFollowers: (0, import_pg_core.integer)("targetFollowers").default(2e3).notNull(),
   progressPercentage: (0, import_pg_core.decimal)("progressPercentage", { precision: 5, scale: 2 }).default("0").notNull(),
+  source: (0, import_pg_core.varchar)("source", { length: 20 }).default("manual").notNull(),
+  tiktokLastSyncAt: (0, import_pg_core.timestamp)("tiktokLastSyncAt", { withTimezone: true }),
   lastUpdated: (0, import_pg_core.timestamp)("lastUpdated", { withTimezone: true }).defaultNow().notNull()
+});
+var followerHistory = (0, import_pg_core.pgTable)("follower_history", {
+  id: (0, import_pg_core.serial)("id").primaryKey(),
+  userId: (0, import_pg_core.integer)("userId").notNull().references(() => users.id),
+  followers: (0, import_pg_core.integer)("followers").notNull(),
+  source: (0, import_pg_core.varchar)("source", { length: 20 }).default("manual").notNull(),
+  recordedAt: (0, import_pg_core.timestamp)("recordedAt", { withTimezone: true }).defaultNow().notNull()
 });
 var missions = (0, import_pg_core.pgTable)("missions", {
   id: (0, import_pg_core.serial)("id").primaryKey(),
@@ -2574,7 +2589,10 @@ var ENV = {
   supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
   supabaseJwtSecret: process.env.SUPABASE_JWT_SECRET ?? "",
   ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
-  nodeEnv: process.env.NODE_ENV ?? "development"
+  nodeEnv: process.env.NODE_ENV ?? "development",
+  appUrl: (process.env.APP_URL ?? process.env.VITE_APP_URL ?? "http://localhost:3000").replace(/\/$/, ""),
+  tiktokClientKey: process.env.TIKTOK_CLIENT_KEY ?? "",
+  tiktokClientSecret: process.env.TIKTOK_CLIENT_SECRET ?? ""
 };
 
 // server/db.ts
@@ -2681,10 +2699,72 @@ async function upsertFollowerProgress(userId, progress) {
   if (!db) return;
   const existing = await getFollowerProgress(userId);
   if (existing) {
-    await db.update(followerProgress).set(progress).where((0, import_drizzle_orm.eq)(followerProgress.userId, userId));
+    await db.update(followerProgress).set({ ...progress, lastUpdated: /* @__PURE__ */ new Date() }).where((0, import_drizzle_orm.eq)(followerProgress.userId, userId));
   } else {
     await db.insert(followerProgress).values({ userId, ...progress });
   }
+}
+async function recordFollowerSnapshot(userId, followers, source = "manual") {
+  const db = await getDb();
+  if (!db) return;
+  const target = 2e3;
+  const pct = Math.min(100, followers / target * 100);
+  await upsertFollowerProgress(userId, {
+    currentFollowers: followers,
+    targetFollowers: target,
+    progressPercentage: pct.toFixed(2),
+    source,
+    tiktokLastSyncAt: source === "tiktok" ? /* @__PURE__ */ new Date() : void 0,
+    lastUpdated: /* @__PURE__ */ new Date()
+  });
+  try {
+    await db.insert(followerHistory).values({ userId, followers, source });
+  } catch (e) {
+    console.warn("[Database] follower_history insert failed:", e);
+  }
+}
+async function getFollowerHistory(userId, limit = 30) {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    return db.select().from(followerHistory).where((0, import_drizzle_orm.eq)(followerHistory.userId, userId)).orderBy((0, import_drizzle_orm.desc)(followerHistory.recordedAt)).limit(limit);
+  } catch {
+    return [];
+  }
+}
+async function saveTikTokConnection(userId, data) {
+  await upsertCreatorProfile(userId, {
+    tiktokOpenId: data.openId,
+    tiktokAccessToken: data.accessToken,
+    tiktokRefreshToken: data.refreshToken,
+    tiktokTokenExpiresAt: data.expiresAt,
+    tiktokLinkedAt: /* @__PURE__ */ new Date(),
+    tiktokDisplayName: data.displayName,
+    tiktokHandle: data.username ?? void 0
+  });
+}
+async function getTikTokTokens(userId) {
+  const profile = await getCreatorProfile(userId);
+  if (!profile?.tiktokAccessToken || !profile.tiktokRefreshToken) return null;
+  return {
+    openId: profile.tiktokOpenId,
+    accessToken: profile.tiktokAccessToken,
+    refreshToken: profile.tiktokRefreshToken,
+    expiresAt: profile.tiktokTokenExpiresAt,
+    displayName: profile.tiktokDisplayName,
+    username: profile.tiktokHandle,
+    linkedAt: profile.tiktokLinkedAt
+  };
+}
+async function clearTikTokConnection(userId) {
+  await upsertCreatorProfile(userId, {
+    tiktokOpenId: null,
+    tiktokAccessToken: null,
+    tiktokRefreshToken: null,
+    tiktokTokenExpiresAt: null,
+    tiktokLinkedAt: null,
+    tiktokDisplayName: null
+  });
 }
 async function getMissionsByUserId(userId) {
   const db = await getDb();
@@ -8265,12 +8345,7 @@ var authRouter = router({
             platformObjective: input.platformObjective
           });
           const target = 2e3;
-          const pct = Math.min(100, input.currentFollowers / target * 100);
-          await upsertFollowerProgress(dbUser.id, {
-            currentFollowers: input.currentFollowers,
-            targetFollowers: target,
-            progressPercentage: pct.toFixed(2)
-          });
+          await recordFollowerSnapshot(dbUser.id, input.currentFollowers, "manual");
         } catch (e) {
           console.warn("[Register] Profile save failed \u2014 check DATABASE_URL:", e);
         }
@@ -8355,6 +8430,250 @@ var authRouter = router({
   })
 });
 
+// server/routers/analytics.ts
+var import_drizzle_orm3 = require("drizzle-orm");
+var analyticsRouter = router({
+  overview: protectedProcedure.query(async ({ ctx }) => {
+    const progress = await getFollowerProgress(ctx.user.id);
+    const profile = await getCreatorProfile(ctx.user.id);
+    const history = await getFollowerHistory(ctx.user.id, 14);
+    const db = await getDb();
+    let sales = {
+      totalOrders: 0,
+      paidOrders: 0,
+      totalRevenue: 0,
+      pendingRevenue: 0,
+      recentOrders: []
+    };
+    if (db) {
+      try {
+        const orders = await db.select({
+          id: productOrders.id,
+          totalPrice: productOrders.totalPrice,
+          status: productOrders.status,
+          createdAt: productOrders.createdAt,
+          productTitle: products.title
+        }).from(productOrders).innerJoin(products, (0, import_drizzle_orm3.eq)(productOrders.productId, products.id)).where((0, import_drizzle_orm3.eq)(productOrders.userId, ctx.user.id)).orderBy(import_drizzle_orm3.sql`${productOrders.createdAt} DESC`).limit(20);
+        sales.recentOrders = orders.map((o) => ({
+          id: o.id,
+          productTitle: o.productTitle,
+          totalPrice: String(o.totalPrice),
+          status: o.status,
+          createdAt: o.createdAt
+        }));
+        for (const o of orders) {
+          sales.totalOrders += 1;
+          const price = parseFloat(String(o.totalPrice)) || 0;
+          if (o.status === "paid" || o.status === "delivered" || o.status === "shipped") {
+            sales.paidOrders += 1;
+            sales.totalRevenue += price;
+          } else if (o.status === "pending") {
+            sales.pendingRevenue += price;
+          }
+        }
+      } catch (e) {
+        console.warn("[Analytics] orders query failed:", e);
+      }
+    }
+    const followerChart = [...history].reverse().map((h) => ({
+      date: new Date(h.recordedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
+      followers: h.followers,
+      source: h.source
+    }));
+    const current = progress?.currentFollowers ?? 0;
+    const target = progress?.targetFollowers ?? 2e3;
+    return {
+      tiktok: {
+        linked: Boolean(profile?.tiktokLinkedAt),
+        handle: profile?.tiktokHandle ?? null,
+        displayName: profile?.tiktokDisplayName ?? null,
+        lastSyncAt: progress?.tiktokLastSyncAt ?? null,
+        source: progress?.source ?? "manual"
+      },
+      followers: {
+        current,
+        target,
+        remaining: Math.max(0, target - current),
+        progressPercentage: progress?.progressPercentage ? parseFloat(String(progress.progressPercentage)) : current / target * 100
+      },
+      followerChart,
+      sales
+    };
+  })
+});
+
+// server/_core/tiktok.ts
+var import_crypto = require("crypto");
+var TIKTOK_AUTH = "https://www.tiktok.com/v2/auth/authorize/";
+var TIKTOK_TOKEN = "https://open.tiktokapis.com/v2/oauth/token/";
+var TIKTOK_USER_INFO = "https://open.tiktokapis.com/v2/user/info/";
+var SCOPES = "user.info.basic,user.info.profile,user.info.stats";
+function isTikTokConfigured() {
+  return Boolean(ENV.tiktokClientKey && ENV.tiktokClientSecret);
+}
+function getTikTokRedirectUri() {
+  return `${ENV.appUrl}/growth/progress`;
+}
+function buildTikTokState(userId) {
+  const nonce = (0, import_crypto.randomBytes)(8).toString("hex");
+  const payload = `${userId}.${nonce}`;
+  const secret = ENV.tiktokClientSecret || ENV.supabaseServiceKey || "cc-tiktok-state";
+  const sig = (0, import_crypto.createHmac)("sha256", secret).update(payload).digest("hex").slice(0, 16);
+  return `${payload}.${sig}`;
+}
+function parseTikTokState(state) {
+  const parts = state.split(".");
+  if (parts.length !== 3) return null;
+  const userId = parseInt(parts[0], 10);
+  if (!Number.isFinite(userId)) return null;
+  const payload = `${parts[0]}.${parts[1]}`;
+  const secret = ENV.tiktokClientSecret || ENV.supabaseServiceKey || "cc-tiktok-state";
+  const expected = (0, import_crypto.createHmac)("sha256", secret).update(payload).digest("hex").slice(0, 16);
+  if (parts[2] !== expected) return null;
+  return userId;
+}
+function getTikTokAuthorizeUrl(userId) {
+  const params = new URLSearchParams({
+    client_key: ENV.tiktokClientKey,
+    scope: SCOPES,
+    response_type: "code",
+    redirect_uri: getTikTokRedirectUri(),
+    state: buildTikTokState(userId)
+  });
+  return `${TIKTOK_AUTH}?${params.toString()}`;
+}
+async function postToken(body) {
+  const res = await fetch(TIKTOK_TOKEN, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(body).toString()
+  });
+  const json = await res.json();
+  if (!res.ok || !json.data?.access_token) {
+    throw new Error(json.error?.message ?? "Falha ao obter token do TikTok");
+  }
+  return json.data;
+}
+async function exchangeTikTokCode(code) {
+  return postToken({
+    client_key: ENV.tiktokClientKey,
+    client_secret: ENV.tiktokClientSecret,
+    code,
+    grant_type: "authorization_code",
+    redirect_uri: getTikTokRedirectUri()
+  });
+}
+async function refreshTikTokToken(refreshToken) {
+  return postToken({
+    client_key: ENV.tiktokClientKey,
+    client_secret: ENV.tiktokClientSecret,
+    grant_type: "refresh_token",
+    refresh_token: refreshToken
+  });
+}
+async function fetchTikTokUserStats(accessToken) {
+  const fields = "open_id,display_name,username,follower_count,following_count,video_count";
+  const res = await fetch(`${TIKTOK_USER_INFO}?fields=${fields}`, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  const json = await res.json();
+  if (!res.ok || !json.data?.user) {
+    throw new Error(json.error?.message ?? "N\xE3o foi poss\xEDvel ler dados do TikTok");
+  }
+  return json.data.user;
+}
+
+// server/routers/tiktok.ts
+async function syncFollowersForUser(userId) {
+  const tokens = await getTikTokTokens(userId);
+  if (!tokens) {
+    throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Conecte sua conta TikTok primeiro" });
+  }
+  let accessToken = tokens.accessToken;
+  const expiresAt = tokens.expiresAt ? new Date(tokens.expiresAt) : null;
+  if (expiresAt && expiresAt.getTime() < Date.now() + 6e4) {
+    const refreshed = await refreshTikTokToken(tokens.refreshToken);
+    accessToken = refreshed.access_token;
+    await saveTikTokConnection(userId, {
+      openId: refreshed.open_id,
+      accessToken: refreshed.access_token,
+      refreshToken: refreshed.refresh_token,
+      expiresAt: new Date(Date.now() + refreshed.expires_in * 1e3),
+      displayName: tokens.displayName ?? void 0,
+      username: tokens.username ?? void 0
+    });
+  }
+  const stats = await fetchTikTokUserStats(accessToken);
+  const followers = stats.follower_count ?? 0;
+  await recordFollowerSnapshot(userId, followers, "tiktok");
+  await saveTikTokConnection(userId, {
+    openId: stats.open_id ?? tokens.openId ?? "",
+    accessToken,
+    refreshToken: tokens.refreshToken,
+    expiresAt: expiresAt ?? new Date(Date.now() + 864e5),
+    displayName: stats.display_name,
+    username: stats.username
+  });
+  return {
+    followers,
+    displayName: stats.display_name,
+    username: stats.username,
+    followingCount: stats.following_count ?? 0,
+    videoCount: stats.video_count ?? 0
+  };
+}
+var tiktokRouter = router({
+  status: protectedProcedure.query(async ({ ctx }) => {
+    const profile = await getCreatorProfile(ctx.user.id);
+    const tokens = await getTikTokTokens(ctx.user.id);
+    return {
+      configured: isTikTokConfigured(),
+      linked: Boolean(tokens?.accessToken),
+      handle: profile?.tiktokHandle ?? null,
+      displayName: profile?.tiktokDisplayName ?? null,
+      linkedAt: profile?.tiktokLinkedAt ?? null
+    };
+  }),
+  getConnectUrl: protectedProcedure.query(({ ctx }) => {
+    if (!isTikTokConfigured()) {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "TikTok API n\xE3o configurada (TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET na Vercel)"
+      });
+    }
+    return { url: getTikTokAuthorizeUrl(ctx.user.id) };
+  }),
+  completeConnect: protectedProcedure.input(
+    external_exports.object({
+      code: external_exports.string().min(1),
+      state: external_exports.string().optional()
+    })
+  ).mutation(async ({ ctx, input }) => {
+    if (!isTikTokConfigured()) {
+      throw new TRPCError({ code: "PRECONDITION_FAILED", message: "TikTok API n\xE3o configurada" });
+    }
+    if (input.state) {
+      const stateUserId = parseTikTokState(input.state);
+      if (stateUserId !== null && stateUserId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Sess\xE3o TikTok inv\xE1lida" });
+      }
+    }
+    const tokenData = await exchangeTikTokCode(input.code);
+    await saveTikTokConnection(ctx.user.id, {
+      openId: tokenData.open_id,
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+      expiresAt: new Date(Date.now() + tokenData.expires_in * 1e3)
+    });
+    return syncFollowersForUser(ctx.user.id);
+  }),
+  syncNow: protectedProcedure.mutation(async ({ ctx }) => syncFollowersForUser(ctx.user.id)),
+  disconnect: protectedProcedure.mutation(async ({ ctx }) => {
+    await clearTikTokConnection(ctx.user.id);
+    return { success: true };
+  })
+});
+
 // server/routers/index.ts
 var appRouter = router({
   system: systemRouter,
@@ -8398,17 +8717,19 @@ var appRouter = router({
         targetFollowers: external_exports.number().min(1).optional()
       })
     ).mutation(async ({ ctx, input }) => {
-      const { currentFollowers, targetFollowers } = input;
-      let progressPercentage = 0;
       const existing = await getFollowerProgress(ctx.user.id);
-      const target = targetFollowers ?? existing?.targetFollowers ?? 2e3;
-      const current = currentFollowers ?? existing?.currentFollowers ?? 0;
-      progressPercentage = Math.min(100, Math.max(0, current / target * 100));
-      await upsertFollowerProgress(ctx.user.id, {
-        currentFollowers,
-        targetFollowers,
-        progressPercentage: progressPercentage.toFixed(2)
-      });
+      const target = input.targetFollowers ?? existing?.targetFollowers ?? 2e3;
+      const current = input.currentFollowers ?? existing?.currentFollowers ?? 0;
+      if (input.currentFollowers !== void 0) {
+        await recordFollowerSnapshot(ctx.user.id, current, "manual");
+      } else if (input.targetFollowers !== void 0) {
+        const pct = Math.min(100, Math.max(0, current / target * 100));
+        await upsertFollowerProgress(ctx.user.id, {
+          targetFollowers: target,
+          progressPercentage: pct.toFixed(2),
+          lastUpdated: /* @__PURE__ */ new Date()
+        });
+      }
       return getFollowerProgress(ctx.user.id);
     })
   }),
@@ -8418,7 +8739,9 @@ var appRouter = router({
   shop: shopRouter,
   community: communityRouter,
   payments: paymentsRouter,
-  orders: ordersRouter
+  orders: ordersRouter,
+  tiktok: tiktokRouter,
+  analytics: analyticsRouter
 });
 
 // api/trpc/handler.ts

@@ -51,6 +51,12 @@ export const creatorProfiles = pgTable("creator_profiles", {
   platformObjective: text("platformObjective"),
   instagramHandle: varchar("instagramHandle", { length: 100 }),
   tiktokHandle: varchar("tiktokHandle", { length: 100 }),
+  tiktokOpenId: varchar("tiktokOpenId", { length: 64 }),
+  tiktokAccessToken: text("tiktokAccessToken"),
+  tiktokRefreshToken: text("tiktokRefreshToken"),
+  tiktokTokenExpiresAt: timestamp("tiktokTokenExpiresAt", { withTimezone: true }),
+  tiktokLinkedAt: timestamp("tiktokLinkedAt", { withTimezone: true }),
+  tiktokDisplayName: varchar("tiktokDisplayName", { length: 120 }),
   youtubeHandle: varchar("youtubeHandle", { length: 100 }),
   twitterHandle: varchar("twitterHandle", { length: 100 }),
   websiteUrl: varchar("websiteUrl", { length: 512 }),
@@ -67,11 +73,22 @@ export const followerProgress = pgTable("follower_progress", {
   currentFollowers: integer("currentFollowers").default(0).notNull(),
   targetFollowers: integer("targetFollowers").default(2000).notNull(),
   progressPercentage: decimal("progressPercentage", { precision: 5, scale: 2 }).default("0").notNull(),
+  source: varchar("source", { length: 20 }).default("manual").notNull(),
+  tiktokLastSyncAt: timestamp("tiktokLastSyncAt", { withTimezone: true }),
   lastUpdated: timestamp("lastUpdated", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const followerHistory = pgTable("follower_history", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull().references(() => users.id),
+  followers: integer("followers").notNull(),
+  source: varchar("source", { length: 20 }).default("manual").notNull(),
+  recordedAt: timestamp("recordedAt", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export type FollowerProgress = typeof followerProgress.$inferSelect;
 export type InsertFollowerProgress = typeof followerProgress.$inferInsert;
+export type FollowerHistory = typeof followerHistory.$inferSelect;
 
 export const missions = pgTable("missions", {
   id: serial("id").primaryKey(),

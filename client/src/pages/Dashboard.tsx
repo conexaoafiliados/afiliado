@@ -36,7 +36,10 @@ export default function Dashboard() {
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-4xl font-bold mb-2">Bem-vindo, {user.name}!</h1>
-          <p className="text-muted-foreground">Sua jornada para 2k seguidores começa aqui</p>
+          <p className="text-muted-foreground">
+            Meta: 2.000 seguidores no TikTok
+            {profile?.tiktokHandle ? ` · @${profile.tiktokHandle}` : ""}
+          </p>
         </div>
         <Link href="/profile/edit">
           <Button className="btn-primary">Editar Perfil</Button>
@@ -47,8 +50,12 @@ export default function Dashboard() {
       <Card className="card-elegant bg-gradient-to-br from-accent/5 to-secondary/5 border-accent/20">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-bold mb-2">Jornada para 2K Seguidores</h2>
-            <p className="text-muted-foreground">Você está no caminho certo!</p>
+            <h2 className="text-2xl font-bold mb-2">Jornada para 2K no TikTok</h2>
+            <p className="text-muted-foreground">
+              {progress?.source === "tiktok"
+                ? "Atualizado automaticamente do TikTok"
+                : "Conecte o TikTok em Progresso 2K para sync automático"}
+            </p>
           </div>
           <TrendingUp className="w-12 h-12 text-accent opacity-20" />
         </div>
@@ -107,8 +114,7 @@ export default function Dashboard() {
         <StatBox
           icon={<ShoppingBag className="w-8 h-8" />}
           label="Produtos Vendidos"
-          value="12"
-          trend={{ value: 5, isPositive: true }}
+          value={hasDbUser ? "—" : "0"}
         />
       </div>
 

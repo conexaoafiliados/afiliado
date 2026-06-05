@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { getCreatorProfile, getFollowerProgress, upsertCreatorProfile, upsertFollowerProgress } from "../db";
+import { getCreatorProfile, getFollowerProgress, recordFollowerSnapshot, upsertCreatorProfile, upsertFollowerProgress } from "../db";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { systemRouter } from "../_core/systemRouter";
 import { missionsRouter } from "./missions";
@@ -11,6 +11,8 @@ import { paymentsRouter } from "./payments";
 import { ordersRouter } from "./orders";
 import { achievementsRouter } from "./achievements";
 import { authRouter } from "./auth";
+import { analyticsRouter } from "./analytics";
+import { tiktokRouter } from "./tiktok";
 
 export const appRouter = router({
   system: systemRouter,
@@ -68,17 +70,19 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
-        const { currentFollowers, targetFollowers } = input;
-        let progressPercentage = 0;
         const existing = await getFollowerProgress(ctx.user.id);
-        const target = targetFollowers ?? existing?.targetFollowers ?? 2000;
-        const current = currentFollowers ?? existing?.currentFollowers ?? 0;
-        progressPercentage = Math.min(100, Math.max(0, (current / target) * 100));
-        await upsertFollowerProgress(ctx.user.id, {
-          currentFollowers,
-          targetFollowers,
-          progressPercentage: progressPercentage.toFixed(2),
-        });
+        const target = input.targetFollowers ?? existing?.targetFollowers ?? 2000;
+        const current = input.currentFollowers ?? existing?.currentFollowers ?? 0;
+        if (input.currentFollowers !== undefined) {
+          await recordFollowerSnapshot(ctx.user.id, current, "manual");
+        } else if (input.targetFollowers !== undefined) {
+          const pct = Math.min(100, Math.max(0, (current / target) * 100));
+          await upsertFollowerProgress(ctx.user.id, {
+            targetFollowers: target,
+            progressPercentage: pct.toFixed(2),
+            lastUpdated: new Date(),
+          });
+        }
         return getFollowerProgress(ctx.user.id);
       }),
   }),
@@ -90,6 +94,8 @@ export const appRouter = router({
   community: communityRouter,
   payments: paymentsRouter,
   orders: ordersRouter,
+  tiktok: tiktokRouter,
+  analytics: analyticsRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -43,4 +43,7 @@ export const ENV = {
   supabaseJwtSecret: process.env.SUPABASE_JWT_SECRET ?? "",
   ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
   nodeEnv: process.env.NODE_ENV ?? "development",
+  appUrl: (process.env.APP_URL ?? process.env.VITE_APP_URL ?? "http://localhost:3000").replace(/\/$/, ""),
+  tiktokClientKey: process.env.TIKTOK_CLIENT_KEY ?? "",
+  tiktokClientSecret: process.env.TIKTOK_CLIENT_SECRET ?? "",
 };
