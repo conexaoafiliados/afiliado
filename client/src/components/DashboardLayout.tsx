@@ -32,7 +32,12 @@ const nav = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { loading, user, isAuthenticated, logout } = useAuth();
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+
+  async function handleLogout() {
+    setLocation("/");
+    await logout();
+  }
 
   if (loading) {
     return (
@@ -85,7 +90,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="border-t border-border pt-4 px-2">
           <p className="text-sm font-medium truncate">{user.name || "Creator"}</p>
           <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-          <Button variant="ghost" size="sm" className="mt-2 w-full justify-start text-destructive" onClick={() => logout()}>
+          <Button variant="ghost" size="sm" className="mt-2 w-full justify-start text-destructive" onClick={() => void handleLogout()}>
             <LogOut className="h-4 w-4 mr-2" />
             Sair
           </Button>
@@ -94,7 +99,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden flex items-center justify-between border-b h-14 px-4">
           <span className="font-semibold text-sm">{APP_NAME}</span>
-          <Button variant="ghost" size="sm" onClick={() => logout()}>
+          <Button variant="ghost" size="sm" onClick={() => void handleLogout()}>
             Sair
           </Button>
         </header>
