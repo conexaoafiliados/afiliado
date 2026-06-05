@@ -55,9 +55,17 @@ export function NotificationBell() {
 
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 z-50 w-80 max-h-96 overflow-auto rounded-xl border border-border bg-card shadow-xl">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <div className="fixed inset-0 z-40 bg-black/20 md:bg-transparent" onClick={() => setOpen(false)} />
+          <div
+            className="
+              fixed z-50 flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-xl
+              left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+              w-[calc(100vw-2rem)] max-w-sm max-h-[min(70vh,24rem)]
+              md:absolute md:left-auto md:right-0 md:top-full md:translate-x-0 md:translate-y-0 md:mt-2
+              md:w-80 md:max-h-96
+            "
+          >
+            <div className="flex shrink-0 items-center justify-between px-4 py-3 border-b border-border">
               <span className="font-semibold text-sm">Notificações</span>
               {count > 0 && (
                 <button
@@ -69,6 +77,7 @@ export function NotificationBell() {
                 </button>
               )}
             </div>
+            <div className="overflow-y-auto flex-1 min-h-0">
             {items.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">Nenhuma notificação</p>
             ) : (
@@ -97,6 +106,7 @@ export function NotificationBell() {
                 ))}
               </ul>
             )}
+            </div>
           </div>
         </>
       )}

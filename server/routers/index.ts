@@ -5,6 +5,7 @@ import {
   getFollowerProgress,
   getUserPublicProfile,
   recordFollowerSnapshot,
+  syncFollowerAchievements,
   searchUsersByUsername,
   updateUserById,
   upsertCreatorProfile,
@@ -115,6 +116,7 @@ export const appRouter = router({
       }
 
       const current = progress.currentFollowers ?? 0;
+      await syncFollowerAchievements(ctx.user.id, current);
       const existingTarget = progress.targetFollowers ?? 2000;
       const { targetFollowers, progressPercentage } = resolveFollowerGoal(existingTarget, current);
       const newPct = progressPercentage.toFixed(2);

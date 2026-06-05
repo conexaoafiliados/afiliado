@@ -68,11 +68,11 @@ describe("appRouter", () => {
       expect(Array.isArray(result)).toBe(true);
     });
 
-    it("achievements.mine retorna array", async () => {
+    it("achievements.mine retorna lista de conquistas", async () => {
       const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
       const result = await caller.achievements.mine();
-      expect(Array.isArray(result)).toBe(true);
+      expect(Array.isArray(result.items)).toBe(true);
     });
 
     it("progress.get retorna defaults sem banco", async () => {

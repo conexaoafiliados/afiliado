@@ -2517,6 +2517,7 @@ var postComments = (0, import_pg_core.pgTable)("post_comments", {
   id: (0, import_pg_core.serial)("id").primaryKey(),
   postId: (0, import_pg_core.integer)("postId").notNull().references(() => communityPosts.id),
   userId: (0, import_pg_core.integer)("userId").notNull().references(() => users.id),
+  parentCommentId: (0, import_pg_core.integer)("parentCommentId"),
   content: (0, import_pg_core.text)("content").notNull(),
   createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull()
 });
@@ -2606,6 +2607,27 @@ function resolveFollowerGoal(currentTarget, followers) {
 function formatGoalLabel(target) {
   if (target >= 1e3) return `${(target / 1e3).toFixed(target % 1e3 === 0 ? 0 : 1)}K`;
   return String(target);
+}
+
+// server/_core/achievementRules.ts
+var FOLLOWER_ACHIEVEMENTS = [
+  { title: "500 Seguidores", description: "Alcance 500 seguidores no TikTok", threshold: 500 },
+  { title: "1K Club", description: "Chegue a 1.000 seguidores", threshold: 1e3 },
+  { title: "Creator 2K", description: "Meta: 2.000 seguidores", threshold: 2e3 },
+  { title: "Creator 5K", description: "Meta: 5.000 seguidores", threshold: 5e3 },
+  { title: "Creator 10K", description: "Meta: 10.000 seguidores", threshold: 1e4 },
+  { title: "Creator 15K", description: "Meta: 15.000 seguidores", threshold: 15e3 },
+  { title: "Creator 20K", description: "Meta: 20.000 seguidores", threshold: 2e4 },
+  { title: "Creator 30K", description: "Meta: 30.000 seguidores", threshold: 3e4 },
+  { title: "Creator 40K", description: "Meta: 40.000 seguidores", threshold: 4e4 },
+  { title: "Creator 50K", description: "Meta: 50.000 seguidores", threshold: 5e4 }
+];
+function followerThresholdForTitle(title) {
+  const found = FOLLOWER_ACHIEVEMENTS.find((a) => a.title === title);
+  return found?.threshold ?? null;
+}
+function achievementCongratsLabel(threshold) {
+  return `${formatGoalLabel(threshold)} seguidores`;
 }
 
 // server/_core/mentions.ts
@@ -2794,6 +2816,7 @@ async function recordFollowerSnapshot(userId, followers, source = "manual") {
       link: "/growth/progress"
     });
   }
+  await syncFollowerAchievements(userId, followers);
   try {
     await db.insert(followerHistory).values({ userId, followers, source });
   } catch (e) {
@@ -3066,10 +3089,16 @@ async function togglePostLike(userId, postId) {
   }
   return { liked, likes: newCount };
 }
+async function getPostCommentById(commentId) {
+  const db = await getDb();
+  if (!db) return void 0;
+  const result = await db.select().from(postComments).where((0, import_drizzle_orm.eq)(postComments.id, commentId)).limit(1);
+  return result[0];
+}
 async function getPostComments(postId) {
   const db = await getDb();
   if (!db) return [];
-  const comments = await db.select().from(postComments).where((0, import_drizzle_orm.eq)(postComments.postId, postId)).orderBy((0, import_drizzle_orm.desc)(postComments.createdAt));
+  const comments = await db.select().from(postComments).where((0, import_drizzle_orm.eq)(postComments.postId, postId)).orderBy((0, import_drizzle_orm.asc)(postComments.createdAt));
   if (comments.length === 0) return [];
   const userIds = [...new Set(comments.map((c) => c.userId))];
   const authors = await db.select({
@@ -3085,6 +3114,7 @@ async function getPostComments(postId) {
       id: c.id,
       postId: c.postId,
       userId: c.userId,
+      parentCommentId: c.parentCommentId ?? null,
       content: c.content,
       createdAt: c.createdAt,
       authorName: author?.name || author?.username || "Creator",
@@ -3093,15 +3123,31 @@ async function getPostComments(postId) {
     };
   });
 }
-async function createPostComment(userId, postId, content) {
+async function createPostComment(userId, postId, content, parentCommentId) {
   const db = await getDb();
   if (!db) return null;
   const post = await getCommunityPostById(postId);
   if (!post) return null;
-  const [comment] = await db.insert(postComments).values({ postId, userId, content }).returning({ id: postComments.id });
+  if (parentCommentId) {
+    const parent = await getPostCommentById(parentCommentId);
+    if (!parent || parent.postId !== postId) return null;
+  }
+  const [comment] = await db.insert(postComments).values({ postId, userId, content, parentCommentId: parentCommentId ?? null }).returning({ id: postComments.id });
   const actor = await getUserById(userId);
   const actorLabel = actor?.name || actor?.username || "Algu\xE9m";
-  if (post.userId !== userId) {
+  if (parentCommentId) {
+    const parent = await getPostCommentById(parentCommentId);
+    if (parent && parent.userId !== userId) {
+      await createNotification({
+        userId: parent.userId,
+        actorUserId: userId,
+        type: "post_comment",
+        title: "Resposta ao seu coment\xE1rio",
+        body: `${actorLabel} respondeu seu coment\xE1rio.`,
+        link: "/community/feed"
+      });
+    }
+  } else if (post.userId !== userId) {
     await createNotification({
       userId: post.userId,
       actorUserId: userId,
@@ -3111,12 +3157,13 @@ async function createPostComment(userId, postId, content) {
       link: "/community/feed"
     });
   }
+  const excludeMention = parentCommentId ? (await getPostCommentById(parentCommentId))?.userId : post.userId;
   await notifyMentionsInContent({
     content,
     actorUserId: userId,
     link: "/community/feed",
-    context: "mencionou voc\xEA em um coment\xE1rio",
-    excludeUserId: post.userId
+    context: parentCommentId ? "mencionou voc\xEA em uma resposta" : "mencionou voc\xEA em um coment\xE1rio",
+    excludeUserId: excludeMention
   });
   return comment?.id ?? null;
 }
@@ -3284,6 +3331,46 @@ async function getAllMissions() {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(missions).where((0, import_drizzle_orm.eq)(missions.isActive, true));
+}
+async function ensureFollowerAchievementsCatalog() {
+  const db = await getDb();
+  if (!db) return;
+  const existing = await db.select({ title: achievements.title }).from(achievements);
+  const titles = new Set(existing.map((a) => a.title));
+  for (const def of FOLLOWER_ACHIEVEMENTS) {
+    if (!titles.has(def.title)) {
+      await db.insert(achievements).values({ title: def.title, description: def.description });
+    }
+  }
+}
+async function syncFollowerAchievements(userId, followers) {
+  const db = await getDb();
+  if (!db) return { newlyUnlocked: [] };
+  await ensureFollowerAchievementsCatalog();
+  const all = await db.select().from(achievements);
+  const userUnlocks = await getUserAchievements(userId);
+  const unlockedIds = new Set(userUnlocks.map((u) => u.achievementId));
+  const newlyUnlocked = [];
+  for (const def of FOLLOWER_ACHIEVEMENTS) {
+    if (followers < def.threshold) continue;
+    const achievement = all.find((a) => a.title === def.title);
+    if (!achievement || unlockedIds.has(achievement.id)) continue;
+    try {
+      await db.insert(userAchievements).values({ userId, achievementId: achievement.id });
+      unlockedIds.add(achievement.id);
+      newlyUnlocked.push(def.title);
+      await createNotification({
+        userId,
+        type: "goal_unlock",
+        title: `Conquista: ${def.title}`,
+        body: `Parab\xE9ns! Voc\xEA atingiu ${achievementCongratsLabel(def.threshold)}.`,
+        link: "/growth/achievements"
+      });
+    } catch (e) {
+      console.warn("[Database] unlock achievement failed:", e);
+    }
+  }
+  return { newlyUnlocked };
 }
 async function getAllAchievements() {
   const db = await getDb();
@@ -8611,9 +8698,25 @@ var communityRouter = router({
   }),
   like: protectedProcedure.input(external_exports.object({ postId: external_exports.number() })).mutation(async ({ ctx, input }) => togglePostLike(ctx.user.id, input.postId)),
   comments: protectedProcedure.input(external_exports.object({ postId: external_exports.number() })).query(async ({ input }) => getPostComments(input.postId)),
-  comment: protectedProcedure.input(external_exports.object({ postId: external_exports.number(), content: external_exports.string().min(1).max(2e3) })).mutation(async ({ ctx, input }) => {
-    const id = await createPostComment(ctx.user.id, input.postId, input.content);
-    if (!id) throw new TRPCError({ code: "NOT_FOUND", message: "Post n\xE3o encontrado" });
+  comment: protectedProcedure.input(
+    external_exports.object({
+      postId: external_exports.number(),
+      content: external_exports.string().min(1).max(2e3),
+      parentCommentId: external_exports.number().optional()
+    })
+  ).mutation(async ({ ctx, input }) => {
+    const id = await createPostComment(
+      ctx.user.id,
+      input.postId,
+      input.content,
+      input.parentCommentId
+    );
+    if (!id) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: input.parentCommentId ? "Coment\xE1rio n\xE3o encontrado" : "Post n\xE3o encontrado"
+      });
+    }
     return { success: true, id };
   })
 });
@@ -8694,14 +8797,37 @@ var ordersRouter = router({
 var achievementsRouter = router({
   catalog: publicProcedure.query(async () => getAllAchievements()),
   mine: protectedProcedure.query(async ({ ctx }) => {
+    const progress = await getFollowerProgress(ctx.user.id);
+    const followers = progress?.currentFollowers ?? 0;
+    const { newlyUnlocked } = await syncFollowerAchievements(ctx.user.id, followers);
     const all = await getAllAchievements();
     const unlocked = await getUserAchievements(ctx.user.id);
-    const unlockedIds = new Set(unlocked.map((u) => u.achievementId));
-    return all.map((a) => ({
-      ...a,
-      unlocked: unlockedIds.has(a.id),
-      unlockedAt: unlocked.find((u) => u.achievementId === a.id)?.unlockedAt ?? null
-    }));
+    const unlockedMap = new Map(unlocked.map((u) => [u.achievementId, u.unlockedAt]));
+    const items = all.map((a) => {
+      const followerThreshold = followerThresholdForTitle(a.title);
+      return {
+        ...a,
+        unlocked: unlockedMap.has(a.id),
+        unlockedAt: unlockedMap.get(a.id) ?? null,
+        followerThreshold,
+        isFollowerMilestone: followerThreshold !== null
+      };
+    });
+    items.sort((a, b) => {
+      if (a.isFollowerMilestone && b.isFollowerMilestone) {
+        return (a.followerThreshold ?? 0) - (b.followerThreshold ?? 0);
+      }
+      if (a.isFollowerMilestone) return -1;
+      if (b.isFollowerMilestone) return 1;
+      return a.title.localeCompare(b.title);
+    });
+    const unlockedFollowerTitles = items.filter((i) => i.isFollowerMilestone && i.unlocked).map((i) => i.title);
+    return {
+      items,
+      newlyUnlocked,
+      unlockedFollowerTitles,
+      currentFollowers: followers
+    };
   })
 });
 
@@ -9253,6 +9379,7 @@ var appRouter = router({
         };
       }
       const current = progress.currentFollowers ?? 0;
+      await syncFollowerAchievements(ctx.user.id, current);
       const existingTarget = progress.targetFollowers ?? 2e3;
       const { targetFollowers, progressPercentage } = resolveFollowerGoal(existingTarget, current);
       const newPct = progressPercentage.toFixed(2);

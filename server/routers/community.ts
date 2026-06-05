@@ -31,10 +31,26 @@ export const communityRouter = router({
     .query(async ({ input }) => getPostComments(input.postId)),
 
   comment: protectedProcedure
-    .input(z.object({ postId: z.number(), content: z.string().min(1).max(2000) }))
+    .input(
+      z.object({
+        postId: z.number(),
+        content: z.string().min(1).max(2000),
+        parentCommentId: z.number().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      const id = await createPostComment(ctx.user.id, input.postId, input.content);
-      if (!id) throw new TRPCError({ code: "NOT_FOUND", message: "Post não encontrado" });
+      const id = await createPostComment(
+        ctx.user.id,
+        input.postId,
+        input.content,
+        input.parentCommentId
+      );
+      if (!id) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: input.parentCommentId ? "Comentário não encontrado" : "Post não encontrado",
+        });
+      }
       return { success: true, id };
     }),
 });

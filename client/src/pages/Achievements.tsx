@@ -1,23 +1,33 @@
 import { AchievementBadge } from "@/components/AchievementBadge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { formatGoalLabel } from "@/lib/goals";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
-import { Loader2, Trophy } from "lucide-react";
-
-const DEMO_ACHIEVEMENTS = [
-  { id: 1, title: "Primeiro Passo", description: "Complete sua primeira missão", unlocked: true, unlockedAt: new Date() },
-  { id: 2, title: "500 Seguidores", description: "Alcance 500 seguidores na jornada", unlocked: false, unlockedAt: null },
-  { id: 3, title: "1K Club", description: "Chegue a 1.000 seguidores", unlocked: false, unlockedAt: null },
-  { id: 4, title: "Creator 2K", description: "Meta principal: 2.000 seguidores", unlocked: false, unlockedAt: null },
-  { id: 5, title: "Vendedor", description: "Realize sua primeira venda na loja", unlocked: false, unlockedAt: null },
-  { id: 6, title: "Estudioso", description: "Conclua um curso completo", unlocked: false, unlockedAt: null },
-];
+import { Loader2, PartyPopper, Trophy } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { toast } from "sonner";
 
 export default function Achievements() {
-  const { data, isLoading } = trpc.achievements.mine.useQuery();
-  const items = data && data.length > 0 ? data : DEMO_ACHIEVEMENTS;
+  const toastedRef = useRef<Set<string>>(new Set());
+  const { data, isLoading } = trpc.achievements.mine.useQuery(undefined, {
+    refetchOnMount: "always",
+  });
+
+  const items = data?.items ?? [];
   const unlockedCount = items.filter(a => a.unlocked).length;
+  const unlockedFollower = items.filter(a => a.isFollowerMilestone && a.unlocked);
+  const nextFollower = items.find(a => a.isFollowerMilestone && !a.unlocked);
+  const currentFollowers = data?.currentFollowers ?? 0;
+
+  useEffect(() => {
+    if (!data?.newlyUnlocked?.length) return;
+    for (const title of data.newlyUnlocked) {
+      if (toastedRef.current.has(title)) continue;
+      toastedRef.current.add(title);
+      toast.success(`Parabéns! Conquista desbloqueada: ${title}`, { duration: 5000 });
+    }
+  }, [data?.newlyUnlocked]);
 
   return (
     <div className="space-y-8">
@@ -25,22 +35,73 @@ export default function Achievements() {
         <div>
           <h1 className="text-4xl font-bold mb-2">Conquistas</h1>
           <p className="text-muted-foreground">
-            Desbloqueie marcos na sua jornada até 2k seguidores
+            Desbloqueie marcos conforme seus seguidores crescem — você tem{" "}
+            <strong>{currentFollowers.toLocaleString("pt-BR")}</strong> no TikTok
           </p>
         </div>
         <Card className="px-4 py-3 flex items-center gap-3 border-accent/20">
           <Trophy className="h-8 w-8 text-accent" />
           <div>
-            <p className="text-2xl font-bold">{unlockedCount}/{items.length}</p>
+            <p className="text-2xl font-bold">
+              {unlockedCount}/{items.length}
+            </p>
             <p className="text-xs text-muted-foreground">conquistas</p>
           </div>
         </Card>
       </div>
 
+      {unlockedFollower.length > 0 && (
+        <Card className="card-elegant border-accent/30 bg-gradient-to-br from-accent/10 to-secondary/5 p-5">
+          <div className="flex gap-3 items-start">
+            <PartyPopper className="h-8 w-8 text-accent shrink-0" />
+            <div>
+              <h2 className="text-lg font-bold mb-1">Parabéns pelas metas atingidas!</h2>
+              <p className="text-sm text-muted-foreground mb-3">
+                Você já desbloqueou {unlockedFollower.length} conquista
+                {unlockedFollower.length !== 1 ? "s" : ""} de seguidores:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {unlockedFollower.map(a => (
+                  <span
+                    key={a.id}
+                    className="inline-flex items-center rounded-full bg-accent/15 text-accent px-3 py-1 text-xs font-semibold"
+                  >
+                    {a.title}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {nextFollower && (
+        <Card className="px-4 py-3 border-dashed">
+          <p className="text-sm text-muted-foreground">
+            Próxima conquista de seguidores:{" "}
+            <strong className="text-foreground">{nextFollower.title}</strong>
+            {nextFollower.followerThreshold != null && (
+              <>
+                {" "}
+                — faltam{" "}
+                <strong className="text-accent">
+                  {Math.max(0, nextFollower.followerThreshold - currentFollowers).toLocaleString("pt-BR")}
+                </strong>{" "}
+                (meta {formatGoalLabel(nextFollower.followerThreshold)})
+              </>
+            )}
+          </p>
+        </Card>
+      )}
+
       {isLoading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
         </div>
+      ) : items.length === 0 ? (
+        <Card className="card-elegant text-center py-12 text-muted-foreground text-sm">
+          Nenhuma conquista cadastrada ainda.
+        </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {items.map(a => (
@@ -50,6 +111,7 @@ export default function Achievements() {
               description={a.description}
               unlocked={a.unlocked}
               unlockedAt={a.unlockedAt}
+              congrats={a.isFollowerMilestone && a.unlocked}
             />
           ))}
         </div>

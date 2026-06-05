@@ -95,8 +95,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
       <div className="flex-1 flex flex-col min-w-0">
         <header className="flex items-center justify-between border-b h-14 px-4 gap-2">
-          <div className="md:hidden">
-            <AppLogo background="light" height={42} href={null} />
+          <div className="md:hidden min-w-0 max-w-[42%]">
+            <AppLogo background="light" height={40} href={null} mobileFill />
           </div>
           <div className="hidden md:block flex-1" />
           <NotificationBell />

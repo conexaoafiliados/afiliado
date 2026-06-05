@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import {
@@ -22,6 +22,7 @@ import {
   userMissions,
   users,
 } from "../drizzle/schema";
+import { achievementCongratsLabel, FOLLOWER_ACHIEVEMENTS } from "./_core/achievementRules";
 import { resolveFollowerGoal, formatGoalLabel } from "./_core/goals";
 import { extractMentionUsernames } from "./_core/mentions";
 import { ENV } from "./_core/env";
@@ -187,6 +188,8 @@ export async function recordFollowerSnapshot(
       link: "/growth/progress",
     });
   }
+  await syncFollowerAchievements(userId, followers);
+
   try {
     await db.insert(followerHistory).values({ userId, followers, source });
   } catch (e) {
@@ -553,6 +556,13 @@ export async function togglePostLike(userId: number, postId: number) {
   return { liked, likes: newCount };
 }
 
+export async function getPostCommentById(commentId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(postComments).where(eq(postComments.id, commentId)).limit(1);
+  return result[0];
+}
+
 export async function getPostComments(postId: number) {
   const db = await getDb();
   if (!db) return [];
@@ -560,7 +570,7 @@ export async function getPostComments(postId: number) {
     .select()
     .from(postComments)
     .where(eq(postComments.postId, postId))
-    .orderBy(desc(postComments.createdAt));
+    .orderBy(asc(postComments.createdAt));
 
   if (comments.length === 0) return [];
 
@@ -583,6 +593,7 @@ export async function getPostComments(postId: number) {
       id: c.id,
       postId: c.postId,
       userId: c.userId,
+      parentCommentId: c.parentCommentId ?? null,
       content: c.content,
       createdAt: c.createdAt,
       authorName: author?.name || author?.username || "Creator",
@@ -592,21 +603,43 @@ export async function getPostComments(postId: number) {
   });
 }
 
-export async function createPostComment(userId: number, postId: number, content: string) {
+export async function createPostComment(
+  userId: number,
+  postId: number,
+  content: string,
+  parentCommentId?: number
+) {
   const db = await getDb();
   if (!db) return null;
   const post = await getCommunityPostById(postId);
   if (!post) return null;
 
+  if (parentCommentId) {
+    const parent = await getPostCommentById(parentCommentId);
+    if (!parent || parent.postId !== postId) return null;
+  }
+
   const [comment] = await db
     .insert(postComments)
-    .values({ postId, userId, content })
+    .values({ postId, userId, content, parentCommentId: parentCommentId ?? null })
     .returning({ id: postComments.id });
 
   const actor = await getUserById(userId);
   const actorLabel = actor?.name || actor?.username || "Alguém";
 
-  if (post.userId !== userId) {
+  if (parentCommentId) {
+    const parent = await getPostCommentById(parentCommentId);
+    if (parent && parent.userId !== userId) {
+      await createNotification({
+        userId: parent.userId,
+        actorUserId: userId,
+        type: "post_comment",
+        title: "Resposta ao seu comentário",
+        body: `${actorLabel} respondeu seu comentário.`,
+        link: "/community/feed",
+      });
+    }
+  } else if (post.userId !== userId) {
     await createNotification({
       userId: post.userId,
       actorUserId: userId,
@@ -617,12 +650,16 @@ export async function createPostComment(userId: number, postId: number, content:
     });
   }
 
+  const excludeMention = parentCommentId
+    ? (await getPostCommentById(parentCommentId))?.userId
+    : post.userId;
+
   await notifyMentionsInContent({
     content,
     actorUserId: userId,
     link: "/community/feed",
-    context: "mencionou você em um comentário",
-    excludeUserId: post.userId,
+    context: parentCommentId ? "mencionou você em uma resposta" : "mencionou você em um comentário",
+    excludeUserId: excludeMention,
   });
 
   return comment?.id ?? null;
@@ -918,6 +955,52 @@ export async function getAllMissions() {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(missions).where(eq(missions.isActive, true));
+}
+
+export async function ensureFollowerAchievementsCatalog() {
+  const db = await getDb();
+  if (!db) return;
+  const existing = await db.select({ title: achievements.title }).from(achievements);
+  const titles = new Set(existing.map(a => a.title));
+  for (const def of FOLLOWER_ACHIEVEMENTS) {
+    if (!titles.has(def.title)) {
+      await db.insert(achievements).values({ title: def.title, description: def.description });
+    }
+  }
+}
+
+export async function syncFollowerAchievements(userId: number, followers: number) {
+  const db = await getDb();
+  if (!db) return { newlyUnlocked: [] as string[] };
+
+  await ensureFollowerAchievementsCatalog();
+  const all = await db.select().from(achievements);
+  const userUnlocks = await getUserAchievements(userId);
+  const unlockedIds = new Set(userUnlocks.map(u => u.achievementId));
+  const newlyUnlocked: string[] = [];
+
+  for (const def of FOLLOWER_ACHIEVEMENTS) {
+    if (followers < def.threshold) continue;
+    const achievement = all.find(a => a.title === def.title);
+    if (!achievement || unlockedIds.has(achievement.id)) continue;
+
+    try {
+      await db.insert(userAchievements).values({ userId, achievementId: achievement.id });
+      unlockedIds.add(achievement.id);
+      newlyUnlocked.push(def.title);
+      await createNotification({
+        userId,
+        type: "goal_unlock",
+        title: `Conquista: ${def.title}`,
+        body: `Parabéns! Você atingiu ${achievementCongratsLabel(def.threshold)}.`,
+        link: "/growth/achievements",
+      });
+    } catch (e) {
+      console.warn("[Database] unlock achievement failed:", e);
+    }
+  }
+
+  return { newlyUnlocked };
 }
 
 export async function getAllAchievements() {

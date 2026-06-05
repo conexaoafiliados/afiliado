@@ -8,9 +8,10 @@ interface AchievementBadgeProps {
   description?: string | null;
   unlocked: boolean;
   unlockedAt?: Date | string | null;
+  congrats?: boolean;
 }
 
-export function AchievementBadge({ title, description, unlocked, unlockedAt }: AchievementBadgeProps) {
+export function AchievementBadge({ title, description, unlocked, unlockedAt, congrats }: AchievementBadgeProps) {
   return (
     <Card
       className={cn(
@@ -31,7 +32,7 @@ export function AchievementBadge({ title, description, unlocked, unlockedAt }: A
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-semibold">{title}</h3>
             <Badge variant={unlocked ? "default" : "outline"}>
-              {unlocked ? "Desbloqueada" : "Bloqueada"}
+              {unlocked ? (congrats ? "Parabéns!" : "Desbloqueada") : "Bloqueada"}
             </Badge>
           </div>
           {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}

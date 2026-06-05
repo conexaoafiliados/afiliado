@@ -172,6 +172,7 @@ export const postComments = pgTable("post_comments", {
   id: serial("id").primaryKey(),
   postId: integer("postId").notNull().references(() => communityPosts.id),
   userId: integer("userId").notNull().references(() => users.id),
+  parentCommentId: integer("parentCommentId"),
   content: text("content").notNull(),
   createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
 });

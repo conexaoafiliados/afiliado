@@ -4,9 +4,21 @@ import { MentionTextarea } from "@/components/MentionTextarea";
 import { formatRelativeTime } from "@/lib/formatTime";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
-import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { Loader2, MessageCircle } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
+
+type Comment = {
+  id: number;
+  postId: number;
+  userId: number;
+  parentCommentId: number | null;
+  content: string;
+  createdAt: Date | string;
+  authorName: string;
+  authorUsername: string | null;
+  authorProfileImageUrl: string | null;
+};
 
 function renderContent(content: string) {
   const parts = content.split(/(@[a-zA-Z0-9_]+)/g);
@@ -18,6 +30,128 @@ function renderContent(content: string) {
     ) : (
       <span key={i}>{part}</span>
     )
+  );
+}
+
+function CommentItem({
+  comment,
+  replies,
+  postId,
+  onReplySuccess,
+}: {
+  comment: Comment;
+  replies: Comment[];
+  postId: number;
+  onReplySuccess: () => void;
+}) {
+  const [replying, setReplying] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const utils = trpc.useUtils();
+
+  const addReply = trpc.community.comment.useMutation({
+    onSuccess: () => {
+      setReplyText("");
+      setReplying(false);
+      onReplySuccess();
+      toast.success("Resposta publicada!");
+    },
+    onError: err => toast.error(err.message),
+  });
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm">
+        <UserAvatar
+          src={comment.authorProfileImageUrl}
+          name={comment.authorName}
+          size={32}
+          username={comment.authorUsername}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2 mb-0.5">
+            {comment.authorUsername ? (
+              <Link href={`/profile/${comment.authorUsername}`}>
+                <a className="font-medium hover:underline truncate">{comment.authorName}</a>
+              </Link>
+            ) : (
+              <span className="font-medium truncate">{comment.authorName}</span>
+            )}
+            <span className="text-xs text-muted-foreground shrink-0">
+              {formatRelativeTime(comment.createdAt)}
+            </span>
+          </div>
+          <p className="leading-relaxed">{renderContent(comment.content)}</p>
+          <button
+            type="button"
+            className="mt-1.5 text-xs text-muted-foreground hover:text-accent flex items-center gap-1"
+            onClick={() => setReplying(v => !v)}
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            Responder
+          </button>
+        </div>
+      </div>
+
+      {replies.length > 0 && (
+        <div className="ml-8 space-y-2 border-l-2 border-border/60 pl-3">
+          {replies.map(reply => (
+            <div key={reply.id} className="flex gap-2 rounded-lg bg-muted/25 px-3 py-2 text-sm">
+              <UserAvatar
+                src={reply.authorProfileImageUrl}
+                name={reply.authorName}
+                size={28}
+                username={reply.authorUsername}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2 mb-0.5">
+                  {reply.authorUsername ? (
+                    <Link href={`/profile/${reply.authorUsername}`}>
+                      <a className="font-medium hover:underline truncate text-sm">{reply.authorName}</a>
+                    </Link>
+                  ) : (
+                    <span className="font-medium truncate text-sm">{reply.authorName}</span>
+                  )}
+                  <span className="text-[10px] text-muted-foreground shrink-0">
+                    {formatRelativeTime(reply.createdAt)}
+                  </span>
+                </div>
+                <p className="leading-relaxed text-sm">{renderContent(reply.content)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {replying && (
+        <div className="ml-8 space-y-2">
+          <MentionTextarea
+            value={replyText}
+            onChange={setReplyText}
+            placeholder={`Responder ${comment.authorName}…`}
+            rows={2}
+          />
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              className="btn-primary"
+              disabled={!replyText.trim() || addReply.isPending}
+              onClick={() =>
+                addReply.mutate({
+                  postId,
+                  content: replyText.trim(),
+                  parentCommentId: comment.id,
+                })
+              }
+            >
+              {addReply.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Responder"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setReplying(false)}>
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -38,59 +172,66 @@ export function CommentSection({ postId }: { postId: number }) {
     onError: err => toast.error(err.message),
   });
 
+  const { topLevel, repliesByParent } = useMemo(() => {
+    const list = comments ?? [];
+    const top = list.filter(c => !c.parentCommentId);
+    const byParent = new Map<number, Comment[]>();
+    for (const c of list) {
+      if (!c.parentCommentId) continue;
+      const arr = byParent.get(c.parentCommentId) ?? [];
+      arr.push(c);
+      byParent.set(c.parentCommentId, arr);
+    }
+    return { topLevel: top, repliesByParent: byParent };
+  }, [comments]);
+
+  function onReplySuccess() {
+    utils.community.comments.invalidate({ postId });
+    utils.community.feed.invalidate();
+    utils.notifications.unreadCount.invalidate();
+    utils.notifications.list.invalidate();
+  }
+
   return (
     <div className="mt-4 pt-4 border-t border-border space-y-4">
-      <MentionTextarea
-        value={text}
-        onChange={setText}
-        placeholder="Escreva um comentário…"
-        rows={2}
-      />
-      <Button
-        size="sm"
-        className="btn-primary"
-        disabled={!text.trim() || addComment.isPending}
-        onClick={() => addComment.mutate({ postId, content: text.trim() })}
-      >
-        {addComment.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Comentar"}
-      </Button>
-
       {isLoading ? (
         <div className="flex justify-center py-4">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       ) : (
         <div className="space-y-3">
-          {(comments ?? []).map(c => (
-            <div key={c.id} className="flex gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm">
-              <UserAvatar
-                src={c.authorProfileImageUrl}
-                name={c.authorName}
-                size={32}
-                username={c.authorUsername}
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2 mb-0.5">
-                  {c.authorUsername ? (
-                    <Link href={`/profile/${c.authorUsername}`}>
-                      <a className="font-medium hover:underline truncate">{c.authorName}</a>
-                    </Link>
-                  ) : (
-                    <span className="font-medium truncate">{c.authorName}</span>
-                  )}
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {formatRelativeTime(c.createdAt)}
-                  </span>
-                </div>
-                <p className="leading-relaxed">{renderContent(c.content)}</p>
-              </div>
-            </div>
-          ))}
-          {comments?.length === 0 && (
+          {topLevel.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-2">Seja o primeiro a comentar</p>
+          ) : (
+            topLevel.map(c => (
+              <CommentItem
+                key={c.id}
+                comment={c}
+                replies={repliesByParent.get(c.id) ?? []}
+                postId={postId}
+                onReplySuccess={onReplySuccess}
+              />
+            ))
           )}
         </div>
       )}
+
+      <div className="pt-2 border-t border-border/50 space-y-3">
+        <MentionTextarea
+          value={text}
+          onChange={setText}
+          placeholder="Escreva um comentário…"
+          rows={2}
+        />
+        <Button
+          size="sm"
+          className="btn-primary"
+          disabled={!text.trim() || addComment.isPending}
+          onClick={() => addComment.mutate({ postId, content: text.trim() })}
+        >
+          {addComment.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Comentar"}
+        </Button>
+      </div>
     </div>
   );
 }

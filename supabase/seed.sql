@@ -10,9 +10,16 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO achievements (title, description) VALUES
   ('Primeiro Passo', 'Complete sua primeira missão'),
-  ('500 Seguidores', 'Alcance 500 seguidores'),
+  ('500 Seguidores', 'Alcance 500 seguidores no TikTok'),
   ('1K Club', 'Chegue a 1.000 seguidores'),
   ('Creator 2K', 'Meta: 2.000 seguidores'),
+  ('Creator 5K', 'Meta: 5.000 seguidores'),
+  ('Creator 10K', 'Meta: 10.000 seguidores'),
+  ('Creator 15K', 'Meta: 15.000 seguidores'),
+  ('Creator 20K', 'Meta: 20.000 seguidores'),
+  ('Creator 30K', 'Meta: 30.000 seguidores'),
+  ('Creator 40K', 'Meta: 40.000 seguidores'),
+  ('Creator 50K', 'Meta: 50.000 seguidores'),
   ('Vendedor', 'Primeira venda na loja'),
   ('Estudioso', 'Conclua um curso')
 ON CONFLICT DO NOTHING;
