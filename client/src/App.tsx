@@ -27,6 +27,28 @@ function Protected({ children }: { children: ReactNode }) {
   return <DashboardLayout>{children}</DashboardLayout>;
 }
 
+function withProtected(Page: () => React.JSX.Element) {
+  return function ProtectedPage() {
+    return (
+      <Protected>
+        <Page />
+      </Protected>
+    );
+  };
+}
+
+const DashboardPage = withProtected(Dashboard);
+const ProfileEditPage = withProtected(ProfileEdit);
+const MissionsPage = withProtected(Missions);
+const AchievementsPage = withProtected(Achievements);
+const GrowthProgressPage = withProtected(GrowthProgress);
+const CoursesPage = withProtected(Courses);
+const ShopPage = withProtected(Shop);
+const CommunityPage = withProtected(Community);
+const AnalyticsPage = withProtected(Analytics);
+const CheckoutPage = withProtected(Checkout);
+const OrdersPage = withProtected(Orders);
+
 function Router() {
   const { loading } = useAuth();
 
@@ -43,17 +65,17 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/login"} component={Login} />
       <Route path={"/cadastro"} component={Register} />
-      <Route path={"/dashboard"} component={() => <Protected><Dashboard /></Protected>} />
-      <Route path={"/profile/edit"} component={() => <Protected><ProfileEdit /></Protected>} />
-      <Route path={"/growth/missions"} component={() => <Protected><Missions /></Protected>} />
-      <Route path={"/growth/achievements"} component={() => <Protected><Achievements /></Protected>} />
-      <Route path={"/growth/progress"} component={() => <Protected><GrowthProgress /></Protected>} />
-      <Route path={"/courses/browse"} component={() => <Protected><Courses /></Protected>} />
-      <Route path={"/shop/browse"} component={() => <Protected><Shop /></Protected>} />
-      <Route path={"/community/feed"} component={() => <Protected><Community /></Protected>} />
-      <Route path={"/analytics/overview"} component={() => <Protected><Analytics /></Protected>} />
-      <Route path={"/checkout"} component={() => <Protected><Checkout /></Protected>} />
-      <Route path={"/orders"} component={() => <Protected><Orders /></Protected>} />
+      <Route path={"/dashboard"} component={DashboardPage} />
+      <Route path={"/profile/edit"} component={ProfileEditPage} />
+      <Route path={"/growth/missions"} component={MissionsPage} />
+      <Route path={"/growth/achievements"} component={AchievementsPage} />
+      <Route path={"/growth/progress"} component={GrowthProgressPage} />
+      <Route path={"/courses/browse"} component={CoursesPage} />
+      <Route path={"/shop/browse"} component={ShopPage} />
+      <Route path={"/community/feed"} component={CommunityPage} />
+      <Route path={"/analytics/overview"} component={AnalyticsPage} />
+      <Route path={"/checkout"} component={CheckoutPage} />
+      <Route path={"/orders"} component={OrdersPage} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

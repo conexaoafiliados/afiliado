@@ -196,7 +196,7 @@
   }
 
   .card-elegant {
-    @apply bg-card rounded-xl border border-border shadow-sm p-6 transition-all duration-300 hover:shadow-md;
+    @apply bg-card rounded-xl border border-border shadow-sm p-6 transition-shadow duration-300 hover:shadow-md;
   }
 
   .badge-accent {
@@ -257,7 +257,7 @@
   }
 
   .hover-lift {
-    @apply hover:shadow-lg hover:-translate-y-1 transition-all duration-300;
+    @apply hover:shadow-lg hover:-translate-y-1 transition-[transform,box-shadow] duration-300;
   }
 
   .focus-ring {

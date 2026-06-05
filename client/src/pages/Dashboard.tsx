@@ -8,13 +8,19 @@ import { Link } from "wouter";
 import { Loader2 } from "lucide-react";
 
 export default function Dashboard() {
-  const { user } = useAuth();
-  const { data: profile } = trpc.profile.get.useQuery();
-  const { data: progress } = trpc.progress.get.useQuery();
+  const { user, hasDbUser } = useAuth();
+  const { data: profile } = trpc.profile.get.useQuery(undefined, {
+    enabled: hasDbUser,
+    retry: false,
+  });
+  const { data: progress } = trpc.progress.get.useQuery(undefined, {
+    enabled: hasDbUser,
+    retry: false,
+  });
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[40vh]">
         <Loader2 className="w-8 h-8 animate-spin text-accent" />
       </div>
     );
