@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
 import { Link, useLocation } from "wouter";
+import { formatGoalLabel, getMilestonesForTarget } from "@/lib/goals";
 import { Loader2, RefreshCw, Target, TrendingUp, Unplug } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -91,11 +92,8 @@ export default function GrowthProgress() {
     ? parseFloat(String(progress.progressPercentage))
     : (current / target) * 100;
 
-  const milestones = [
-    { label: "500", value: 500, done: current >= 500 },
-    { label: "1K", value: 1000, done: current >= 1000 },
-    { label: "2K", value: 2000, done: current >= 2000 },
-  ];
+  const milestones = getMilestonesForTarget(target, current);
+  const goalLabel = formatGoalLabel(target);
 
   if (isLoading && hasDbUser) {
     return (
@@ -108,9 +106,9 @@ export default function GrowthProgress() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-4xl font-bold mb-2">Progresso — 2K no TikTok</h1>
+        <h1 className="text-4xl font-bold mb-2">Progresso — meta {goalLabel}</h1>
         <p className="text-muted-foreground">
-          Meta: {target.toLocaleString("pt-BR")} seguidores no TikTok · faltam{" "}
+          Meta atual: {target.toLocaleString("pt-BR")} seguidores · faltam{" "}
           <strong className="text-accent">{remaining.toLocaleString("pt-BR")}</strong>
         </p>
       </div>

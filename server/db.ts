@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import {
@@ -12,13 +12,17 @@ import {
   InsertUser,
   achievements,
   missions,
+  notifications,
   postComments,
+  postLikes,
   products,
   userAchievements,
   userCourses,
   userMissions,
   users,
 } from "../drizzle/schema";
+import { resolveFollowerGoal, formatGoalLabel } from "./_core/goals";
+import { extractMentionUsernames } from "./_core/mentions";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -158,16 +162,30 @@ export async function recordFollowerSnapshot(
 ) {
   const db = await getDb();
   if (!db) return;
-  const target = 2000;
-  const pct = Math.min(100, (followers / target) * 100);
+  const existing = await getFollowerProgress(userId);
+  const currentTarget = existing?.targetFollowers ?? 2000;
+  const { targetFollowers, progressPercentage, goalCompleted, completedTarget } = resolveFollowerGoal(
+    currentTarget,
+    followers
+  );
   await upsertFollowerProgress(userId, {
     currentFollowers: followers,
-    targetFollowers: target,
-    progressPercentage: pct.toFixed(2),
+    targetFollowers,
+    progressPercentage: progressPercentage.toFixed(2),
     source,
     tiktokLastSyncAt: source === "tiktok" ? new Date() : undefined,
     lastUpdated: new Date(),
   });
+  if (goalCompleted && followers >= completedTarget) {
+    const nextLabel = formatGoalLabel(targetFollowers);
+    await createNotification({
+      userId,
+      type: "goal_unlock",
+      title: "Nova meta desbloqueada!",
+      body: `Você passou de ${formatGoalLabel(completedTarget)} seguidores. Próxima meta: ${nextLabel}.`,
+      link: "/growth/progress",
+    });
+  }
   try {
     await db.insert(followerHistory).values({ userId, followers, source });
   } catch (e) {
@@ -293,34 +311,319 @@ export async function createProduct(userId: number, product: Record<string, unkn
   });
 }
 
-export async function getCommunityPosts(limit = 50, offset = 0) {
+export async function updateUserById(userId: number, fields: { name?: string }) {
+  const db = await getDb();
+  if (!db) return;
+  if (!fields.name) return;
+  await db.update(users).set({ name: fields.name, updatedAt: new Date() }).where(eq(users.id, userId));
+}
+
+export async function searchUsersByUsername(query: string, limit = 8) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(communityPosts).limit(limit).offset(offset);
+  const q = query.toLowerCase().trim();
+  if (!q) return [];
+  return db
+    .select({ id: users.id, username: users.username, name: users.name })
+    .from(users)
+    .where(ilike(users.username, `${q}%`))
+    .limit(limit);
+}
+
+export async function getUsersByUsernames(usernames: string[]) {
+  const db = await getDb();
+  if (!db || usernames.length === 0) return [];
+  const lowered = usernames.map(u => u.toLowerCase());
+  return db
+    .select({ id: users.id, username: users.username, name: users.name })
+    .from(users)
+    .where(inArray(users.username, lowered));
+}
+
+export async function getUserById(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  return result[0];
+}
+
+export async function getCommunityPostById(postId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(communityPosts).where(eq(communityPosts.id, postId)).limit(1);
+  return result[0];
+}
+
+export async function getCommunityFeed(viewerUserId: number, limit = 50, offset = 0) {
+  const db = await getDb();
+  if (!db) return [];
+  const posts = await db
+    .select()
+    .from(communityPosts)
+    .orderBy(desc(communityPosts.createdAt))
+    .limit(limit)
+    .offset(offset);
+  if (posts.length === 0) return [];
+
+  const postIds = posts.map(p => p.id);
+  const authorIds = [...new Set(posts.map(p => p.userId))];
+
+  const authors = await db
+    .select({ id: users.id, name: users.name, username: users.username })
+    .from(users)
+    .where(inArray(users.id, authorIds));
+  const authorMap = new Map(authors.map(a => [a.id, a]));
+
+  const commentCounts = await db
+    .select({
+      postId: postComments.postId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(postComments)
+    .where(inArray(postComments.postId, postIds))
+    .groupBy(postComments.postId);
+
+  const countMap = new Map(commentCounts.map(c => [c.postId, c.count]));
+
+  const viewerLikes = await db
+    .select({ postId: postLikes.postId })
+    .from(postLikes)
+    .where(and(eq(postLikes.userId, viewerUserId), inArray(postLikes.postId, postIds)));
+
+  const likedSet = new Set(viewerLikes.map(l => l.postId));
+
+  return posts.map(post => {
+    const author = authorMap.get(post.userId);
+    return {
+      id: post.id,
+      userId: post.userId,
+      content: post.content,
+      imageUrl: post.imageUrl,
+      likes: post.likes,
+      commentCount: countMap.get(post.id) ?? 0,
+      liked: likedSet.has(post.id),
+      createdAt: post.createdAt,
+      authorName: author?.name || author?.username || "Creator",
+      authorUsername: author?.username ?? null,
+    };
+  });
 }
 
 export async function createCommunityPost(userId: number, content: string) {
   const db = await getDb();
-  if (!db) return;
-  await db.insert(communityPosts).values({
-    userId,
+  if (!db) return null;
+  const [post] = await db
+    .insert(communityPosts)
+    .values({
+      userId,
+      content,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .returning({ id: communityPosts.id });
+  await notifyMentionsInContent({
     content,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    actorUserId: userId,
+    link: "/community/feed",
+    context: "mencionou você em um post",
+  });
+  return post?.id ?? null;
+}
+
+export async function togglePostLike(userId: number, postId: number) {
+  const db = await getDb();
+  if (!db) return { liked: false, likes: 0 };
+  const post = await getCommunityPostById(postId);
+  if (!post) return { liked: false, likes: 0 };
+
+  const existing = await db
+    .select()
+    .from(postLikes)
+    .where(and(eq(postLikes.postId, postId), eq(postLikes.userId, userId)))
+    .limit(1);
+
+  let liked: boolean;
+  if (existing.length > 0) {
+    await db.delete(postLikes).where(eq(postLikes.id, existing[0].id));
+    liked = false;
+    const newCount = Math.max(0, post.likes - 1);
+    await db.update(communityPosts).set({ likes: newCount }).where(eq(communityPosts.id, postId));
+    return { liked, likes: newCount };
+  }
+
+  await db.insert(postLikes).values({ postId, userId });
+  liked = true;
+  const newCount = post.likes + 1;
+  await db.update(communityPosts).set({ likes: newCount }).where(eq(communityPosts.id, postId));
+
+  if (post.userId !== userId) {
+    const actor = await getUserById(userId);
+    await createNotification({
+      userId: post.userId,
+      actorUserId: userId,
+      type: "post_like",
+      title: "Nova curtida no seu post",
+      body: `${actor?.name || actor?.username || "Alguém"} curtiu sua publicação.`,
+      link: "/community/feed",
+    });
+  }
+
+  return { liked, likes: newCount };
+}
+
+export async function getPostComments(postId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const comments = await db
+    .select()
+    .from(postComments)
+    .where(eq(postComments.postId, postId))
+    .orderBy(desc(postComments.createdAt));
+
+  if (comments.length === 0) return [];
+
+  const userIds = [...new Set(comments.map(c => c.userId))];
+  const authors = await db
+    .select({ id: users.id, name: users.name, username: users.username })
+    .from(users)
+    .where(inArray(users.id, userIds));
+  const authorMap = new Map(authors.map(a => [a.id, a]));
+
+  return comments.map(c => {
+    const author = authorMap.get(c.userId);
+    return {
+      id: c.id,
+      postId: c.postId,
+      userId: c.userId,
+      content: c.content,
+      createdAt: c.createdAt,
+      authorName: author?.name || author?.username || "Creator",
+      authorUsername: author?.username ?? null,
+    };
   });
 }
 
-export async function likePost(userId: number, postId: number) {
+export async function createPostComment(userId: number, postId: number, content: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const post = await getCommunityPostById(postId);
+  if (!post) return null;
+
+  const [comment] = await db
+    .insert(postComments)
+    .values({ postId, userId, content })
+    .returning({ id: postComments.id });
+
+  const actor = await getUserById(userId);
+  const actorLabel = actor?.name || actor?.username || "Alguém";
+
+  if (post.userId !== userId) {
+    await createNotification({
+      userId: post.userId,
+      actorUserId: userId,
+      type: "post_comment",
+      title: "Novo comentário",
+      body: `${actorLabel} comentou no seu post.`,
+      link: "/community/feed",
+    });
+  }
+
+  await notifyMentionsInContent({
+    content,
+    actorUserId: userId,
+    link: "/community/feed",
+    context: "mencionou você em um comentário",
+    excludeUserId: post.userId,
+  });
+
+  return comment?.id ?? null;
+}
+
+async function notifyMentionsInContent(opts: {
+  content: string;
+  actorUserId: number;
+  link: string;
+  context: string;
+  excludeUserId?: number;
+}) {
+  const usernames = extractMentionUsernames(opts.content);
+  if (usernames.length === 0) return;
+  const mentioned = await getUsersByUsernames(usernames);
+  const actor = await getUserById(opts.actorUserId);
+  const actorLabel = actor?.name || actor?.username || "Alguém";
+
+  for (const user of mentioned) {
+    if (user.id === opts.actorUserId) continue;
+    if (opts.excludeUserId && user.id === opts.excludeUserId) continue;
+    await createNotification({
+      userId: user.id,
+      actorUserId: opts.actorUserId,
+      type: "mention",
+      title: "Você foi marcado",
+      body: `${actorLabel} ${opts.context}.`,
+      link: opts.link,
+    });
+  }
+}
+
+export async function createNotification(data: {
+  userId: number;
+  actorUserId?: number;
+  type: "post_like" | "post_comment" | "mention" | "goal_unlock";
+  title: string;
+  body?: string;
+  link?: string;
+}) {
   const db = await getDb();
   if (!db) return;
-  const existing = await db
-    .select()
-    .from(postComments)
-    .where(and(eq(postComments.postId, postId), eq(postComments.userId, userId)))
-    .limit(1);
-  if (existing.length === 0) {
-    await db.insert(postComments).values({ postId, userId, content: "👍" });
+  try {
+    await db.insert(notifications).values({
+      userId: data.userId,
+      actorUserId: data.actorUserId ?? null,
+      type: data.type,
+      title: data.title,
+      body: data.body ?? null,
+      link: data.link ?? null,
+    });
+  } catch (e) {
+    console.warn("[Database] createNotification failed:", e);
   }
+}
+
+export async function getNotifications(userId: number, limit = 30) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(notifications)
+    .where(eq(notifications.userId, userId))
+    .orderBy(desc(notifications.createdAt))
+    .limit(limit);
+}
+
+export async function getUnreadNotificationCount(userId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(notifications)
+    .where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
+  return result[0]?.count ?? 0;
+}
+
+export async function markNotificationRead(userId: number, notificationId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(notifications)
+    .set({ read: true })
+    .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
+}
+
+export async function markAllNotificationsRead(userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(notifications).set({ read: true }).where(eq(notifications.userId, userId));
 }
 
 export async function getAllMissions() {

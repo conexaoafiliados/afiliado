@@ -2385,6 +2385,12 @@ var courseCategoryEnum = (0, import_pg_core.pgEnum)("course_category", ["content
 var courseLevelEnum = (0, import_pg_core.pgEnum)("course_level", ["beginner", "intermediate", "advanced"]);
 var productCategoryEnum = (0, import_pg_core.pgEnum)("product_category", ["digital", "physical"]);
 var orderStatusEnum = (0, import_pg_core.pgEnum)("order_status", ["pending", "paid", "shipped", "delivered"]);
+var notificationTypeEnum = (0, import_pg_core.pgEnum)("notification_type", [
+  "post_like",
+  "post_comment",
+  "mention",
+  "goal_unlock"
+]);
 var users = (0, import_pg_core.pgTable)("users", {
   id: (0, import_pg_core.serial)("id").primaryKey(),
   openId: (0, import_pg_core.varchar)("openId", { length: 64 }).notNull().unique(),
@@ -2513,6 +2519,23 @@ var postComments = (0, import_pg_core.pgTable)("post_comments", {
   content: (0, import_pg_core.text)("content").notNull(),
   createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull()
 });
+var postLikes = (0, import_pg_core.pgTable)("post_likes", {
+  id: (0, import_pg_core.serial)("id").primaryKey(),
+  postId: (0, import_pg_core.integer)("postId").notNull().references(() => communityPosts.id),
+  userId: (0, import_pg_core.integer)("userId").notNull().references(() => users.id),
+  createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull()
+});
+var notifications = (0, import_pg_core.pgTable)("notifications", {
+  id: (0, import_pg_core.serial)("id").primaryKey(),
+  userId: (0, import_pg_core.integer)("userId").notNull().references(() => users.id),
+  actorUserId: (0, import_pg_core.integer)("actorUserId").references(() => users.id),
+  type: notificationTypeEnum("type").notNull(),
+  title: (0, import_pg_core.varchar)("title", { length: 255 }).notNull(),
+  body: (0, import_pg_core.text)("body"),
+  link: (0, import_pg_core.varchar)("link", { length: 512 }),
+  read: (0, import_pg_core.boolean)("read").default(false).notNull(),
+  createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull()
+});
 var achievements = (0, import_pg_core.pgTable)("achievements", {
   id: (0, import_pg_core.serial)("id").primaryKey(),
   title: (0, import_pg_core.varchar)("title", { length: 255 }).notNull(),
@@ -2554,6 +2577,39 @@ var analyticsDaily = (0, import_pg_core.pgTable)("analytics_daily", {
   salesRevenue: (0, import_pg_core.decimal)("salesRevenue", { precision: 10, scale: 2 }).default("0").notNull(),
   courseCompletions: (0, import_pg_core.integer)("courseCompletions").default(0).notNull()
 });
+
+// server/_core/goals.ts
+function getNextTarget(completedTarget) {
+  if (completedTarget < 2e3) return 2e3;
+  if (completedTarget === 2e3) return 5e3;
+  if (completedTarget === 5e3) return 1e4;
+  return completedTarget + 1e4;
+}
+function resolveFollowerGoal(currentTarget, followers) {
+  let target = currentTarget > 0 ? currentTarget : 2e3;
+  let goalCompleted = false;
+  const completedTarget = target;
+  while (followers >= target) {
+    goalCompleted = true;
+    target = getNextTarget(target);
+  }
+  const progressPercentage = Math.min(100, followers / target * 100);
+  return { targetFollowers: target, progressPercentage, goalCompleted, completedTarget };
+}
+function formatGoalLabel(target) {
+  if (target >= 1e3) return `${(target / 1e3).toFixed(target % 1e3 === 0 ? 0 : 1)}K`;
+  return String(target);
+}
+
+// server/_core/mentions.ts
+var MENTION_RE = /@([a-zA-Z0-9_]{3,30})/g;
+function extractMentionUsernames(content) {
+  const found = /* @__PURE__ */ new Set();
+  for (const match of content.matchAll(MENTION_RE)) {
+    found.add(match[1].toLowerCase());
+  }
+  return [...found];
+}
 
 // server/_core/env.ts
 function resolveDatabaseUrl(raw) {
@@ -2707,16 +2763,30 @@ async function upsertFollowerProgress(userId, progress) {
 async function recordFollowerSnapshot(userId, followers, source = "manual") {
   const db = await getDb();
   if (!db) return;
-  const target = 2e3;
-  const pct = Math.min(100, followers / target * 100);
+  const existing = await getFollowerProgress(userId);
+  const currentTarget = existing?.targetFollowers ?? 2e3;
+  const { targetFollowers, progressPercentage, goalCompleted, completedTarget } = resolveFollowerGoal(
+    currentTarget,
+    followers
+  );
   await upsertFollowerProgress(userId, {
     currentFollowers: followers,
-    targetFollowers: target,
-    progressPercentage: pct.toFixed(2),
+    targetFollowers,
+    progressPercentage: progressPercentage.toFixed(2),
     source,
     tiktokLastSyncAt: source === "tiktok" ? /* @__PURE__ */ new Date() : void 0,
     lastUpdated: /* @__PURE__ */ new Date()
   });
+  if (goalCompleted && followers >= completedTarget) {
+    const nextLabel = formatGoalLabel(targetFollowers);
+    await createNotification({
+      userId,
+      type: "goal_unlock",
+      title: "Nova meta desbloqueada!",
+      body: `Voc\xEA passou de ${formatGoalLabel(completedTarget)} seguidores. Pr\xF3xima meta: ${nextLabel}.`,
+      link: "/growth/progress"
+    });
+  }
   try {
     await db.insert(followerHistory).values({ userId, followers, source });
   } catch (e) {
@@ -2814,28 +2884,220 @@ async function createProduct(userId, product) {
     imageUrl: product.imageUrl ? String(product.imageUrl) : null
   });
 }
-async function getCommunityPosts(limit = 50, offset = 0) {
+async function updateUserById(userId, fields) {
+  const db = await getDb();
+  if (!db) return;
+  if (!fields.name) return;
+  await db.update(users).set({ name: fields.name, updatedAt: /* @__PURE__ */ new Date() }).where((0, import_drizzle_orm.eq)(users.id, userId));
+}
+async function searchUsersByUsername(query, limit = 8) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(communityPosts).limit(limit).offset(offset);
+  const q = query.toLowerCase().trim();
+  if (!q) return [];
+  return db.select({ id: users.id, username: users.username, name: users.name }).from(users).where((0, import_drizzle_orm.ilike)(users.username, `${q}%`)).limit(limit);
+}
+async function getUsersByUsernames(usernames) {
+  const db = await getDb();
+  if (!db || usernames.length === 0) return [];
+  const lowered = usernames.map((u) => u.toLowerCase());
+  return db.select({ id: users.id, username: users.username, name: users.name }).from(users).where((0, import_drizzle_orm.inArray)(users.username, lowered));
+}
+async function getUserById(userId) {
+  const db = await getDb();
+  if (!db) return void 0;
+  const result = await db.select().from(users).where((0, import_drizzle_orm.eq)(users.id, userId)).limit(1);
+  return result[0];
+}
+async function getCommunityPostById(postId) {
+  const db = await getDb();
+  if (!db) return void 0;
+  const result = await db.select().from(communityPosts).where((0, import_drizzle_orm.eq)(communityPosts.id, postId)).limit(1);
+  return result[0];
+}
+async function getCommunityFeed(viewerUserId, limit = 50, offset = 0) {
+  const db = await getDb();
+  if (!db) return [];
+  const posts = await db.select().from(communityPosts).orderBy((0, import_drizzle_orm.desc)(communityPosts.createdAt)).limit(limit).offset(offset);
+  if (posts.length === 0) return [];
+  const postIds = posts.map((p) => p.id);
+  const authorIds = [...new Set(posts.map((p) => p.userId))];
+  const authors = await db.select({ id: users.id, name: users.name, username: users.username }).from(users).where((0, import_drizzle_orm.inArray)(users.id, authorIds));
+  const authorMap = new Map(authors.map((a) => [a.id, a]));
+  const commentCounts = await db.select({
+    postId: postComments.postId,
+    count: import_drizzle_orm.sql`count(*)::int`
+  }).from(postComments).where((0, import_drizzle_orm.inArray)(postComments.postId, postIds)).groupBy(postComments.postId);
+  const countMap = new Map(commentCounts.map((c) => [c.postId, c.count]));
+  const viewerLikes = await db.select({ postId: postLikes.postId }).from(postLikes).where((0, import_drizzle_orm.and)((0, import_drizzle_orm.eq)(postLikes.userId, viewerUserId), (0, import_drizzle_orm.inArray)(postLikes.postId, postIds)));
+  const likedSet = new Set(viewerLikes.map((l) => l.postId));
+  return posts.map((post) => {
+    const author = authorMap.get(post.userId);
+    return {
+      id: post.id,
+      userId: post.userId,
+      content: post.content,
+      imageUrl: post.imageUrl,
+      likes: post.likes,
+      commentCount: countMap.get(post.id) ?? 0,
+      liked: likedSet.has(post.id),
+      createdAt: post.createdAt,
+      authorName: author?.name || author?.username || "Creator",
+      authorUsername: author?.username ?? null
+    };
+  });
 }
 async function createCommunityPost(userId, content) {
   const db = await getDb();
-  if (!db) return;
-  await db.insert(communityPosts).values({
+  if (!db) return null;
+  const [post] = await db.insert(communityPosts).values({
     userId,
     content,
     createdAt: /* @__PURE__ */ new Date(),
     updatedAt: /* @__PURE__ */ new Date()
+  }).returning({ id: communityPosts.id });
+  await notifyMentionsInContent({
+    content,
+    actorUserId: userId,
+    link: "/community/feed",
+    context: "mencionou voc\xEA em um post"
+  });
+  return post?.id ?? null;
+}
+async function togglePostLike(userId, postId) {
+  const db = await getDb();
+  if (!db) return { liked: false, likes: 0 };
+  const post = await getCommunityPostById(postId);
+  if (!post) return { liked: false, likes: 0 };
+  const existing = await db.select().from(postLikes).where((0, import_drizzle_orm.and)((0, import_drizzle_orm.eq)(postLikes.postId, postId), (0, import_drizzle_orm.eq)(postLikes.userId, userId))).limit(1);
+  let liked;
+  if (existing.length > 0) {
+    await db.delete(postLikes).where((0, import_drizzle_orm.eq)(postLikes.id, existing[0].id));
+    liked = false;
+    const newCount2 = Math.max(0, post.likes - 1);
+    await db.update(communityPosts).set({ likes: newCount2 }).where((0, import_drizzle_orm.eq)(communityPosts.id, postId));
+    return { liked, likes: newCount2 };
+  }
+  await db.insert(postLikes).values({ postId, userId });
+  liked = true;
+  const newCount = post.likes + 1;
+  await db.update(communityPosts).set({ likes: newCount }).where((0, import_drizzle_orm.eq)(communityPosts.id, postId));
+  if (post.userId !== userId) {
+    const actor = await getUserById(userId);
+    await createNotification({
+      userId: post.userId,
+      actorUserId: userId,
+      type: "post_like",
+      title: "Nova curtida no seu post",
+      body: `${actor?.name || actor?.username || "Algu\xE9m"} curtiu sua publica\xE7\xE3o.`,
+      link: "/community/feed"
+    });
+  }
+  return { liked, likes: newCount };
+}
+async function getPostComments(postId) {
+  const db = await getDb();
+  if (!db) return [];
+  const comments = await db.select().from(postComments).where((0, import_drizzle_orm.eq)(postComments.postId, postId)).orderBy((0, import_drizzle_orm.desc)(postComments.createdAt));
+  if (comments.length === 0) return [];
+  const userIds = [...new Set(comments.map((c) => c.userId))];
+  const authors = await db.select({ id: users.id, name: users.name, username: users.username }).from(users).where((0, import_drizzle_orm.inArray)(users.id, userIds));
+  const authorMap = new Map(authors.map((a) => [a.id, a]));
+  return comments.map((c) => {
+    const author = authorMap.get(c.userId);
+    return {
+      id: c.id,
+      postId: c.postId,
+      userId: c.userId,
+      content: c.content,
+      createdAt: c.createdAt,
+      authorName: author?.name || author?.username || "Creator",
+      authorUsername: author?.username ?? null
+    };
   });
 }
-async function likePost(userId, postId) {
+async function createPostComment(userId, postId, content) {
+  const db = await getDb();
+  if (!db) return null;
+  const post = await getCommunityPostById(postId);
+  if (!post) return null;
+  const [comment] = await db.insert(postComments).values({ postId, userId, content }).returning({ id: postComments.id });
+  const actor = await getUserById(userId);
+  const actorLabel = actor?.name || actor?.username || "Algu\xE9m";
+  if (post.userId !== userId) {
+    await createNotification({
+      userId: post.userId,
+      actorUserId: userId,
+      type: "post_comment",
+      title: "Novo coment\xE1rio",
+      body: `${actorLabel} comentou no seu post.`,
+      link: "/community/feed"
+    });
+  }
+  await notifyMentionsInContent({
+    content,
+    actorUserId: userId,
+    link: "/community/feed",
+    context: "mencionou voc\xEA em um coment\xE1rio",
+    excludeUserId: post.userId
+  });
+  return comment?.id ?? null;
+}
+async function notifyMentionsInContent(opts) {
+  const usernames = extractMentionUsernames(opts.content);
+  if (usernames.length === 0) return;
+  const mentioned = await getUsersByUsernames(usernames);
+  const actor = await getUserById(opts.actorUserId);
+  const actorLabel = actor?.name || actor?.username || "Algu\xE9m";
+  for (const user of mentioned) {
+    if (user.id === opts.actorUserId) continue;
+    if (opts.excludeUserId && user.id === opts.excludeUserId) continue;
+    await createNotification({
+      userId: user.id,
+      actorUserId: opts.actorUserId,
+      type: "mention",
+      title: "Voc\xEA foi marcado",
+      body: `${actorLabel} ${opts.context}.`,
+      link: opts.link
+    });
+  }
+}
+async function createNotification(data) {
   const db = await getDb();
   if (!db) return;
-  const existing = await db.select().from(postComments).where((0, import_drizzle_orm.and)((0, import_drizzle_orm.eq)(postComments.postId, postId), (0, import_drizzle_orm.eq)(postComments.userId, userId))).limit(1);
-  if (existing.length === 0) {
-    await db.insert(postComments).values({ postId, userId, content: "\u{1F44D}" });
+  try {
+    await db.insert(notifications).values({
+      userId: data.userId,
+      actorUserId: data.actorUserId ?? null,
+      type: data.type,
+      title: data.title,
+      body: data.body ?? null,
+      link: data.link ?? null
+    });
+  } catch (e) {
+    console.warn("[Database] createNotification failed:", e);
   }
+}
+async function getNotifications(userId, limit = 30) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(notifications).where((0, import_drizzle_orm.eq)(notifications.userId, userId)).orderBy((0, import_drizzle_orm.desc)(notifications.createdAt)).limit(limit);
+}
+async function getUnreadNotificationCount(userId) {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(notifications).where((0, import_drizzle_orm.and)((0, import_drizzle_orm.eq)(notifications.userId, userId), (0, import_drizzle_orm.eq)(notifications.read, false)));
+  return result[0]?.count ?? 0;
+}
+async function markNotificationRead(userId, notificationId) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(notifications).set({ read: true }).where((0, import_drizzle_orm.and)((0, import_drizzle_orm.eq)(notifications.id, notificationId), (0, import_drizzle_orm.eq)(notifications.userId, userId)));
+}
+async function markAllNotificationsRead(userId) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(notifications).set({ read: true }).where((0, import_drizzle_orm.eq)(notifications.userId, userId));
 }
 async function getAllMissions() {
   const db = await getDb();
@@ -7248,6 +7510,37 @@ var coerce = {
 };
 var NEVER = INVALID;
 
+// server/_core/supabaseAdmin.ts
+var import_supabase_js = require("@supabase/supabase-js");
+function getSupabaseAdmin() {
+  if (!ENV.supabaseUrl || !ENV.supabaseServiceKey) return null;
+  return (0, import_supabase_js.createClient)(ENV.supabaseUrl, ENV.supabaseServiceKey, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
+}
+function authEmailForUsername(username) {
+  return `${username.toLowerCase().trim()}@app.conexoescreator.local`;
+}
+
+// server/_core/storage.ts
+async function uploadImage(bucket, path, base64, mime) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const ext = mime?.includes("png") ? "png" : mime?.includes("webp") ? "webp" : "jpg";
+  const fullPath = path.includes(".") ? path : `${path}.${ext}`;
+  const buffer = Buffer.from(base64.replace(/^data:[^;]+;base64,/, ""), "base64");
+  const { error } = await admin.storage.from(bucket).upload(fullPath, buffer, {
+    contentType: mime || "image/jpeg",
+    upsert: true
+  });
+  if (error) {
+    console.warn(`[Storage upload ${bucket}]`, error.message);
+    return null;
+  }
+  const { data } = admin.storage.from(bucket).getPublicUrl(fullPath);
+  return data.publicUrl;
+}
+
 // node_modules/superjson/dist/double-indexed-kv.js
 var DoubleIndexedKV = class {
   constructor() {
@@ -8129,14 +8422,18 @@ var shopRouter = router({
 
 // server/routers/community.ts
 var communityRouter = router({
-  feed: publicProcedure.input(external_exports.object({ limit: external_exports.number().min(1).max(100).default(50), offset: external_exports.number().min(0).default(0) })).query(async ({ input }) => getCommunityPosts(input.limit, input.offset)),
+  feed: protectedProcedure.input(external_exports.object({ limit: external_exports.number().min(1).max(100).default(50), offset: external_exports.number().min(0).default(0) })).query(async ({ ctx, input }) => getCommunityFeed(ctx.user.id, input.limit, input.offset)),
   post: protectedProcedure.input(external_exports.object({ content: external_exports.string().min(1).max(5e3) })).mutation(async ({ ctx, input }) => {
-    await createCommunityPost(ctx.user.id, input.content);
-    return { success: true };
+    const id = await createCommunityPost(ctx.user.id, input.content);
+    if (!id) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "N\xE3o foi poss\xEDvel publicar" });
+    return { success: true, id };
   }),
-  like: protectedProcedure.input(external_exports.object({ postId: external_exports.number() })).mutation(async ({ ctx, input }) => {
-    await likePost(ctx.user.id, input.postId);
-    return { success: true };
+  like: protectedProcedure.input(external_exports.object({ postId: external_exports.number() })).mutation(async ({ ctx, input }) => togglePostLike(ctx.user.id, input.postId)),
+  comments: protectedProcedure.input(external_exports.object({ postId: external_exports.number() })).query(async ({ input }) => getPostComments(input.postId)),
+  comment: protectedProcedure.input(external_exports.object({ postId: external_exports.number(), content: external_exports.string().min(1).max(2e3) })).mutation(async ({ ctx, input }) => {
+    const id = await createPostComment(ctx.user.id, input.postId, input.content);
+    if (!id) throw new TRPCError({ code: "NOT_FOUND", message: "Post n\xE3o encontrado" });
+    return { success: true, id };
   })
 });
 
@@ -8226,18 +8523,6 @@ var achievementsRouter = router({
     }));
   })
 });
-
-// server/_core/supabaseAdmin.ts
-var import_supabase_js = require("@supabase/supabase-js");
-function getSupabaseAdmin() {
-  if (!ENV.supabaseUrl || !ENV.supabaseServiceKey) return null;
-  return (0, import_supabase_js.createClient)(ENV.supabaseUrl, ENV.supabaseServiceKey, {
-    auth: { autoRefreshToken: false, persistSession: false }
-  });
-}
-function authEmailForUsername(username) {
-  return `${username.toLowerCase().trim()}@app.conexoescreator.local`;
-}
 
 // server/routers/auth.ts
 var registerSchema = external_exports.object({
@@ -8674,6 +8959,20 @@ var tiktokRouter = router({
   })
 });
 
+// server/routers/notifications.ts
+var notificationsRouter = router({
+  list: protectedProcedure.input(external_exports.object({ limit: external_exports.number().min(1).max(50).default(20) }).optional()).query(async ({ ctx, input }) => getNotifications(ctx.user.id, input?.limit ?? 20)),
+  unreadCount: protectedProcedure.query(async ({ ctx }) => getUnreadNotificationCount(ctx.user.id)),
+  markRead: protectedProcedure.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+    await markNotificationRead(ctx.user.id, input.id);
+    return { success: true };
+  }),
+  markAllRead: protectedProcedure.mutation(async ({ ctx }) => {
+    await markAllNotificationsRead(ctx.user.id);
+    return { success: true };
+  })
+});
+
 // server/routers/index.ts
 var appRouter = router({
   system: systemRouter,
@@ -8682,17 +8981,45 @@ var appRouter = router({
     get: protectedProcedure.query(async ({ ctx }) => await getCreatorProfile(ctx.user.id) || null),
     update: protectedProcedure.input(
       external_exports.object({
+        name: external_exports.string().min(2).max(120).optional(),
         bio: external_exports.string().max(500).optional(),
         profileImageUrl: external_exports.string().url().optional(),
         bannerImageUrl: external_exports.string().url().optional(),
+        profileImageBase64: external_exports.string().optional(),
+        profileImageMime: external_exports.string().optional(),
+        bannerImageBase64: external_exports.string().optional(),
+        bannerImageMime: external_exports.string().optional(),
         instagramHandle: external_exports.string().max(100).optional(),
         tiktokHandle: external_exports.string().max(100).optional(),
         youtubeHandle: external_exports.string().max(100).optional(),
         twitterHandle: external_exports.string().max(100).optional(),
-        websiteUrl: external_exports.string().url().optional()
+        websiteUrl: external_exports.string().url().optional().or(external_exports.literal("")),
+        age: external_exports.number().int().min(13).max(120).optional(),
+        platformObjective: external_exports.string().max(500).optional()
       })
     ).mutation(async ({ ctx, input }) => {
-      await upsertCreatorProfile(ctx.user.id, input);
+      const {
+        name,
+        profileImageBase64,
+        profileImageMime,
+        bannerImageBase64,
+        bannerImageMime,
+        websiteUrl,
+        ...profileFields
+      } = input;
+      if (name) await updateUserById(ctx.user.id, { name });
+      const profileUpdate = { ...profileFields };
+      if (websiteUrl === "") profileUpdate.websiteUrl = null;
+      else if (websiteUrl) profileUpdate.websiteUrl = websiteUrl;
+      if (profileImageBase64) {
+        const url = await uploadImage("avatars", `profile-${ctx.user.id}`, profileImageBase64, profileImageMime);
+        if (url) profileUpdate.profileImageUrl = url;
+      }
+      if (bannerImageBase64) {
+        const url = await uploadImage("avatars", `banner-${ctx.user.id}`, bannerImageBase64, bannerImageMime);
+        if (url) profileUpdate.bannerImageUrl = url;
+      }
+      await upsertCreatorProfile(ctx.user.id, profileUpdate);
       return getCreatorProfile(ctx.user.id);
     }),
     getPublic: publicProcedure.input(external_exports.object({ userId: external_exports.number() })).query(async ({ input }) => {
@@ -8718,15 +9045,17 @@ var appRouter = router({
       })
     ).mutation(async ({ ctx, input }) => {
       const existing = await getFollowerProgress(ctx.user.id);
-      const target = input.targetFollowers ?? existing?.targetFollowers ?? 2e3;
       const current = input.currentFollowers ?? existing?.currentFollowers ?? 0;
       if (input.currentFollowers !== void 0) {
         await recordFollowerSnapshot(ctx.user.id, current, "manual");
       } else if (input.targetFollowers !== void 0) {
-        const pct = Math.min(100, Math.max(0, current / target * 100));
+        const { targetFollowers, progressPercentage } = resolveFollowerGoal(
+          input.targetFollowers,
+          current
+        );
         await upsertFollowerProgress(ctx.user.id, {
-          targetFollowers: target,
-          progressPercentage: pct.toFixed(2),
+          targetFollowers,
+          progressPercentage: progressPercentage.toFixed(2),
           lastUpdated: /* @__PURE__ */ new Date()
         });
       }
@@ -8741,7 +9070,11 @@ var appRouter = router({
   payments: paymentsRouter,
   orders: ordersRouter,
   tiktok: tiktokRouter,
-  analytics: analyticsRouter
+  analytics: analyticsRouter,
+  notifications: notificationsRouter,
+  users: router({
+    search: protectedProcedure.input(external_exports.object({ q: external_exports.string().min(1).max(30) })).query(async ({ input }) => searchUsersByUsername(input.q))
+  })
 });
 
 // api/trpc/handler.ts

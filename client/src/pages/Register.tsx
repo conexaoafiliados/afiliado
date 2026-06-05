@@ -9,7 +9,8 @@ import { applyAuthSession } from "@/lib/authSession";
 import { getSupabaseConfigError, supabase } from "@/lib/supabase";
 import { trpc } from "@/lib/trpc";
 import { Link, useLocation } from "wouter";
-import { Loader2, User, Zap } from "lucide-react";
+import { AppLogo } from "@/components/AppLogo";
+import { Loader2, User } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { TRPCClientError } from "@trpc/client";
 import { toast } from "sonner";
@@ -129,12 +130,12 @@ export default function Register() {
       <div className="max-w-2xl mx-auto">
         <BackButton fallback="/" className="mb-4" />
       <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-lg space-y-6">
-        <div className="text-center space-y-2">
-          <div className="mx-auto h-12 w-12 rounded-xl bg-gradient-to-br from-accent to-secondary flex items-center justify-center">
-            <Zap className="h-6 w-6 text-white" />
+        <div className="text-center space-y-3">
+          <div className="flex justify-center">
+            <AppLogo background="light" height={52} href={null} />
           </div>
-          <h1 className="text-2xl font-bold">Cadastro — {APP_NAME}</h1>
-          <p className="text-sm text-muted-foreground">Crie sua conta com usuário e senha</p>
+          <h1 className="text-xl font-semibold">Criar conta</h1>
+          <p className="text-sm text-muted-foreground">Cadastro em {APP_NAME}</p>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-6">

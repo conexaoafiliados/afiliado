@@ -1,7 +1,20 @@
-import { Button } from "@/components/ui/button";
+import { CommentSection } from "@/components/CommentSection";
 import { Card } from "@/components/ui/card";
-import { Heart, MessageCircle, Share2 } from "lucide-react";
+import { Heart, MessageCircle } from "lucide-react";
 import { useState } from "react";
+
+function renderContent(content: string) {
+  const parts = content.split(/(@[a-zA-Z0-9_]+)/g);
+  return parts.map((part, i) =>
+    part.startsWith("@") ? (
+      <span key={i} className="text-accent font-medium">
+        {part}
+      </span>
+    ) : (
+      <span key={i}>{part}</span>
+    )
+  );
+}
 
 interface PostCardProps {
   id: number;
@@ -12,8 +25,6 @@ interface PostCardProps {
   comments: number;
   liked?: boolean;
   onLike?: (id: number) => void;
-  onComment?: (id: number) => void;
-  onShare?: (id: number) => void;
 }
 
 export function PostCard({
@@ -25,17 +36,8 @@ export function PostCard({
   comments,
   liked = false,
   onLike,
-  onComment,
-  onShare,
 }: PostCardProps) {
-  const [isLiked, setIsLiked] = useState(liked);
-  const [likeCount, setLikeCount] = useState(likes);
-
-  const handleLike = () => {
-    setIsLiked(!isLiked);
-    setLikeCount(isLiked ? likeCount - 1 : likeCount + 1);
-    onLike && onLike(id);
-  };
+  const [showComments, setShowComments] = useState(false);
 
   return (
     <Card className="card-elegant">
@@ -51,36 +53,27 @@ export function PostCard({
         </div>
       </div>
 
-      <p className="text-foreground mb-4 leading-relaxed">{content}</p>
+      <p className="text-foreground mb-4 leading-relaxed">{renderContent(content)}</p>
 
-      <div className="flex items-center justify-between pt-4 border-t border-border text-muted-foreground">
+      <div className="flex items-center gap-6 pt-4 border-t border-border text-muted-foreground">
         <button
-          onClick={handleLike}
+          onClick={() => onLike?.(id)}
           className="flex items-center gap-2 hover:text-accent transition-colors"
         >
-          <Heart
-            className={`w-5 h-5 ${
-              isLiked ? "fill-rose-500 text-rose-500" : ""
-            }`}
-          />
-          <span className="text-sm">{likeCount}</span>
+          <Heart className={`w-5 h-5 ${liked ? "fill-rose-500 text-rose-500" : ""}`} />
+          <span className="text-sm">{likes}</span>
         </button>
 
         <button
-          onClick={() => onComment && onComment(id)}
+          onClick={() => setShowComments(v => !v)}
           className="flex items-center gap-2 hover:text-accent transition-colors"
         >
           <MessageCircle className="w-5 h-5" />
           <span className="text-sm">{comments}</span>
         </button>
-
-        <button
-          onClick={() => onShare && onShare(id)}
-          className="flex items-center gap-2 hover:text-accent transition-colors"
-        >
-          <Share2 className="w-5 h-5" />
-        </button>
       </div>
+
+      {showComments && <CommentSection postId={id} />}
     </Card>
   );
 }

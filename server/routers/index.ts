@@ -1,6 +1,16 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { getCreatorProfile, getFollowerProgress, recordFollowerSnapshot, upsertCreatorProfile, upsertFollowerProgress } from "../db";
+import {
+  getCreatorProfile,
+  getFollowerProgress,
+  recordFollowerSnapshot,
+  searchUsersByUsername,
+  updateUserById,
+  upsertCreatorProfile,
+  upsertFollowerProgress,
+} from "../db";
+import { resolveFollowerGoal } from "../_core/goals";
+import { uploadImage } from "../_core/storage";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { systemRouter } from "../_core/systemRouter";
 import { missionsRouter } from "./missions";
@@ -13,6 +23,7 @@ import { achievementsRouter } from "./achievements";
 import { authRouter } from "./auth";
 import { analyticsRouter } from "./analytics";
 import { tiktokRouter } from "./tiktok";
+import { notificationsRouter } from "./notifications";
 
 export const appRouter = router({
   system: systemRouter,
@@ -25,18 +36,50 @@ export const appRouter = router({
     update: protectedProcedure
       .input(
         z.object({
+          name: z.string().min(2).max(120).optional(),
           bio: z.string().max(500).optional(),
           profileImageUrl: z.string().url().optional(),
           bannerImageUrl: z.string().url().optional(),
+          profileImageBase64: z.string().optional(),
+          profileImageMime: z.string().optional(),
+          bannerImageBase64: z.string().optional(),
+          bannerImageMime: z.string().optional(),
           instagramHandle: z.string().max(100).optional(),
           tiktokHandle: z.string().max(100).optional(),
           youtubeHandle: z.string().max(100).optional(),
           twitterHandle: z.string().max(100).optional(),
-          websiteUrl: z.string().url().optional(),
+          websiteUrl: z.string().url().optional().or(z.literal("")),
+          age: z.number().int().min(13).max(120).optional(),
+          platformObjective: z.string().max(500).optional(),
         })
       )
       .mutation(async ({ ctx, input }) => {
-        await upsertCreatorProfile(ctx.user.id, input);
+        const {
+          name,
+          profileImageBase64,
+          profileImageMime,
+          bannerImageBase64,
+          bannerImageMime,
+          websiteUrl,
+          ...profileFields
+        } = input;
+
+        if (name) await updateUserById(ctx.user.id, { name });
+
+        const profileUpdate: Record<string, unknown> = { ...profileFields };
+        if (websiteUrl === "") profileUpdate.websiteUrl = null;
+        else if (websiteUrl) profileUpdate.websiteUrl = websiteUrl;
+
+        if (profileImageBase64) {
+          const url = await uploadImage("avatars", `profile-${ctx.user.id}`, profileImageBase64, profileImageMime);
+          if (url) profileUpdate.profileImageUrl = url;
+        }
+        if (bannerImageBase64) {
+          const url = await uploadImage("avatars", `banner-${ctx.user.id}`, bannerImageBase64, bannerImageMime);
+          if (url) profileUpdate.bannerImageUrl = url;
+        }
+
+        await upsertCreatorProfile(ctx.user.id, profileUpdate);
         return getCreatorProfile(ctx.user.id);
       }),
 
@@ -71,15 +114,17 @@ export const appRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         const existing = await getFollowerProgress(ctx.user.id);
-        const target = input.targetFollowers ?? existing?.targetFollowers ?? 2000;
         const current = input.currentFollowers ?? existing?.currentFollowers ?? 0;
         if (input.currentFollowers !== undefined) {
           await recordFollowerSnapshot(ctx.user.id, current, "manual");
         } else if (input.targetFollowers !== undefined) {
-          const pct = Math.min(100, Math.max(0, (current / target) * 100));
+          const { targetFollowers, progressPercentage } = resolveFollowerGoal(
+            input.targetFollowers,
+            current
+          );
           await upsertFollowerProgress(ctx.user.id, {
-            targetFollowers: target,
-            progressPercentage: pct.toFixed(2),
+            targetFollowers,
+            progressPercentage: progressPercentage.toFixed(2),
             lastUpdated: new Date(),
           });
         }
@@ -96,6 +141,13 @@ export const appRouter = router({
   orders: ordersRouter,
   tiktok: tiktokRouter,
   analytics: analyticsRouter,
+  notifications: notificationsRouter,
+
+  users: router({
+    search: protectedProcedure
+      .input(z.object({ q: z.string().min(1).max(30) }))
+      .query(async ({ input }) => searchUsersByUsername(input.q)),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

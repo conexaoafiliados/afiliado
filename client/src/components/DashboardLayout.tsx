@@ -1,4 +1,6 @@
+import { AppLogo } from "@/components/AppLogo";
 import { BackButton } from "@/components/BackButton";
+import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { APP_NAME } from "@/const";
@@ -14,7 +16,6 @@ import {
   TrendingUp,
   User,
   Users,
-  Zap,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
@@ -22,7 +23,7 @@ const nav = [
   { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
   { label: "Missões", path: "/growth/missions", icon: Target },
   { label: "Conquistas", path: "/growth/achievements", icon: Award },
-  { label: "Progresso 2K", path: "/growth/progress", icon: TrendingUp },
+  { label: "Progresso", path: "/growth/progress", icon: TrendingUp },
   { label: "Cursos", path: "/courses/browse", icon: BookOpen },
   { label: "Loja", path: "/shop/browse", icon: ShoppingBag },
   { label: "Comunidade", path: "/community/feed", icon: Users },
@@ -64,11 +65,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="hidden md:flex w-64 flex-col border-r border-border bg-card/50 p-4 gap-2">
-        <div className="flex items-center gap-2 px-2 py-4 mb-2">
-          <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-accent to-secondary flex items-center justify-center">
-            <Zap className="h-5 w-5 text-white" />
-          </div>
-          <span className="font-bold text-sm leading-tight">{APP_NAME}</span>
+        <div className="px-2 py-4 mb-2">
+          <AppLogo background="light" height={36} />
         </div>
         <nav className="flex-1 space-y-1">
           {nav.map(item => {
@@ -97,9 +95,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="md:hidden flex items-center justify-between border-b h-14 px-4">
-          <span className="font-semibold text-sm">{APP_NAME}</span>
-          <Button variant="ghost" size="sm" onClick={() => void handleLogout()}>
+        <header className="flex items-center justify-between border-b h-14 px-4 gap-2">
+          <div className="md:hidden">
+            <AppLogo background="light" height={28} href={null} />
+          </div>
+          <div className="hidden md:block flex-1" />
+          <NotificationBell />
+          <Button variant="ghost" size="sm" className="md:hidden" onClick={() => void handleLogout()}>
             Sair
           </Button>
         </header>

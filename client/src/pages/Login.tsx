@@ -7,7 +7,7 @@ import { applyAuthSession } from "@/lib/authSession";
 import { getSupabaseConfigError, supabase } from "@/lib/supabase";
 import { trpc } from "@/lib/trpc";
 import { Link, useLocation } from "wouter";
-import { Zap } from "lucide-react";
+import { AppLogo } from "@/components/AppLogo";
 import { BackButton } from "@/components/BackButton";
 
 export default function Login() {
@@ -49,11 +49,10 @@ export default function Login() {
       </div>
       <div className="flex-1 flex items-center justify-center">
       <div className="w-full max-w-md space-y-8 rounded-2xl border border-border bg-card p-8 shadow-lg">
-        <div className="text-center space-y-2">
-          <div className="mx-auto h-12 w-12 rounded-xl bg-gradient-to-br from-accent to-secondary flex items-center justify-center">
-            <Zap className="h-6 w-6 text-white" />
+        <div className="text-center space-y-3">
+          <div className="flex justify-center">
+            <AppLogo background="light" height={52} href={null} />
           </div>
-          <h1 className="text-2xl font-bold">{APP_NAME}</h1>
           <p className="text-sm text-muted-foreground">Entre com usuário e senha</p>
         </div>
         <form onSubmit={onSubmit} className="space-y-4">

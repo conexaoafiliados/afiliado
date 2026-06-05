@@ -1,4 +1,4 @@
-import { APP_NAME } from "@/const";
+import { AppLogo } from "@/components/AppLogo";
 import { BackButton } from "@/components/BackButton";
 import { Link } from "wouter";
 import type { ReactNode } from "react";
@@ -17,9 +17,7 @@ export function LegalLayout({
       <header className="border-b border-border/50">
         <div className="container max-w-3xl py-4 flex items-center justify-between gap-4">
           <BackButton fallback="/" />
-          <Link href="/" className="text-sm font-semibold text-accent hover:underline">
-            {APP_NAME}
-          </Link>
+          <AppLogo background="light" height={32} />
         </div>
       </header>
       <main className="container max-w-3xl py-10 pb-16">

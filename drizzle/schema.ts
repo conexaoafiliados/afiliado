@@ -18,6 +18,12 @@ export const courseCategoryEnum = pgEnum("course_category", ["content", "growth"
 export const courseLevelEnum = pgEnum("course_level", ["beginner", "intermediate", "advanced"]);
 export const productCategoryEnum = pgEnum("product_category", ["digital", "physical"]);
 export const orderStatusEnum = pgEnum("order_status", ["pending", "paid", "shipped", "delivered"]);
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "post_like",
+  "post_comment",
+  "mention",
+  "goal_unlock",
+]);
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -166,6 +172,25 @@ export const postComments = pgTable("post_comments", {
   postId: integer("postId").notNull().references(() => communityPosts.id),
   userId: integer("userId").notNull().references(() => users.id),
   content: text("content").notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const postLikes = pgTable("post_likes", {
+  id: serial("id").primaryKey(),
+  postId: integer("postId").notNull().references(() => communityPosts.id),
+  userId: integer("userId").notNull().references(() => users.id),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull().references(() => users.id),
+  actorUserId: integer("actorUserId").references(() => users.id),
+  type: notificationTypeEnum("type").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  body: text("body"),
+  link: varchar("link", { length: 512 }),
+  read: boolean("read").default(false).notNull(),
   createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
 });
 

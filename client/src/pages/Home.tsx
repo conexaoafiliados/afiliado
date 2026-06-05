@@ -1,6 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
+import { AppLogo } from "@/components/AppLogo";
 import { ArrowRight, Zap, BookOpen, ShoppingBag, Users, TrendingUp, Award } from "lucide-react";
 
 export default function Home() {
@@ -11,12 +12,7 @@ export default function Home() {
       {/* Navigation */}
       <nav className="border-b border-border/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container flex items-center justify-between h-16">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-secondary flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-bold text-lg">Conexões Creator</span>
-          </div>
+          <AppLogo background="light" height={40} />
           <div className="flex items-center gap-4">
             {isAuthenticated ? (
               <Link href="/dashboard">
@@ -34,6 +30,9 @@ export default function Home() {
       {/* Hero Section */}
       <section className="container py-20 md:py-32">
         <div className="max-w-3xl mx-auto text-center mb-16">
+          <div className="flex justify-center mb-8">
+            <AppLogo background="light" height={72} href={null} />
+          </div>
           <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
             Sua Jornada para <span className="gradient-accent bg-clip-text text-transparent">2K Seguidores</span>
           </h1>
@@ -107,7 +106,10 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-border/50 py-8 mt-20">
         <div className="container text-center text-muted-foreground text-sm space-y-2">
-          <p>&copy; 2026 Conexões Creator. Todos os direitos reservados.</p>
+          <div className="flex justify-center mb-4">
+            <AppLogo background="light" height={32} href={null} />
+          </div>
+          <p>&copy; 2026 Conexões Creators. Todos os direitos reservados.</p>
           <p className="flex flex-wrap justify-center gap-4">
             <Link href="/termos" className="hover:text-foreground hover:underline">Termos de Serviço</Link>
             <Link href="/privacidade" className="hover:text-foreground hover:underline">Política de Privacidade</Link>
