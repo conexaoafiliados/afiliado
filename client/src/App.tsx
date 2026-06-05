@@ -16,6 +16,7 @@ import Community from "./pages/Community";
 import Analytics from "./pages/Analytics";
 import Checkout from "./pages/Checkout";
 import Orders from "./pages/Orders";
+import Register from "./pages/Register";
 import Login from "./pages/Login";
 import DashboardLayout from "./components/DashboardLayout";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -41,6 +42,7 @@ function Router() {
     <Switch>
       <Route path={"/"} component={Home} />
       <Route path={"/login"} component={Login} />
+      <Route path={"/cadastro"} component={Register} />
       <Route path={"/dashboard"} component={() => <Protected><Dashboard /></Protected>} />
       <Route path={"/profile/edit"} component={() => <Protected><ProfileEdit /></Protected>} />
       <Route path={"/growth/missions"} component={() => <Protected><Missions /></Protected>} />

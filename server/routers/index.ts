@@ -10,17 +10,12 @@ import { communityRouter } from "./community";
 import { paymentsRouter } from "./payments";
 import { ordersRouter } from "./orders";
 import { achievementsRouter } from "./achievements";
+import { authRouter } from "./auth";
 
 export const appRouter = router({
   system: systemRouter,
 
-  auth: router({
-    me: publicProcedure.query(({ ctx }) => ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      ctx.res.clearCookie?.("cc_session");
-      return { success: true } as const;
-    }),
-  }),
+  auth: authRouter,
 
   profile: router({
     get: protectedProcedure.query(async ({ ctx }) => (await getCreatorProfile(ctx.user.id)) || null),

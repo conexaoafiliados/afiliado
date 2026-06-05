@@ -1,6 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { getLoginUrl } from "@/const";
 import { Link } from "wouter";
 import { ArrowRight, Zap, BookOpen, ShoppingBag, Users, TrendingUp, Award } from "lucide-react";
 
@@ -24,9 +23,9 @@ export default function Home() {
                 <Button className="btn-primary">Dashboard</Button>
               </Link>
             ) : (
-              <a href={getLoginUrl()}>
+              <Link href="/login">
                 <Button className="btn-primary">Entrar</Button>
-              </a>
+              </Link>
             )}
           </div>
         </div>
@@ -42,12 +41,12 @@ export default function Home() {
             Uma plataforma completa para creators iniciantes crescerem, aprenderem e venderem. Gamificação, educação, comunidade e vendas em um único lugar.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href={getLoginUrl()}>
+            <Link href="/cadastro">
               <Button size="lg" className="btn-primary w-full sm:w-auto">
                 Começar Agora
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
-            </a>
+            </Link>
             <Button size="lg" variant="outline" className="w-full sm:w-auto">
               Saiba Mais
             </Button>
@@ -96,12 +95,12 @@ export default function Home() {
           <p className="text-lg text-muted-foreground mb-8">
             Junte-se a centenas de creators que já estão transformando suas carreiras na plataforma.
           </p>
-          <a href={getLoginUrl()}>
+          <Link href="/cadastro">
             <Button size="lg" className="btn-primary">
               Começar Gratuitamente
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
-          </a>
+          </Link>
         </div>
       </section>
 

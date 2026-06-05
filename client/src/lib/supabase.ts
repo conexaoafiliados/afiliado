@@ -7,7 +7,10 @@ const PLACEHOLDER_MARKERS = ["SEU_PROJETO", "sua_anon_key", "sua_service_role", 
 
 export function getSupabaseConfigError(): string | null {
   if (!supabaseUrl || !supabaseAnonKey) {
-    return "Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no arquivo .env e reinicie npm run dev.";
+    const isProd = typeof window !== "undefined" && !window.location.hostname.includes("localhost");
+    return isProd
+      ? "Variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY não estão configuradas na Vercel. Vá em Settings → Environment Variables, adicione-as e faça Redeploy."
+      : "Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no arquivo .env e reinicie npm run dev.";
   }
   if (PLACEHOLDER_MARKERS.some(m => supabaseUrl.includes(m) || supabaseAnonKey.includes(m))) {
     return "O .env ainda tem valores de exemplo. Copie a URL e a chave anon reais em Supabase → Settings → API.";

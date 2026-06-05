@@ -3,15 +3,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { APP_NAME } from "@/const";
+import { applyAuthSession } from "@/lib/authSession";
 import { getSupabaseConfigError, supabase } from "@/lib/supabase";
+import { trpc } from "@/lib/trpc";
 import { Link, useLocation } from "wouter";
 import { Zap } from "lucide-react";
 
 export default function Login() {
   const [, setLocation] = useLocation();
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const login = trpc.auth.login.useMutation();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   const configError = getSupabaseConfigError();
@@ -22,30 +24,20 @@ export default function Login() {
         <div className="max-w-md text-center space-y-3 text-muted-foreground">
           <p className="font-medium text-foreground">Configuração do Supabase incompleta</p>
           <p className="text-sm">{configError}</p>
-          <p className="text-xs">Depois de editar o .env, pare o terminal (Ctrl+C) e rode <code>npm run dev</code> de novo.</p>
         </div>
       </div>
     );
   }
 
-  async function sendMagicLink(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError("");
-    setMessage("");
-    const redirectTo = `${window.location.origin}/dashboard`;
-    const { error: err } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: redirectTo },
-    });
-    setLoading(false);
-    if (err) {
-      const msg = err.message === "Failed to fetch"
-        ? "Não foi possível conectar ao Supabase. Confira o .env (URL e anon key reais) e as URLs em Authentication → URL Configuration."
-        : err.message;
-      setError(msg);
-    } else {
-      setMessage("Enviamos um link de acesso para seu e-mail. Verifique a caixa de entrada e o spam.");
+    try {
+      const session = await login.mutateAsync({ username, password });
+      await applyAuthSession(session.accessToken, session.refreshToken);
+      setLocation("/dashboard");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Usuário ou senha incorretos");
     }
   }
 
@@ -57,30 +49,43 @@ export default function Login() {
             <Zap className="h-6 w-6 text-white" />
           </div>
           <h1 className="text-2xl font-bold">{APP_NAME}</h1>
-          <p className="text-sm text-muted-foreground">Entre com seu e-mail para acessar o painel</p>
+          <p className="text-sm text-muted-foreground">Entre com usuário e senha</p>
         </div>
-        <form onSubmit={sendMagicLink} className="space-y-4">
+        <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">E-mail</Label>
+            <Label htmlFor="username">Usuário</Label>
             <Input
-              id="email"
-              type="email"
+              id="username"
               required
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="seu@email.com"
+              autoComplete="username"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              placeholder="seu_usuario"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Senha</Label>
+            <Input
+              id="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          {message && <p className="text-sm text-green-600">{message}</p>}
-          <Button type="submit" className="w-full btn-primary" disabled={loading}>
-            {loading ? "Enviando…" : "Receber link de acesso"}
+          <Button type="submit" className="w-full btn-primary" disabled={login.isPending}>
+            {login.isPending ? "Entrando…" : "Entrar"}
           </Button>
         </form>
-        <p className="text-center text-sm">
-          <Link href="/" className="text-accent hover:underline">
-            Voltar ao início
-          </Link>
+        <p className="text-center text-sm space-y-2">
+          <span>
+            Não tem conta?{" "}
+            <Link href="/cadastro" className="text-accent hover:underline">Cadastre-se</Link>
+          </span>
+          <br />
+          <Link href="/" className="text-muted-foreground hover:underline">Voltar ao início</Link>
         </p>
       </div>
     </div>
