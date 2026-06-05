@@ -22,7 +22,10 @@ const registerSchema = z.object({
   number: z.string().optional(),
   neighborhood: z.string().min(1, "Informe o bairro"),
   city: z.string().min(1, "Informe a cidade"),
-  state: z.string().length(2, "UF inválida").optional(),
+  state: z
+    .string()
+    .optional()
+    .transform(s => (s && s.trim().length === 2 ? s.trim().toUpperCase() : undefined)),
   age: z.number().int().min(13, "Idade mínima: 13").max(120),
   tiktokHandle: z.string().min(1, "Informe seu @ do TikTok"),
   instagramHandle: z.string().min(1, "Informe seu @ do Instagram"),
@@ -84,10 +87,11 @@ export const authRouter = router({
     });
 
     if (authError || !authData.user) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: authError?.message ?? "Não foi possível criar a conta",
-      });
+      const msg = authError?.message ?? "Não foi possível criar a conta";
+      if (msg.toLowerCase().includes("already") || msg.toLowerCase().includes("registered")) {
+        throw new TRPCError({ code: "CONFLICT", message: "Este usuário já existe" });
+      }
+      throw new TRPCError({ code: "BAD_REQUEST", message: msg });
     }
 
     const openId = authData.user.id;
@@ -106,31 +110,35 @@ export const authRouter = router({
     });
 
     const dbUser = await getUserByUsername(input.username);
-    if (!dbUser) {
-      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Erro ao salvar perfil" });
+    if (dbUser) {
+      try {
+        await upsertCreatorProfile(dbUser.id, {
+          profileImageUrl: profileImageUrl ?? undefined,
+          cep: input.cep.replace(/\D/g, ""),
+          street: input.street,
+          number: input.number,
+          neighborhood: input.neighborhood,
+          city: input.city,
+          state: input.state,
+          age: input.age,
+          tiktokHandle: input.tiktokHandle.replace(/^@/, ""),
+          instagramHandle: input.instagramHandle.replace(/^@/, ""),
+          platformObjective: input.platformObjective,
+        });
+
+        const target = 2000;
+        const pct = Math.min(100, (input.currentFollowers / target) * 100);
+        await upsertFollowerProgress(dbUser.id, {
+          currentFollowers: input.currentFollowers,
+          targetFollowers: target,
+          progressPercentage: pct.toFixed(2),
+        });
+      } catch (e) {
+        console.warn("[Register] Profile save failed — check DATABASE_URL:", e);
+      }
+    } else {
+      console.warn("[Register] User not in DB — check DATABASE_URL and migration_auth_fields.sql");
     }
-
-    await upsertCreatorProfile(dbUser.id, {
-      profileImageUrl: profileImageUrl ?? undefined,
-      cep: input.cep.replace(/\D/g, ""),
-      street: input.street,
-      number: input.number,
-      neighborhood: input.neighborhood,
-      city: input.city,
-      state: input.state?.toUpperCase(),
-      age: input.age,
-      tiktokHandle: input.tiktokHandle.replace(/^@/, ""),
-      instagramHandle: input.instagramHandle.replace(/^@/, ""),
-      platformObjective: input.platformObjective,
-    });
-
-    const target = 2000;
-    const pct = Math.min(100, (input.currentFollowers / target) * 100);
-    await upsertFollowerProgress(dbUser.id, {
-      currentFollowers: input.currentFollowers,
-      targetFollowers: target,
-      progressPercentage: pct.toFixed(2),
-    });
 
     const { data: signIn, error: signInError } = await admin.auth.signInWithPassword({
       email,

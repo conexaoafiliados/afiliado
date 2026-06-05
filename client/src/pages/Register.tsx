@@ -10,6 +10,7 @@ import { getSupabaseConfigError, supabase } from "@/lib/supabase";
 import { trpc } from "@/lib/trpc";
 import { Link, useLocation } from "wouter";
 import { Loader2, User, Zap } from "lucide-react";
+import { TRPCClientError } from "@trpc/client";
 import { toast } from "sonner";
 
 export default function Register() {
@@ -68,8 +69,8 @@ export default function Register() {
   function onPhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Foto deve ter no máximo 2MB");
+    if (file.size > 800 * 1024) {
+      toast.error("Foto deve ter no máximo 800KB");
       return;
     }
     const reader = new FileReader();
@@ -112,8 +113,13 @@ export default function Register() {
       toast.success("Conta criada com sucesso!");
       setLocation("/dashboard");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erro ao cadastrar";
-      setError(msg);
+      if (err instanceof TRPCClientError) {
+        setError(err.message);
+      } else if (err instanceof Error && err.message.includes("JSON")) {
+        setError("Erro no servidor. Confira SUPABASE_SERVICE_ROLE_KEY e DATABASE_URL na Vercel e faça Redeploy.");
+      } else {
+        setError(err instanceof Error ? err.message : "Erro ao cadastrar");
+      }
     }
   }
 
