@@ -180,6 +180,7 @@ export const authRouter = router({
       })
     )
     .mutation(async ({ input }) => {
+      try {
       const admin = getSupabaseAdmin();
       if (!admin) {
         throw new TRPCError({
@@ -203,19 +204,31 @@ export const authRouter = router({
         });
       }
 
-      await upsertUser({
-        openId: data.user.id,
-        username: input.username.toLowerCase(),
-        name: data.user.user_metadata?.name ?? dbUser?.name,
-        email,
-        loginMethod: "password",
-        lastSignedIn: new Date(),
-      });
+      try {
+        await upsertUser({
+          openId: data.user.id,
+          username: input.username.toLowerCase(),
+          name: data.user.user_metadata?.name ?? dbUser?.name,
+          email,
+          loginMethod: "password",
+          lastSignedIn: new Date(),
+        });
+      } catch (e) {
+        console.warn("[Login] upsertUser failed:", e);
+      }
 
       return {
         accessToken: data.session.access_token,
         refreshToken: data.session.refresh_token,
         expiresIn: data.session.expires_in,
       };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error("[Login]", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao entrar. Tente novamente.",
+        });
+      }
     }),
 });

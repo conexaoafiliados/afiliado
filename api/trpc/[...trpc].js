@@ -2541,8 +2541,35 @@ var analyticsDaily = (0, import_pg_core.pgTable)("analytics_daily", {
 });
 
 // server/_core/env.ts
+function resolveDatabaseUrl(raw) {
+  if (!raw) return "";
+  const override = process.env.DATABASE_POOLER_URL?.trim();
+  if (override) return override;
+  if (raw.includes("pooler.supabase.com")) return raw;
+  try {
+    const normalized = raw.replace(/^postgres:\/\//, "postgresql://");
+    const url = new URL(normalized);
+    let projectRef = url.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/i)?.[1];
+    if (!projectRef) {
+      const supabaseUrl = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
+      projectRef = supabaseUrl.match(/https:\/\/([a-z0-9]+)\.supabase\.co/i)?.[1];
+    }
+    if (!projectRef) return raw;
+    const region = process.env.SUPABASE_POOLER_REGION?.trim() || "us-east-1";
+    const user = url.username === "postgres" ? `postgres.${projectRef}` : url.username;
+    url.protocol = "postgresql:";
+    url.username = user;
+    const poolerHost = process.env.SUPABASE_POOLER_HOST?.trim() || `aws-0-${region}.pooler.supabase.com`;
+    url.hostname = poolerHost;
+    url.port = "6543";
+    if (!url.pathname || url.pathname === "/") url.pathname = "/postgres";
+    return url.toString();
+  } catch {
+    return raw;
+  }
+}
 var ENV = {
-  databaseUrl: process.env.DATABASE_URL ?? "",
+  databaseUrl: resolveDatabaseUrl(process.env.DATABASE_URL ?? ""),
   supabaseUrl: process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "",
   supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
   supabaseJwtSecret: process.env.SUPABASE_JWT_SECRET ?? "",
@@ -2603,14 +2630,18 @@ async function upsertUser(user) {
     });
   } catch (error) {
     console.error("[Database] upsertUser failed:", error);
-    throw error;
   }
 }
 async function getUserByOpenId(openId) {
   const db = await getDb();
   if (!db) return void 0;
-  const result = await db.select().from(users).where((0, import_drizzle_orm.eq)(users.openId, openId)).limit(1);
-  return result[0];
+  try {
+    const result = await db.select().from(users).where((0, import_drizzle_orm.eq)(users.openId, openId)).limit(1);
+    return result[0];
+  } catch (error) {
+    console.error("[Database] getUserByOpenId failed:", error);
+    return void 0;
+  }
 }
 async function getUserByUsername(username) {
   const db = await getDb();
@@ -8276,38 +8307,51 @@ var authRouter = router({
       password: external_exports.string().min(1)
     })
   ).mutation(async ({ input }) => {
-    const admin = getSupabaseAdmin();
-    if (!admin) {
+    try {
+      const admin = getSupabaseAdmin();
+      if (!admin) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Servidor sem SUPABASE_SERVICE_ROLE_KEY configurada"
+        });
+      }
+      const dbUser = await getUserByUsername(input.username);
+      const email = dbUser?.email ?? authEmailForUsername(input.username);
+      const { data, error } = await admin.auth.signInWithPassword({
+        email,
+        password: input.password
+      });
+      if (error || !data.session) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Usu\xE1rio ou senha incorretos"
+        });
+      }
+      try {
+        await upsertUser({
+          openId: data.user.id,
+          username: input.username.toLowerCase(),
+          name: data.user.user_metadata?.name ?? dbUser?.name,
+          email,
+          loginMethod: "password",
+          lastSignedIn: /* @__PURE__ */ new Date()
+        });
+      } catch (e) {
+        console.warn("[Login] upsertUser failed:", e);
+      }
+      return {
+        accessToken: data.session.access_token,
+        refreshToken: data.session.refresh_token,
+        expiresIn: data.session.expires_in
+      };
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+      console.error("[Login]", error);
       throw new TRPCError({
-        code: "PRECONDITION_FAILED",
-        message: "Servidor sem SUPABASE_SERVICE_ROLE_KEY configurada"
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Erro ao entrar. Tente novamente."
       });
     }
-    const dbUser = await getUserByUsername(input.username);
-    const email = dbUser?.email ?? authEmailForUsername(input.username);
-    const { data, error } = await admin.auth.signInWithPassword({
-      email,
-      password: input.password
-    });
-    if (error || !data.session) {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "Usu\xE1rio ou senha incorretos"
-      });
-    }
-    await upsertUser({
-      openId: data.user.id,
-      username: input.username.toLowerCase(),
-      name: data.user.user_metadata?.name ?? dbUser?.name,
-      email,
-      loginMethod: "password",
-      lastSignedIn: /* @__PURE__ */ new Date()
-    });
-    return {
-      accessToken: data.session.access_token,
-      refreshToken: data.session.refresh_token,
-      expiresIn: data.session.expires_in
-    };
   })
 });
 

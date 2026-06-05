@@ -83,15 +83,19 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       });
   } catch (error) {
     console.error("[Database] upsertUser failed:", error);
-    throw error;
   }
 }
 
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-  return result[0];
+  try {
+    const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+    return result[0];
+  } catch (error) {
+    console.error("[Database] getUserByOpenId failed:", error);
+    return undefined;
+  }
 }
 
 export async function getUserByUsername(username: string) {
