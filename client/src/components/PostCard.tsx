@@ -9,8 +9,8 @@ function renderContent(content: string) {
   const parts = content.split(/(@[a-zA-Z0-9_]+)/g);
   return parts.map((part, i) =>
     part.startsWith("@") ? (
-      <Link key={i} href={`/profile/${part.slice(1)}`}>
-        <a className="text-accent font-medium hover:underline">{part}</a>
+      <Link key={i} href={`/profile/${part.slice(1)}`} className="text-accent font-medium hover:underline">
+        {part}
       </Link>
     ) : (
       <span key={i}>{part}</span>
@@ -57,8 +57,8 @@ export function PostCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             {authorUsername ? (
-              <Link href={`/profile/${authorUsername}`}>
-                <a className="font-semibold hover:underline truncate">{author}</a>
+              <Link href={`/profile/${authorUsername}`} className="font-semibold hover:underline truncate">
+                {author}
               </Link>
             ) : (
               <h4 className="font-semibold truncate">{author}</h4>

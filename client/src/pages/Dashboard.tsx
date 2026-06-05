@@ -20,6 +20,10 @@ export default function Dashboard() {
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
   });
+  const { data: analytics } = trpc.analytics.overview.useQuery(undefined, {
+    enabled: hasDbUser,
+    retry: false,
+  });
 
   if (!user) {
     return (
@@ -131,7 +135,7 @@ export default function Dashboard() {
         <StatBox
           icon={<ShoppingBag className="w-8 h-8" />}
           label="Produtos Vendidos"
-          value={hasDbUser ? "—" : "0"}
+          value={analytics?.sales?.paidOrders ?? 0}
         />
       </div>
 

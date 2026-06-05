@@ -10,11 +10,13 @@ import {
   InsertCreatorProfile,
   InsertFollowerProgress,
   InsertUser,
+  type FollowerHistory,
   achievements,
   missions,
   notifications,
   postComments,
   postLikes,
+  productOrders,
   products,
   userAchievements,
   userCourses,
@@ -44,6 +46,136 @@ export async function getDb() {
     }
   }
   return _db;
+}
+
+let _parentCommentColumnExists: boolean | undefined;
+
+async function hasParentCommentColumn(): Promise<boolean> {
+  if (_parentCommentColumnExists !== undefined) return _parentCommentColumnExists;
+  const db = await getDb();
+  if (!db) {
+    _parentCommentColumnExists = false;
+    return false;
+  }
+  try {
+    const rows = await db.execute<{ exists: boolean }>(sql`
+      SELECT EXISTS (
+        SELECT 1
+        FROM pg_attribute a
+        JOIN pg_class c ON a.attrelid = c.oid
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE n.nspname = 'public'
+          AND c.relname = 'post_comments'
+          AND a.attname = 'parentCommentId'
+          AND NOT a.attisdropped
+      ) AS exists
+    `);
+    const row = rows[0] as { exists?: boolean } | undefined;
+    _parentCommentColumnExists = Boolean(row?.exists);
+  } catch {
+    _parentCommentColumnExists = false;
+  }
+  return _parentCommentColumnExists;
+}
+
+type PostCommentRow = {
+  id: number;
+  postId: number;
+  userId: number;
+  content: string;
+  createdAt: Date;
+  parentCommentId?: number | null;
+};
+
+async function fetchPostCommentsForPost(postId: number): Promise<PostCommentRow[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  if (await hasParentCommentColumn()) {
+    return db
+      .select()
+      .from(postComments)
+      .where(eq(postComments.postId, postId))
+      .orderBy(asc(postComments.createdAt));
+  }
+
+  const rows = await db
+    .select({
+      id: postComments.id,
+      postId: postComments.postId,
+      userId: postComments.userId,
+      content: postComments.content,
+      createdAt: postComments.createdAt,
+    })
+    .from(postComments)
+    .where(eq(postComments.postId, postId))
+    .orderBy(asc(postComments.createdAt));
+
+  return rows.map(r => ({ ...r, parentCommentId: null }));
+}
+
+async function fetchPostCommentById(commentId: number): Promise<PostCommentRow | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  if (await hasParentCommentColumn()) {
+    const result = await db
+      .select()
+      .from(postComments)
+      .where(eq(postComments.id, commentId))
+      .limit(1);
+    return result[0];
+  }
+
+  const rows = await db
+    .select({
+      id: postComments.id,
+      postId: postComments.postId,
+      userId: postComments.userId,
+      content: postComments.content,
+      createdAt: postComments.createdAt,
+    })
+    .from(postComments)
+    .where(eq(postComments.id, commentId))
+    .limit(1);
+
+  const row = rows[0];
+  return row ? { ...row, parentCommentId: null } : undefined;
+}
+
+async function insertPostComment(
+  postId: number,
+  userId: number,
+  content: string,
+  parentCommentId?: number
+): Promise<number | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  if (await hasParentCommentColumn()) {
+    const [comment] = await db
+      .insert(postComments)
+      .values({ postId, userId, content, parentCommentId: parentCommentId ?? null })
+      .returning({ id: postComments.id });
+    return comment?.id ?? null;
+  }
+
+  let finalContent = content;
+  if (parentCommentId) {
+    const parent = await fetchPostCommentById(parentCommentId);
+    if (!parent || parent.postId !== postId) return null;
+    const parentUser = await getUserById(parent.userId);
+    if (parentUser?.username) {
+      finalContent = `@${parentUser.username} ${content}`;
+    }
+  }
+
+  const [comment] = await db
+    .insert(postComments)
+    .values({ postId, userId, content: finalContent })
+    .returning({ id: postComments.id });
+
+  return comment?.id ?? null;
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
@@ -209,6 +341,184 @@ export async function getFollowerHistory(userId: number, limit = 30) {
       .limit(limit);
   } catch {
     return [];
+  }
+}
+
+export type FollowerChartPoint = {
+  date: string;
+  followers: number;
+  source: string;
+};
+
+export function buildFollowerChart(
+  history: FollowerHistory[],
+  currentFollowers: number,
+  source = "manual"
+): FollowerChartPoint[] {
+  const sorted = [...history].sort(
+    (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
+  );
+
+  const byDay = new Map<string, FollowerChartPoint & { recordedAt: Date }>();
+  for (const h of sorted) {
+    const date = new Date(h.recordedAt).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "short",
+    });
+    byDay.set(date, {
+      date,
+      followers: h.followers,
+      source: h.source,
+      recordedAt: new Date(h.recordedAt),
+    });
+  }
+
+  const today = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  const todayEntry = byDay.get(today);
+  if (!todayEntry || todayEntry.followers !== currentFollowers) {
+    byDay.set(today, {
+      date: today,
+      followers: currentFollowers,
+      source,
+      recordedAt: new Date(),
+    });
+  }
+
+  let chart = [...byDay.values()]
+    .sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime())
+    .map(({ date, followers, source: src }) => ({ date, followers, source: src }));
+
+  if (chart.length === 1 && currentFollowers > 0) {
+    chart = [
+      { date: "Início", followers: 0, source: "manual" },
+      chart[0],
+    ];
+  }
+
+  return chart;
+}
+
+export async function getSellerSalesAnalytics(userId: number) {
+  const db = await getDb();
+  const empty = {
+    totalOrders: 0,
+    paidOrders: 0,
+    totalRevenue: 0,
+    pendingRevenue: 0,
+    recentOrders: [] as Array<{
+      id: number;
+      productTitle: string;
+      totalPrice: string;
+      status: string;
+      createdAt: Date;
+    }>,
+    salesChart: [] as Array<{ date: string; revenue: number; orders: number }>,
+  };
+  if (!db) return empty;
+
+  try {
+    const orders = await db
+      .select({
+        id: productOrders.id,
+        totalPrice: productOrders.totalPrice,
+        status: productOrders.status,
+        createdAt: productOrders.createdAt,
+        productTitle: products.title,
+      })
+      .from(productOrders)
+      .innerJoin(products, eq(productOrders.productId, products.id))
+      .where(eq(products.userId, userId))
+      .orderBy(desc(productOrders.createdAt))
+      .limit(50);
+
+    const paidStatuses = new Set(["paid", "delivered", "shipped"]);
+    let totalOrders = 0;
+    let paidOrders = 0;
+    let totalRevenue = 0;
+    let pendingRevenue = 0;
+    const salesByDay = new Map<string, { revenue: number; orders: number }>();
+
+    for (const o of orders) {
+      totalOrders += 1;
+      const price = parseFloat(String(o.totalPrice)) || 0;
+      const day = new Date(o.createdAt).toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "short",
+      });
+      const bucket = salesByDay.get(day) ?? { revenue: 0, orders: 0 };
+
+      if (paidStatuses.has(o.status)) {
+        paidOrders += 1;
+        totalRevenue += price;
+        bucket.revenue += price;
+        bucket.orders += 1;
+      } else if (o.status === "pending") {
+        pendingRevenue += price;
+      }
+
+      salesByDay.set(day, bucket);
+    }
+
+    const salesChart = [...salesByDay.entries()]
+      .map(([date, stats]) => ({ date, ...stats }))
+      .reverse()
+      .slice(0, 14)
+      .reverse();
+
+    return {
+      totalOrders,
+      paidOrders,
+      totalRevenue,
+      pendingRevenue,
+      recentOrders: orders.slice(0, 6).map(o => ({
+        id: o.id,
+        productTitle: o.productTitle,
+        totalPrice: String(o.totalPrice),
+        status: o.status,
+        createdAt: o.createdAt,
+      })),
+      salesChart,
+    };
+  } catch (e) {
+    console.warn("[Analytics] seller sales query failed:", e);
+    return empty;
+  }
+}
+
+export async function getUserCommunityAnalytics(userId: number) {
+  const db = await getDb();
+  const empty = { posts: 0, likesReceived: 0, commentsReceived: 0, platformFollowers: 0 };
+  if (!db) return empty;
+
+  try {
+    const [postsRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(communityPosts)
+      .where(eq(communityPosts.userId, userId));
+
+    const [likesRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(postLikes)
+      .innerJoin(communityPosts, eq(postLikes.postId, communityPosts.id))
+      .where(eq(communityPosts.userId, userId));
+
+    const [commentsRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(postComments)
+      .innerJoin(communityPosts, eq(postComments.postId, communityPosts.id))
+      .where(eq(communityPosts.userId, userId));
+
+    const followStats = await getFollowStats(userId);
+
+    return {
+      posts: postsRow?.count ?? 0,
+      likesReceived: likesRow?.count ?? 0,
+      commentsReceived: commentsRow?.count ?? 0,
+      platformFollowers: followStats.followers,
+    };
+  } catch (e) {
+    console.warn("[Analytics] community stats query failed:", e);
+    return empty;
   }
 }
 
@@ -557,20 +867,13 @@ export async function togglePostLike(userId: number, postId: number) {
 }
 
 export async function getPostCommentById(commentId: number) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select().from(postComments).where(eq(postComments.id, commentId)).limit(1);
-  return result[0];
+  return fetchPostCommentById(commentId);
 }
 
 export async function getPostComments(postId: number) {
   const db = await getDb();
   if (!db) return [];
-  const comments = await db
-    .select()
-    .from(postComments)
-    .where(eq(postComments.postId, postId))
-    .orderBy(asc(postComments.createdAt));
+  const comments = await fetchPostCommentsForPost(postId);
 
   if (comments.length === 0) return [];
 
@@ -615,14 +918,12 @@ export async function createPostComment(
   if (!post) return null;
 
   if (parentCommentId) {
-    const parent = await getPostCommentById(parentCommentId);
+    const parent = await fetchPostCommentById(parentCommentId);
     if (!parent || parent.postId !== postId) return null;
   }
 
-  const [comment] = await db
-    .insert(postComments)
-    .values({ postId, userId, content, parentCommentId: parentCommentId ?? null })
-    .returning({ id: postComments.id });
+  const commentId = await insertPostComment(postId, userId, content, parentCommentId);
+  if (!commentId) return null;
 
   const actor = await getUserById(userId);
   const actorLabel = actor?.name || actor?.username || "Alguém";
@@ -662,7 +963,7 @@ export async function createPostComment(
     excludeUserId: excludeMention,
   });
 
-  return comment?.id ?? null;
+  return commentId;
 }
 
 async function notifyMentionsInContent(opts: {

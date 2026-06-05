@@ -2698,6 +2698,85 @@ async function getDb() {
   }
   return _db;
 }
+var _parentCommentColumnExists;
+async function hasParentCommentColumn() {
+  if (_parentCommentColumnExists !== void 0) return _parentCommentColumnExists;
+  const db = await getDb();
+  if (!db) {
+    _parentCommentColumnExists = false;
+    return false;
+  }
+  try {
+    const rows = await db.execute(import_drizzle_orm.sql`
+      SELECT EXISTS (
+        SELECT 1
+        FROM pg_attribute a
+        JOIN pg_class c ON a.attrelid = c.oid
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE n.nspname = 'public'
+          AND c.relname = 'post_comments'
+          AND a.attname = 'parentCommentId'
+          AND NOT a.attisdropped
+      ) AS exists
+    `);
+    const row = rows[0];
+    _parentCommentColumnExists = Boolean(row?.exists);
+  } catch {
+    _parentCommentColumnExists = false;
+  }
+  return _parentCommentColumnExists;
+}
+async function fetchPostCommentsForPost(postId) {
+  const db = await getDb();
+  if (!db) return [];
+  if (await hasParentCommentColumn()) {
+    return db.select().from(postComments).where((0, import_drizzle_orm.eq)(postComments.postId, postId)).orderBy((0, import_drizzle_orm.asc)(postComments.createdAt));
+  }
+  const rows = await db.select({
+    id: postComments.id,
+    postId: postComments.postId,
+    userId: postComments.userId,
+    content: postComments.content,
+    createdAt: postComments.createdAt
+  }).from(postComments).where((0, import_drizzle_orm.eq)(postComments.postId, postId)).orderBy((0, import_drizzle_orm.asc)(postComments.createdAt));
+  return rows.map((r) => ({ ...r, parentCommentId: null }));
+}
+async function fetchPostCommentById(commentId) {
+  const db = await getDb();
+  if (!db) return void 0;
+  if (await hasParentCommentColumn()) {
+    const result = await db.select().from(postComments).where((0, import_drizzle_orm.eq)(postComments.id, commentId)).limit(1);
+    return result[0];
+  }
+  const rows = await db.select({
+    id: postComments.id,
+    postId: postComments.postId,
+    userId: postComments.userId,
+    content: postComments.content,
+    createdAt: postComments.createdAt
+  }).from(postComments).where((0, import_drizzle_orm.eq)(postComments.id, commentId)).limit(1);
+  const row = rows[0];
+  return row ? { ...row, parentCommentId: null } : void 0;
+}
+async function insertPostComment(postId, userId, content, parentCommentId) {
+  const db = await getDb();
+  if (!db) return null;
+  if (await hasParentCommentColumn()) {
+    const [comment2] = await db.insert(postComments).values({ postId, userId, content, parentCommentId: parentCommentId ?? null }).returning({ id: postComments.id });
+    return comment2?.id ?? null;
+  }
+  let finalContent = content;
+  if (parentCommentId) {
+    const parent = await fetchPostCommentById(parentCommentId);
+    if (!parent || parent.postId !== postId) return null;
+    const parentUser = await getUserById(parent.userId);
+    if (parentUser?.username) {
+      finalContent = `@${parentUser.username} ${content}`;
+    }
+  }
+  const [comment] = await db.insert(postComments).values({ postId, userId, content: finalContent }).returning({ id: postComments.id });
+  return comment?.id ?? null;
+}
 async function upsertUser(user) {
   if (!user.openId) throw new Error("User openId is required for upsert");
   const db = await getDb();
@@ -2830,6 +2909,125 @@ async function getFollowerHistory(userId, limit = 30) {
     return db.select().from(followerHistory).where((0, import_drizzle_orm.eq)(followerHistory.userId, userId)).orderBy((0, import_drizzle_orm.desc)(followerHistory.recordedAt)).limit(limit);
   } catch {
     return [];
+  }
+}
+function buildFollowerChart(history, currentFollowers, source = "manual") {
+  const sorted = [...history].sort(
+    (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
+  );
+  const byDay = /* @__PURE__ */ new Map();
+  for (const h of sorted) {
+    const date = new Date(h.recordedAt).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "short"
+    });
+    byDay.set(date, {
+      date,
+      followers: h.followers,
+      source: h.source,
+      recordedAt: new Date(h.recordedAt)
+    });
+  }
+  const today = (/* @__PURE__ */ new Date()).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  const todayEntry = byDay.get(today);
+  if (!todayEntry || todayEntry.followers !== currentFollowers) {
+    byDay.set(today, {
+      date: today,
+      followers: currentFollowers,
+      source,
+      recordedAt: /* @__PURE__ */ new Date()
+    });
+  }
+  let chart = [...byDay.values()].sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime()).map(({ date, followers, source: src }) => ({ date, followers, source: src }));
+  if (chart.length === 1 && currentFollowers > 0) {
+    chart = [
+      { date: "In\xEDcio", followers: 0, source: "manual" },
+      chart[0]
+    ];
+  }
+  return chart;
+}
+async function getSellerSalesAnalytics(userId) {
+  const db = await getDb();
+  const empty = {
+    totalOrders: 0,
+    paidOrders: 0,
+    totalRevenue: 0,
+    pendingRevenue: 0,
+    recentOrders: [],
+    salesChart: []
+  };
+  if (!db) return empty;
+  try {
+    const orders = await db.select({
+      id: productOrders.id,
+      totalPrice: productOrders.totalPrice,
+      status: productOrders.status,
+      createdAt: productOrders.createdAt,
+      productTitle: products.title
+    }).from(productOrders).innerJoin(products, (0, import_drizzle_orm.eq)(productOrders.productId, products.id)).where((0, import_drizzle_orm.eq)(products.userId, userId)).orderBy((0, import_drizzle_orm.desc)(productOrders.createdAt)).limit(50);
+    const paidStatuses = /* @__PURE__ */ new Set(["paid", "delivered", "shipped"]);
+    let totalOrders = 0;
+    let paidOrders = 0;
+    let totalRevenue = 0;
+    let pendingRevenue = 0;
+    const salesByDay = /* @__PURE__ */ new Map();
+    for (const o of orders) {
+      totalOrders += 1;
+      const price = parseFloat(String(o.totalPrice)) || 0;
+      const day = new Date(o.createdAt).toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "short"
+      });
+      const bucket = salesByDay.get(day) ?? { revenue: 0, orders: 0 };
+      if (paidStatuses.has(o.status)) {
+        paidOrders += 1;
+        totalRevenue += price;
+        bucket.revenue += price;
+        bucket.orders += 1;
+      } else if (o.status === "pending") {
+        pendingRevenue += price;
+      }
+      salesByDay.set(day, bucket);
+    }
+    const salesChart = [...salesByDay.entries()].map(([date, stats]) => ({ date, ...stats })).reverse().slice(0, 14).reverse();
+    return {
+      totalOrders,
+      paidOrders,
+      totalRevenue,
+      pendingRevenue,
+      recentOrders: orders.slice(0, 6).map((o) => ({
+        id: o.id,
+        productTitle: o.productTitle,
+        totalPrice: String(o.totalPrice),
+        status: o.status,
+        createdAt: o.createdAt
+      })),
+      salesChart
+    };
+  } catch (e) {
+    console.warn("[Analytics] seller sales query failed:", e);
+    return empty;
+  }
+}
+async function getUserCommunityAnalytics(userId) {
+  const db = await getDb();
+  const empty = { posts: 0, likesReceived: 0, commentsReceived: 0, platformFollowers: 0 };
+  if (!db) return empty;
+  try {
+    const [postsRow] = await db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(communityPosts).where((0, import_drizzle_orm.eq)(communityPosts.userId, userId));
+    const [likesRow] = await db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(postLikes).innerJoin(communityPosts, (0, import_drizzle_orm.eq)(postLikes.postId, communityPosts.id)).where((0, import_drizzle_orm.eq)(communityPosts.userId, userId));
+    const [commentsRow] = await db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(postComments).innerJoin(communityPosts, (0, import_drizzle_orm.eq)(postComments.postId, communityPosts.id)).where((0, import_drizzle_orm.eq)(communityPosts.userId, userId));
+    const followStats = await getFollowStats(userId);
+    return {
+      posts: postsRow?.count ?? 0,
+      likesReceived: likesRow?.count ?? 0,
+      commentsReceived: commentsRow?.count ?? 0,
+      platformFollowers: followStats.followers
+    };
+  } catch (e) {
+    console.warn("[Analytics] community stats query failed:", e);
+    return empty;
   }
 }
 async function saveTikTokConnection(userId, data) {
@@ -3090,15 +3288,12 @@ async function togglePostLike(userId, postId) {
   return { liked, likes: newCount };
 }
 async function getPostCommentById(commentId) {
-  const db = await getDb();
-  if (!db) return void 0;
-  const result = await db.select().from(postComments).where((0, import_drizzle_orm.eq)(postComments.id, commentId)).limit(1);
-  return result[0];
+  return fetchPostCommentById(commentId);
 }
 async function getPostComments(postId) {
   const db = await getDb();
   if (!db) return [];
-  const comments = await db.select().from(postComments).where((0, import_drizzle_orm.eq)(postComments.postId, postId)).orderBy((0, import_drizzle_orm.asc)(postComments.createdAt));
+  const comments = await fetchPostCommentsForPost(postId);
   if (comments.length === 0) return [];
   const userIds = [...new Set(comments.map((c) => c.userId))];
   const authors = await db.select({
@@ -3129,10 +3324,11 @@ async function createPostComment(userId, postId, content, parentCommentId) {
   const post = await getCommunityPostById(postId);
   if (!post) return null;
   if (parentCommentId) {
-    const parent = await getPostCommentById(parentCommentId);
+    const parent = await fetchPostCommentById(parentCommentId);
     if (!parent || parent.postId !== postId) return null;
   }
-  const [comment] = await db.insert(postComments).values({ postId, userId, content, parentCommentId: parentCommentId ?? null }).returning({ id: postComments.id });
+  const commentId = await insertPostComment(postId, userId, content, parentCommentId);
+  if (!commentId) return null;
   const actor = await getUserById(userId);
   const actorLabel = actor?.name || actor?.username || "Algu\xE9m";
   if (parentCommentId) {
@@ -3165,7 +3361,7 @@ async function createPostComment(userId, postId, content, parentCommentId) {
     context: parentCommentId ? "mencionou voc\xEA em uma resposta" : "mencionou voc\xEA em um coment\xE1rio",
     excludeUserId: excludeMention
   });
-  return comment?.id ?? null;
+  return commentId;
 }
 async function notifyMentionsInContent(opts) {
   const usernames = extractMentionUsernames(opts.content);
@@ -9023,73 +9219,42 @@ var authRouter = router({
 });
 
 // server/routers/analytics.ts
-var import_drizzle_orm3 = require("drizzle-orm");
 var analyticsRouter = router({
   overview: protectedProcedure.query(async ({ ctx }) => {
-    const progress = await getFollowerProgress(ctx.user.id);
-    const profile = await getCreatorProfile(ctx.user.id);
-    const history = await getFollowerHistory(ctx.user.id, 14);
-    const db = await getDb();
-    let sales = {
-      totalOrders: 0,
-      paidOrders: 0,
-      totalRevenue: 0,
-      pendingRevenue: 0,
-      recentOrders: []
-    };
-    if (db) {
-      try {
-        const orders = await db.select({
-          id: productOrders.id,
-          totalPrice: productOrders.totalPrice,
-          status: productOrders.status,
-          createdAt: productOrders.createdAt,
-          productTitle: products.title
-        }).from(productOrders).innerJoin(products, (0, import_drizzle_orm3.eq)(productOrders.productId, products.id)).where((0, import_drizzle_orm3.eq)(productOrders.userId, ctx.user.id)).orderBy(import_drizzle_orm3.sql`${productOrders.createdAt} DESC`).limit(20);
-        sales.recentOrders = orders.map((o) => ({
-          id: o.id,
-          productTitle: o.productTitle,
-          totalPrice: String(o.totalPrice),
-          status: o.status,
-          createdAt: o.createdAt
-        }));
-        for (const o of orders) {
-          sales.totalOrders += 1;
-          const price = parseFloat(String(o.totalPrice)) || 0;
-          if (o.status === "paid" || o.status === "delivered" || o.status === "shipped") {
-            sales.paidOrders += 1;
-            sales.totalRevenue += price;
-          } else if (o.status === "pending") {
-            sales.pendingRevenue += price;
-          }
-        }
-      } catch (e) {
-        console.warn("[Analytics] orders query failed:", e);
-      }
-    }
-    const followerChart = [...history].reverse().map((h) => ({
-      date: new Date(h.recordedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
-      followers: h.followers,
-      source: h.source
-    }));
+    const [progress, profile, history, sales, community] = await Promise.all([
+      getFollowerProgress(ctx.user.id),
+      getCreatorProfile(ctx.user.id),
+      getFollowerHistory(ctx.user.id, 30),
+      getSellerSalesAnalytics(ctx.user.id),
+      getUserCommunityAnalytics(ctx.user.id)
+    ]);
     const current = progress?.currentFollowers ?? 0;
     const target = progress?.targetFollowers ?? 2e3;
+    const source = progress?.source ?? "manual";
+    const followerChart = buildFollowerChart(history, current, source);
+    const firstFollowers = followerChart[0]?.followers ?? 0;
+    const lastFollowers = followerChart[followerChart.length - 1]?.followers ?? current;
+    const followerGrowth = lastFollowers - firstFollowers;
+    const followerGrowthPct = firstFollowers > 0 ? (lastFollowers - firstFollowers) / firstFollowers * 100 : lastFollowers > 0 ? 100 : 0;
     return {
       tiktok: {
         linked: Boolean(profile?.tiktokLinkedAt),
         handle: profile?.tiktokHandle ?? null,
         displayName: profile?.tiktokDisplayName ?? null,
         lastSyncAt: progress?.tiktokLastSyncAt ?? null,
-        source: progress?.source ?? "manual"
+        source
       },
       followers: {
         current,
         target,
         remaining: Math.max(0, target - current),
-        progressPercentage: progress?.progressPercentage ? parseFloat(String(progress.progressPercentage)) : current / target * 100
+        progressPercentage: progress?.progressPercentage ? parseFloat(String(progress.progressPercentage)) : target > 0 ? current / target * 100 : 0,
+        growth: followerGrowth,
+        growthPct: followerGrowthPct
       },
       followerChart,
-      sales
+      sales,
+      community
     };
   })
 });

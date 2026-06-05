@@ -1,78 +1,37 @@
-import { eq, sql } from "drizzle-orm";
-import { productOrders, products } from "../../drizzle/schema";
-import { getCreatorProfile, getDb, getFollowerHistory, getFollowerProgress } from "../db";
+import {
+  buildFollowerChart,
+  getCreatorProfile,
+  getFollowerHistory,
+  getFollowerProgress,
+  getSellerSalesAnalytics,
+  getUserCommunityAnalytics,
+} from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
 
 export const analyticsRouter = router({
   overview: protectedProcedure.query(async ({ ctx }) => {
-    const progress = await getFollowerProgress(ctx.user.id);
-    const profile = await getCreatorProfile(ctx.user.id);
-    const history = await getFollowerHistory(ctx.user.id, 14);
-    const db = await getDb();
-
-    let sales = {
-      totalOrders: 0,
-      paidOrders: 0,
-      totalRevenue: 0,
-      pendingRevenue: 0,
-      recentOrders: [] as Array<{
-        id: number;
-        productTitle: string;
-        totalPrice: string;
-        status: string;
-        createdAt: Date;
-      }>,
-    };
-
-    if (db) {
-      try {
-        const orders = await db
-          .select({
-            id: productOrders.id,
-            totalPrice: productOrders.totalPrice,
-            status: productOrders.status,
-            createdAt: productOrders.createdAt,
-            productTitle: products.title,
-          })
-          .from(productOrders)
-          .innerJoin(products, eq(productOrders.productId, products.id))
-          .where(eq(productOrders.userId, ctx.user.id))
-          .orderBy(sql`${productOrders.createdAt} DESC`)
-          .limit(20);
-
-        sales.recentOrders = orders.map(o => ({
-          id: o.id,
-          productTitle: o.productTitle,
-          totalPrice: String(o.totalPrice),
-          status: o.status,
-          createdAt: o.createdAt,
-        }));
-
-        for (const o of orders) {
-          sales.totalOrders += 1;
-          const price = parseFloat(String(o.totalPrice)) || 0;
-          if (o.status === "paid" || o.status === "delivered" || o.status === "shipped") {
-            sales.paidOrders += 1;
-            sales.totalRevenue += price;
-          } else if (o.status === "pending") {
-            sales.pendingRevenue += price;
-          }
-        }
-      } catch (e) {
-        console.warn("[Analytics] orders query failed:", e);
-      }
-    }
-
-    const followerChart = [...history]
-      .reverse()
-      .map(h => ({
-        date: new Date(h.recordedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
-        followers: h.followers,
-        source: h.source,
-      }));
+    const [progress, profile, history, sales, community] = await Promise.all([
+      getFollowerProgress(ctx.user.id),
+      getCreatorProfile(ctx.user.id),
+      getFollowerHistory(ctx.user.id, 30),
+      getSellerSalesAnalytics(ctx.user.id),
+      getUserCommunityAnalytics(ctx.user.id),
+    ]);
 
     const current = progress?.currentFollowers ?? 0;
     const target = progress?.targetFollowers ?? 2000;
+    const source = progress?.source ?? "manual";
+    const followerChart = buildFollowerChart(history, current, source);
+
+    const firstFollowers = followerChart[0]?.followers ?? 0;
+    const lastFollowers = followerChart[followerChart.length - 1]?.followers ?? current;
+    const followerGrowth = lastFollowers - firstFollowers;
+    const followerGrowthPct =
+      firstFollowers > 0
+        ? ((lastFollowers - firstFollowers) / firstFollowers) * 100
+        : lastFollowers > 0
+          ? 100
+          : 0;
 
     return {
       tiktok: {
@@ -80,7 +39,7 @@ export const analyticsRouter = router({
         handle: profile?.tiktokHandle ?? null,
         displayName: profile?.tiktokDisplayName ?? null,
         lastSyncAt: progress?.tiktokLastSyncAt ?? null,
-        source: progress?.source ?? "manual",
+        source,
       },
       followers: {
         current,
@@ -88,10 +47,15 @@ export const analyticsRouter = router({
         remaining: Math.max(0, target - current),
         progressPercentage: progress?.progressPercentage
           ? parseFloat(String(progress.progressPercentage))
-          : (current / target) * 100,
+          : target > 0
+            ? (current / target) * 100
+            : 0,
+        growth: followerGrowth,
+        growthPct: followerGrowthPct,
       },
       followerChart,
       sales,
+      community,
     };
   }),
 });

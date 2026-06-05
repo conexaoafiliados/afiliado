@@ -74,7 +74,7 @@ export default function PublicProfile() {
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Banner + avatar */}
       <Card className="card-elegant overflow-hidden p-0">
-        <div className="relative h-36 md:h-44 bg-gradient-to-r from-accent/30 via-secondary/30 to-accent/20">
+        <div className="relative aspect-[3/1] max-h-52 bg-gradient-to-r from-accent/30 via-secondary/30 to-accent/20">
           {profile.bannerImageUrl ? (
             <img src={profile.bannerImageUrl} alt="Banner" className="w-full h-full object-cover" />
           ) : null}

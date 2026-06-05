@@ -24,8 +24,8 @@ function renderContent(content: string) {
   const parts = content.split(/(@[a-zA-Z0-9_]+)/g);
   return parts.map((part, i) =>
     part.startsWith("@") ? (
-      <Link key={i} href={`/profile/${part.slice(1)}`}>
-        <a className="text-accent font-medium hover:underline">{part}</a>
+      <Link key={i} href={`/profile/${part.slice(1)}`} className="text-accent font-medium hover:underline">
+        {part}
       </Link>
     ) : (
       <span key={i}>{part}</span>
@@ -46,7 +46,6 @@ function CommentItem({
 }) {
   const [replying, setReplying] = useState(false);
   const [replyText, setReplyText] = useState("");
-  const utils = trpc.useUtils();
 
   const addReply = trpc.community.comment.useMutation({
     onSuccess: () => {
@@ -70,8 +69,11 @@ function CommentItem({
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2 mb-0.5">
             {comment.authorUsername ? (
-              <Link href={`/profile/${comment.authorUsername}`}>
-                <a className="font-medium hover:underline truncate">{comment.authorName}</a>
+              <Link
+                href={`/profile/${comment.authorUsername}`}
+                className="font-medium hover:underline truncate"
+              >
+                {comment.authorName}
               </Link>
             ) : (
               <span className="font-medium truncate">{comment.authorName}</span>
@@ -105,8 +107,11 @@ function CommentItem({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2 mb-0.5">
                   {reply.authorUsername ? (
-                    <Link href={`/profile/${reply.authorUsername}`}>
-                      <a className="font-medium hover:underline truncate text-sm">{reply.authorName}</a>
+                    <Link
+                      href={`/profile/${reply.authorUsername}`}
+                      className="font-medium hover:underline truncate text-sm"
+                    >
+                      {reply.authorName}
                     </Link>
                   ) : (
                     <span className="font-medium truncate text-sm">{reply.authorName}</span>
@@ -158,7 +163,13 @@ function CommentItem({
 export function CommentSection({ postId }: { postId: number }) {
   const [text, setText] = useState("");
   const utils = trpc.useUtils();
-  const { data: comments, isLoading } = trpc.community.comments.useQuery({ postId });
+  const {
+    data: comments,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = trpc.community.comments.useQuery({ postId }, { retry: 1 });
 
   const addComment = trpc.community.comment.useMutation({
     onSuccess: () => {
@@ -174,10 +185,11 @@ export function CommentSection({ postId }: { postId: number }) {
 
   const { topLevel, repliesByParent } = useMemo(() => {
     const list = comments ?? [];
-    const top = list.filter(c => !c.parentCommentId);
+    const idSet = new Set(list.map(c => c.id));
+    const top = list.filter(c => !c.parentCommentId || !idSet.has(c.parentCommentId));
     const byParent = new Map<number, Comment[]>();
     for (const c of list) {
-      if (!c.parentCommentId) continue;
+      if (!c.parentCommentId || !idSet.has(c.parentCommentId)) continue;
       const arr = byParent.get(c.parentCommentId) ?? [];
       arr.push(c);
       byParent.set(c.parentCommentId, arr);
@@ -197,6 +209,16 @@ export function CommentSection({ postId }: { postId: number }) {
       {isLoading ? (
         <div className="flex justify-center py-4">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : isError ? (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-3 text-sm text-center space-y-2">
+          <p className="text-destructive">Não foi possível carregar os comentários.</p>
+          {error?.message && (
+            <p className="text-xs text-muted-foreground">{error.message}</p>
+          )}
+          <Button size="sm" variant="outline" onClick={() => refetch()}>
+            Tentar novamente
+          </Button>
         </div>
       ) : (
         <div className="space-y-3">

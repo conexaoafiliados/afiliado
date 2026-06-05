@@ -5,25 +5,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
+import { prepareImageForUpload } from "@/lib/prepareImage";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Camera, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
-
-function readImageFile(file: File, maxKb: number): Promise<{ base64: string; mime: string } | null> {
-  return new Promise(resolve => {
-    if (file.size > maxKb * 1024) {
-      toast.error(`Imagem deve ter no máximo ${maxKb}KB`);
-      resolve(null);
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      resolve({ base64: reader.result as string, mime: file.type });
-    };
-    reader.readAsDataURL(file);
-  });
-}
 
 export default function ProfileEdit() {
   const { user } = useAuth();
@@ -56,6 +42,8 @@ export default function ProfileEdit() {
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [photoUpload, setPhotoUpload] = useState<{ base64: string; mime: string } | null>(null);
   const [bannerUpload, setBannerUpload] = useState<{ base64: string; mime: string } | null>(null);
+  const [processingPhoto, setProcessingPhoto] = useState(false);
+  const [processingBanner, setProcessingBanner] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -89,20 +77,36 @@ export default function ProfileEdit() {
   async function onPhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const data = await readImageFile(file, 800);
-    if (data) {
-      setPhotoPreview(data.base64);
-      setPhotoUpload(data);
+    setProcessingPhoto(true);
+    try {
+      const result = await prepareImageForUpload(file, "avatar");
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setPhotoPreview(result.data.base64);
+      setPhotoUpload(result.data);
+    } finally {
+      setProcessingPhoto(false);
+      e.target.value = "";
     }
   }
 
   async function onBannerSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const data = await readImageFile(file, 1200);
-    if (data) {
-      setBannerPreview(data.base64);
-      setBannerUpload(data);
+    setProcessingBanner(true);
+    try {
+      const result = await prepareImageForUpload(file, "banner");
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setBannerPreview(result.data.base64);
+      setBannerUpload(result.data);
+    } finally {
+      setProcessingBanner(false);
+      e.target.value = "";
     }
   }
 
@@ -156,16 +160,29 @@ export default function ProfileEdit() {
             </div>
             <div>
               <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={onPhotoSelect} />
-              <Button variant="outline" type="button" onClick={() => photoInputRef.current?.click()}>
-                Alterar Foto
+              <Button
+                variant="outline"
+                type="button"
+                disabled={processingPhoto}
+                onClick={() => photoInputRef.current?.click()}
+              >
+                {processingPhoto ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Ajustando…
+                  </>
+                ) : (
+                  "Alterar Foto"
+                )}
               </Button>
+              <p className="text-xs text-muted-foreground mt-2">Qualquer tamanho — redimensionamos automaticamente.</p>
             </div>
           </div>
         </div>
 
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4">Banner</h2>
-          <div className="w-full h-32 rounded-lg overflow-hidden bg-gradient-to-r from-accent via-secondary to-accent flex items-center justify-center">
+          <div className="w-full aspect-[3/1] max-h-48 rounded-lg overflow-hidden bg-gradient-to-r from-accent via-secondary to-accent flex items-center justify-center">
             {bannerPreview ? (
               <img src={bannerPreview} alt="Banner" className="w-full h-full object-cover" />
             ) : (
@@ -173,9 +190,25 @@ export default function ProfileEdit() {
             )}
           </div>
           <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={onBannerSelect} />
-          <Button variant="outline" className="mt-4" type="button" onClick={() => bannerInputRef.current?.click()}>
-            Alterar Banner
+          <Button
+            variant="outline"
+            className="mt-4"
+            type="button"
+            disabled={processingBanner}
+            onClick={() => bannerInputRef.current?.click()}
+          >
+            {processingBanner ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Ajustando banner…
+              </>
+            ) : (
+              "Alterar Banner"
+            )}
           </Button>
+          <p className="text-xs text-muted-foreground mt-2">
+            Fotos grandes do celular são aceitas — cortamos e comprimimos para caber no perfil.
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
