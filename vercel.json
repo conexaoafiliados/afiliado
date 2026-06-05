@@ -5,7 +5,7 @@
   "installCommand": "npm install",
   "framework": null,
   "functions": {
-    "api/trpc/[...trpc].ts": {
+    "api/trpc/[...trpc].js": {
       "maxDuration": 30
     }
   },

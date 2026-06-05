@@ -10,8 +10,8 @@ await esbuild.build({
   platform: "node",
   target: "node20",
   format: "esm",
-  outfile: path.join(root, "api/trpc/bundle.mjs"),
+  outfile: path.join(root, "api/trpc/[...trpc].js"),
   logLevel: "info",
 });
 
-console.log("[build-trpc-api] bundle.mjs gerado");
+console.log("[build-trpc-api] api/trpc/[...trpc].js gerado");
