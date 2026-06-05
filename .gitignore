@@ -6,6 +6,7 @@ dist
 .DS_Store
 *.log
 .vercel
+api/_bundle
 _legacy
 _extracted
 *.zip

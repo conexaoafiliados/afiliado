@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import type { IncomingMessage } from "http";
-import { createContext } from "../../server/_core/context";
-import { appRouter } from "../../server/routers";
+import { createContext } from "../_bundle/server/_core/context";
+import { appRouter } from "../_bundle/server/routers";
 
 export const config = {
   api: {
