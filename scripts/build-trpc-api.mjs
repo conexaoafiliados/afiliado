@@ -10,7 +10,7 @@ await esbuild.build({
   platform: "node",
   target: "node20",
   format: "cjs",
-  outfile: path.join(root, "api/trpc-handler.cjs"),
+  outfile: path.join(root, "api/trpc/[...trpc].js"),
   logLevel: "info",
   external: [
     "postgres",
@@ -23,4 +23,4 @@ await esbuild.build({
   ],
 });
 
-console.log("[build-trpc-api] api/trpc-handler.cjs gerado");
+console.log("[build-trpc-api] api/trpc/[...trpc].js gerado");

@@ -6,10 +6,8 @@ dist
 .DS_Store
 *.log
 .vercel
+api/trpc/[...trpc].js
 api/trpc-handler.cjs
-api/trpc/[...trpc].cjs
-api/trpc/bundle.mjs
-api/_bundle
 _legacy
 _extracted
 *.zip

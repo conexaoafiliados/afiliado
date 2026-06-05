@@ -5,12 +5,11 @@
   "installCommand": "npm install",
   "framework": null,
   "functions": {
-    "api/trpc-handler.cjs": {
+    "api/trpc/[...trpc].js": {
       "maxDuration": 30
     }
   },
   "rewrites": [
-    { "source": "/api/trpc/:path*", "destination": "/api/trpc-handler" },
     { "source": "/((?!api).*)", "destination": "/index.html" }
   ]
 }
