@@ -28,6 +28,8 @@ import DeepDiveLesson from "./pages/DeepDiveLesson";
 import Announcements from "./pages/Announcements";
 import Trainings from "./pages/Trainings";
 import InPersonEvents from "./pages/InPersonEvents";
+import TrendingVideos from "./pages/TrendingVideos";
+import TrendingProducts from "./pages/TrendingProducts";
 import Punishments from "./pages/Punishments";
 import PunishmentGuide from "./pages/PunishmentGuide";
 import OpenGroup from "./pages/OpenGroup";
@@ -70,6 +72,8 @@ const DeepDiveLessonPage = withProtected(DeepDiveLesson);
 const AnnouncementsPage = withProtected(Announcements);
 const TrainingsPage = withProtected(Trainings);
 const InPersonEventsPage = withProtected(InPersonEvents);
+const TrendingVideosPage = withProtected(TrendingVideos);
+const TrendingProductsPage = withProtected(TrendingProducts);
 const PunishmentsPage = withProtected(Punishments);
 const PunishmentGuidePage = withProtected(PunishmentGuide);
 const OpenGroupPage = withProtected(OpenGroup);
@@ -109,6 +113,8 @@ function Router() {
       <Route path={"/acessos/punicoes/guia"} component={PunishmentGuidePage} />
       <Route path={"/acessos/punicoes"} component={PunishmentsPage} />
       <Route path={"/acessos/eventos"} component={InPersonEventsPage} />
+      <Route path={"/acessos/videos"} component={TrendingVideosPage} />
+      <Route path={"/acessos/produtos"} component={TrendingProductsPage} />
       <Route path={"/acessos/treinamentos"} component={TrainingsPage} />
       <Route path={"/acessos/avisos"} component={AnnouncementsPage} />
       <Route path={"/vender/aprofunde/:slug"} component={DeepDiveLessonPage} />

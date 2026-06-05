@@ -56,7 +56,7 @@ export function PunishmentIntroCard({
         <a className="block group">
           <h2 className="text-lg font-bold uppercase tracking-tight group-hover:text-accent transition-colors">
             {PUNISHMENT_INTRO.title}
-          </a>
+          </h2>
         </a>
       </Link>
 
