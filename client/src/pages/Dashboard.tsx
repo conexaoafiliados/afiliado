@@ -2,6 +2,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatBox } from "@/components/StatBox";
+import { formatGoalLabel } from "@/lib/goals";
 import { trpc } from "@/lib/trpc";
 import { Users, Zap, TrendingUp, Award, BookOpen, ShoppingBag, MessageSquare } from "lucide-react";
 import { Link } from "wouter";
@@ -26,9 +27,15 @@ export default function Dashboard() {
     );
   }
 
-  const progressPercentage = progress?.progressPercentage ? parseFloat(progress.progressPercentage.toString()) : 0;
-  const currentFollowers = progress?.currentFollowers || 0;
-  const followersRemaining = 2000 - currentFollowers;
+  const targetFollowers = progress?.targetFollowers ?? 2000;
+  const currentFollowers = progress?.currentFollowers ?? 0;
+  const progressPercentage = progress?.progressPercentage
+    ? parseFloat(progress.progressPercentage.toString())
+    : targetFollowers > 0
+      ? (currentFollowers / targetFollowers) * 100
+      : 0;
+  const followersRemaining = Math.max(0, targetFollowers - currentFollowers);
+  const goalLabel = formatGoalLabel(targetFollowers);
 
   return (
     <div className="space-y-8">
@@ -37,7 +44,7 @@ export default function Dashboard() {
         <div>
           <h1 className="text-4xl font-bold mb-2">Bem-vindo, {user.name}!</h1>
           <p className="text-muted-foreground">
-            Meta: 2.000 seguidores no TikTok
+            Meta: {targetFollowers.toLocaleString("pt-BR")} seguidores no TikTok ({goalLabel})
             {profile?.tiktokHandle ? ` · @${profile.tiktokHandle}` : ""}
           </p>
         </div>
@@ -50,11 +57,11 @@ export default function Dashboard() {
       <Card className="card-elegant bg-gradient-to-br from-accent/5 to-secondary/5 border-accent/20">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-bold mb-2">Jornada para 2K no TikTok</h2>
+            <h2 className="text-2xl font-bold mb-2">Jornada para {goalLabel} no TikTok</h2>
             <p className="text-muted-foreground">
               {progress?.source === "tiktok"
                 ? "Atualizado automaticamente do TikTok"
-                : "Conecte o TikTok em Progresso 2K para sync automático"}
+                : "Conecte o TikTok em Progresso para sync automático"}
             </p>
           </div>
           <TrendingUp className="w-12 h-12 text-accent opacity-20" />
@@ -62,7 +69,9 @@ export default function Dashboard() {
 
         <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
-            <span className="font-semibold">{currentFollowers.toLocaleString()} / 2.000 seguidores</span>
+            <span className="font-semibold">
+              {currentFollowers.toLocaleString("pt-BR")} / {targetFollowers.toLocaleString("pt-BR")} seguidores
+            </span>
             <span className="text-sm font-semibold text-accent">{progressPercentage.toFixed(1)}%</span>
           </div>
           <div className="progress-bar">

@@ -5,10 +5,13 @@ export function formatGoalLabel(target: number): string {
 
 export function getMilestonesForTarget(target: number, current: number) {
   let values: number[];
-  if (target <= 2000) values = [500, 1000, 2000];
-  else if (target === 5000) values = [2000, 3500, 5000];
-  else if (target === 10000) values = [5000, 7500, 10000];
-  else {
+  if (target <= 2000) {
+    values = [500, 1000, 2000];
+  } else if (target <= 20000) {
+    const prev = Math.max(2000, target - 5000);
+    const mid = prev + Math.round((target - prev) / 2);
+    values = [prev, mid, target];
+  } else {
     const prev = target - 10000;
     values = [prev, prev + 5000, target];
   }

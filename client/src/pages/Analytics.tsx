@@ -1,6 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { StatBox } from "@/components/StatBox";
+import { formatGoalLabel } from "@/lib/goals";
 import { trpc } from "@/lib/trpc";
 import { Loader2, ShoppingBag, TrendingUp, Users } from "lucide-react";
 import {
@@ -54,8 +55,8 @@ export default function Analytics() {
         />
         <StatBox
           icon={<TrendingUp className="w-8 h-8" />}
-          label="Faltam para 2K"
-          value={followers?.remaining.toLocaleString("pt-BR") ?? "2.000"}
+          label={`Faltam para ${formatGoalLabel(followers?.target ?? 2000)}`}
+          value={followers?.remaining.toLocaleString("pt-BR") ?? "—"}
         />
         <StatBox
           icon={<ShoppingBag className="w-8 h-8" />}
@@ -74,7 +75,7 @@ export default function Analytics() {
           <h3 className="text-lg font-semibold mb-4">Evolução de seguidores (TikTok)</h3>
           {chartData.length < 2 ? (
             <p className="text-sm text-muted-foreground">
-              Conecte o TikTok em Progresso 2K ou salve atualizações para ver o gráfico.
+              Conecte o TikTok em Progresso ou salve atualizações para ver o gráfico.
             </p>
           ) : (
             <ResponsiveContainer width="100%" height={280}>

@@ -96,14 +96,30 @@ export const appRouter = router({
   progress: router({
     get: protectedProcedure.query(async ({ ctx }) => {
       const progress = await getFollowerProgress(ctx.user.id);
-      return (
-        progress || {
+      if (!progress) {
+        return {
           userId: ctx.user.id,
           currentFollowers: 0,
           targetFollowers: 2000,
           progressPercentage: "0",
-        }
-      );
+        };
+      }
+
+      const current = progress.currentFollowers ?? 0;
+      const existingTarget = progress.targetFollowers ?? 2000;
+      const { targetFollowers, progressPercentage } = resolveFollowerGoal(existingTarget, current);
+      const newPct = progressPercentage.toFixed(2);
+
+      if (targetFollowers !== existingTarget || newPct !== String(progress.progressPercentage)) {
+        await upsertFollowerProgress(ctx.user.id, {
+          targetFollowers,
+          progressPercentage: newPct,
+          lastUpdated: new Date(),
+        });
+        return (await getFollowerProgress(ctx.user.id))!;
+      }
+
+      return progress;
     }),
 
     update: protectedProcedure

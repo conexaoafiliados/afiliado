@@ -2589,7 +2589,7 @@ var analyticsDaily = (0, import_pg_core.pgTable)("analytics_daily", {
 function getNextTarget(completedTarget) {
   if (completedTarget < 2e3) return 2e3;
   if (completedTarget === 2e3) return 5e3;
-  if (completedTarget === 5e3) return 1e4;
+  if (completedTarget < 2e4) return completedTarget + 5e3;
   return completedTarget + 1e4;
 }
 function resolveFollowerGoal(currentTarget, followers) {
@@ -9169,12 +9169,27 @@ var appRouter = router({
   progress: router({
     get: protectedProcedure.query(async ({ ctx }) => {
       const progress = await getFollowerProgress(ctx.user.id);
-      return progress || {
-        userId: ctx.user.id,
-        currentFollowers: 0,
-        targetFollowers: 2e3,
-        progressPercentage: "0"
-      };
+      if (!progress) {
+        return {
+          userId: ctx.user.id,
+          currentFollowers: 0,
+          targetFollowers: 2e3,
+          progressPercentage: "0"
+        };
+      }
+      const current = progress.currentFollowers ?? 0;
+      const existingTarget = progress.targetFollowers ?? 2e3;
+      const { targetFollowers, progressPercentage } = resolveFollowerGoal(existingTarget, current);
+      const newPct = progressPercentage.toFixed(2);
+      if (targetFollowers !== existingTarget || newPct !== String(progress.progressPercentage)) {
+        await upsertFollowerProgress(ctx.user.id, {
+          targetFollowers,
+          progressPercentage: newPct,
+          lastUpdated: /* @__PURE__ */ new Date()
+        });
+        return await getFollowerProgress(ctx.user.id);
+      }
+      return progress;
     }),
     update: protectedProcedure.input(
       external_exports.object({
