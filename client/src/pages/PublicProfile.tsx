@@ -9,6 +9,7 @@ import {
   Heart,
   Instagram,
   Loader2,
+  MapPin,
   MessageCircle,
   UserCheck,
   UserPlus,
@@ -69,6 +70,8 @@ export default function PublicProfile() {
 
   const displayName = profile.name || profile.username || "Creator";
   const isFollowing = profile.followStatus === "following" || profile.followStatus === "mutual";
+  const locationLabel = [profile.city, profile.state].filter(Boolean).join(" — ");
+  const isOnline = profile.isOnline;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -80,17 +83,31 @@ export default function PublicProfile() {
           ) : null}
         </div>
         <div className="px-5 pb-5 -mt-12 relative">
-          <UserAvatar
-            src={profile.profileImageUrl}
-            name={displayName}
-            size={96}
-            className="ring-4 ring-card border-2 border-background"
-          />
+          <div className="relative inline-block">
+            <UserAvatar
+              src={profile.profileImageUrl}
+              name={displayName}
+              size={96}
+              className="ring-4 ring-card border-2 border-background"
+            />
+            <span
+              className={`absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full border-2 border-card ${
+                isOnline ? "bg-emerald-500" : "bg-muted-foreground/45"
+              }`}
+              title={isOnline ? "Online agora" : "Offline"}
+            />
+          </div>
           <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
             <div>
               <h1 className="text-2xl font-bold">{displayName}</h1>
               {profile.username && (
                 <p className="text-muted-foreground">@{profile.username}</p>
+              )}
+              {locationLabel && (
+                <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5 shrink-0" />
+                  {locationLabel}
+                </p>
               )}
             </div>
             {profile.isSelf ? (
@@ -118,6 +135,23 @@ export default function PublicProfile() {
 
           {profile.bio && (
             <p className="mt-4 text-sm leading-relaxed whitespace-pre-wrap">{profile.bio}</p>
+          )}
+
+          {(profile.age || profile.platformObjective) && (
+            <div className="mt-4 space-y-2 text-sm">
+              {profile.age && (
+                <p>
+                  <span className="text-muted-foreground">Idade:</span>{" "}
+                  <span className="font-medium">{profile.age} anos</span>
+                </p>
+              )}
+              {profile.platformObjective && (
+                <div>
+                  <p className="text-muted-foreground mb-0.5">Objetivo / área</p>
+                  <p className="leading-relaxed">{profile.platformObjective}</p>
+                </div>
+              )}
+            </div>
           )}
 
           <div className="mt-4 flex flex-wrap gap-5 text-sm">

@@ -42,11 +42,11 @@ export default function Community() {
   );
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-4xl mx-auto">
       <div>
-        <h1 className="text-4xl font-bold mb-2">Comunidade</h1>
-        <p className="text-muted-foreground">
-          Siga outros creators, comente e marque pessoas com @usuario
+        <h1 className="text-2xl sm:text-4xl font-bold mb-1">Comunidade</h1>
+        <p className="text-sm text-muted-foreground">
+          Siga creators, comente e marque com @usuario
         </p>
       </div>
 

@@ -814,6 +814,10 @@ export async function getUserPublicProfile(username: string, viewerId: number) {
     twitterHandle: profile?.twitterHandle ?? null,
     websiteUrl: profile?.websiteUrl ?? null,
     platformObjective: profile?.platformObjective ?? null,
+    city: profile?.city ?? null,
+    state: profile?.state ?? null,
+    age: profile?.age ?? null,
+    isOnline: isUserOnline(user.lastSignedIn),
     tiktokFollowers: progress?.currentFollowers ?? 0,
     targetFollowers: progress?.targetFollowers ?? 2000,
     platformFollowers: stats.followers,
@@ -1083,6 +1087,8 @@ export async function markAllNotificationsRead(userId: number) {
 
 export type FollowStatus = "none" | "following" | "follower" | "mutual";
 
+const ONLINE_THRESHOLD_MS = 15 * 60 * 1000;
+
 export type CreatorCard = {
   id: number;
   name: string | null;
@@ -1092,7 +1098,13 @@ export type CreatorCard = {
   tiktokFollowers: number;
   platformFollowers: number;
   followStatus: FollowStatus;
+  isOnline: boolean;
 };
+
+function isUserOnline(lastSignedIn: Date | null | undefined): boolean {
+  if (!lastSignedIn) return false;
+  return Date.now() - new Date(lastSignedIn).getTime() < ONLINE_THRESHOLD_MS;
+}
 
 function resolveFollowStatus(iFollow: boolean, followsMe: boolean): FollowStatus {
   if (iFollow && followsMe) return "mutual";
@@ -1140,6 +1152,12 @@ async function enrichCreatorsWithFollowData(
   const theyFollowSet = new Set(theyFollowRows.map(r => r.followerId));
   const countMap = new Map(followerCounts.map(c => [c.userId, c.count]));
 
+  const signIns = await db
+    .select({ id: users.id, lastSignedIn: users.lastSignedIn })
+    .from(users)
+    .where(inArray(users.id, userIds));
+  const signInMap = new Map(signIns.map(u => [u.id, u.lastSignedIn]));
+
   return rows.map(row => ({
     id: row.id,
     name: row.name,
@@ -1149,6 +1167,7 @@ async function enrichCreatorsWithFollowData(
     tiktokFollowers: row.tiktokFollowers ?? 0,
     platformFollowers: countMap.get(row.id) ?? 0,
     followStatus: resolveFollowStatus(iFollowSet.has(row.id), theyFollowSet.has(row.id)),
+    isOnline: isUserOnline(signInMap.get(row.id)),
   }));
 }
 
@@ -1885,8 +1904,6 @@ export async function toggleTrainingRegistration(userId: number, eventId: number
   return { registered: true };
 }
 
-const ONLINE_THRESHOLD_MS = 15 * 60 * 1000;
-
 export async function getGroupMembers(viewerUserId: number) {
   const db = await getDb();
   if (!db) return { members: [], onlineCount: 0, totalCount: 0 };
@@ -1905,14 +1922,13 @@ export async function getGroupMembers(viewerUserId: number) {
     .orderBy(desc(users.lastSignedIn))
     .limit(200);
 
-  const now = Date.now();
   const members = rows.map(row => ({
     id: row.id,
     name: row.name || row.username || "Creator",
     username: row.username,
     role: row.role,
     profileImageUrl: row.profileImageUrl,
-    isOnline: now - new Date(row.lastSignedIn).getTime() < ONLINE_THRESHOLD_MS,
+    isOnline: isUserOnline(row.lastSignedIn),
     isSelf: row.id === viewerUserId,
   }));
 

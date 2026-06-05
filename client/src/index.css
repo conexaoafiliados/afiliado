@@ -284,4 +284,13 @@
   .glass-effect {
     @apply backdrop-blur-md bg-white/10 border border-white/20;
   }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }

@@ -7,10 +7,23 @@ import {
   getPostComments,
   togglePostLike,
 } from "../db";
+import { uploadImage } from "../_core/storage";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../_core/trpc";
 
 const channelSchema = z.enum(["feed", "grupo-aberto"]);
+
+const postInputSchema = z
+  .object({
+    content: z.string().max(5000),
+    channel: channelSchema.default("feed"),
+    imageUrl: z.string().url().optional().or(z.literal("")),
+    imageBase64: z.string().optional(),
+    imageMime: z.string().optional(),
+  })
+  .refine(data => data.content.trim().length > 0 || data.imageUrl || data.imageBase64, {
+    message: "Escreva uma mensagem ou anexe uma imagem",
+  });
 
 export const communityRouter = router({
   feed: protectedProcedure
@@ -35,17 +48,29 @@ export const communityRouter = router({
   members: protectedProcedure.query(async ({ ctx }) => getGroupMembers(ctx.user.id)),
 
   post: protectedProcedure
-    .input(
-      z.object({
-        content: z.string().min(1).max(5000),
-        channel: channelSchema.default("feed"),
-        imageUrl: z.string().url().optional().or(z.literal("")),
-      })
-    )
+    .input(postInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const id = await createCommunityPost(ctx.user.id, input.content, {
+      let imageUrl = input.imageUrl || undefined;
+
+      if (input.imageBase64) {
+        const uploaded = await uploadImage(
+          "community-posts",
+          `${ctx.user.id}/${Date.now()}`,
+          input.imageBase64,
+          input.imageMime
+        );
+        if (!uploaded) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Não foi possível enviar a imagem. Tente novamente.",
+          });
+        }
+        imageUrl = uploaded;
+      }
+
+      const id = await createCommunityPost(ctx.user.id, input.content.trim(), {
         channel: input.channel,
-        imageUrl: input.imageUrl || undefined,
+        imageUrl,
       });
       if (!id) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível publicar" });
       return { success: true, id };

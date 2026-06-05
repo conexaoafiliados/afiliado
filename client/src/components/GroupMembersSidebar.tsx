@@ -1,7 +1,8 @@
 import { UserAvatar } from "@/components/UserAvatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Users } from "lucide-react";
+import { Users, X } from "lucide-react";
 import { Link } from "wouter";
 
 type Member = {
@@ -19,6 +20,7 @@ type GroupMembersSidebarProps = {
   onlineCount: number;
   totalCount: number;
   className?: string;
+  onClose?: () => void;
 };
 
 function MemberRow({ member }: { member: Member }) {
@@ -61,6 +63,7 @@ export function GroupMembersSidebar({
   onlineCount,
   totalCount,
   className,
+  onClose,
 }: GroupMembersSidebarProps) {
   const online = members.filter(m => m.isOnline);
   const offline = members.filter(m => !m.isOnline);
@@ -68,16 +71,23 @@ export function GroupMembersSidebar({
   return (
     <aside
       className={cn(
-        "hidden lg:flex flex-col w-64 shrink-0 border-l border-border bg-card/30",
+        "flex flex-col w-64 shrink-0 border-l border-border bg-card/30",
         className
       )}
     >
-      <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2 shrink-0">
         <h2 className="font-semibold text-sm">Detalhes</h2>
-        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-          <Users className="h-3.5 w-3.5" />
-          {totalCount}
-        </span>
+        <div className="flex items-center gap-1">
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <Users className="h-3.5 w-3.5" />
+            {totalCount}
+          </span>
+          {onClose && (
+            <Button variant="ghost" size="icon" className="h-7 w-7 ml-1" onClick={onClose} aria-label="Fechar">
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-2 space-y-4">

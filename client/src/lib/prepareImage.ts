@@ -1,10 +1,11 @@
-export type ImageUploadProfile = "avatar" | "banner";
+export type ImageUploadProfile = "avatar" | "banner" | "post";
 
 type PreparedImage = { base64: string; mime: string };
 
 const PROFILES = {
   avatar: { maxWidth: 800, maxHeight: 800, maxBytes: 450 * 1024 },
   banner: { maxWidth: 1600, maxHeight: 540, maxBytes: 900 * 1024 },
+  post: { maxWidth: 1280, maxHeight: 1280, maxBytes: 850 * 1024 },
 } as const;
 
 const MAX_INPUT_BYTES = 20 * 1024 * 1024;

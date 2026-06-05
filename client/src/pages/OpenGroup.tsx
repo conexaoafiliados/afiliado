@@ -4,17 +4,21 @@ import { MentionTextarea } from "@/components/MentionTextarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MOCK_GROUP_MEMBERS, MOCK_GROUP_MESSAGES, type GroupMessage } from "@/data/mockGroupChat";
+import { prepareImageForUpload } from "@/lib/prepareImage";
 import { trpc } from "@/lib/trpc";
-import { ArrowUp, ImageIcon, Loader2, Megaphone, Search } from "lucide-react";
+import { ArrowUp, ImageIcon, Loader2, Megaphone, Search, Users, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 export default function OpenGroup() {
   const [text, setText] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [showImageField, setShowImageField] = useState(false);
+  const [imageUpload, setImageUpload] = useState<{ base64: string; mime: string } | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [processingImage, setProcessingImage] = useState(false);
   const [search, setSearch] = useState("");
+  const [membersOpen, setMembersOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const utils = trpc.useUtils();
 
   const { data: messages = [], isLoading, isError } = trpc.community.feed.useQuery(
@@ -45,8 +49,7 @@ export default function OpenGroup() {
   const postMessage = trpc.community.post.useMutation({
     onSuccess: () => {
       setText("");
-      setImageUrl("");
-      setShowImageField(false);
+      clearImage();
       void utils.community.feed.invalidate({ channel: "grupo-aberto" });
       toast.success("Mensagem enviada!");
     },
@@ -62,8 +65,40 @@ export default function OpenGroup() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [filtered.length, isLoading]);
 
+  useEffect(() => {
+    if (!membersOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [membersOpen]);
+
+  function clearImage() {
+    setImageUpload(null);
+    setImagePreview(null);
+  }
+
+  async function onImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setProcessingImage(true);
+    try {
+      const result = await prepareImageForUpload(file, "post");
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setImagePreview(result.data.base64);
+      setImageUpload(result.data);
+    } finally {
+      setProcessingImage(false);
+      e.target.value = "";
+    }
+  }
+
   function handleSend() {
-    if (!text.trim()) return;
+    if (!text.trim() && !imageUpload) return;
     if (usingMock) {
       toast.message("Demonstração", { description: "Envie mensagens após executar migration_grupo_aberto.sql" });
       return;
@@ -71,9 +106,12 @@ export default function OpenGroup() {
     postMessage.mutate({
       content: text.trim(),
       channel: "grupo-aberto",
-      imageUrl: imageUrl.trim() || undefined,
+      imageBase64: imageUpload?.base64,
+      imageMime: imageUpload?.mime,
     });
   }
+
+  const canSend = (text.trim().length > 0 || imageUpload) && !postMessage.isPending && !processingImage;
 
   return (
     <div className="-mx-4 -mb-4 md:-mx-6 md:-mb-6 flex flex-col h-[calc(100dvh-8.5rem)] md:h-[calc(100dvh-7rem)] min-h-[420px] border border-border rounded-xl overflow-hidden bg-card/30">
@@ -82,14 +120,27 @@ export default function OpenGroup() {
           <Megaphone className="h-5 w-5 text-primary shrink-0" />
           <h1 className="font-bold truncate">Grupo Aberto</h1>
         </div>
-        <div className="relative w-full max-w-[200px] hidden sm:block">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar…"
-            className="h-8 pl-8 text-sm"
-          />
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="relative w-full max-w-[200px] hidden sm:block">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar…"
+              className="h-8 pl-8 text-sm"
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="lg:hidden h-8 gap-1.5 px-2.5"
+            onClick={() => setMembersOpen(true)}
+            aria-label="Ver membros online e offline"
+          >
+            <Users className="h-4 w-4" />
+            <span className="text-xs tabular-nums">{members.onlineCount}</span>
+          </Button>
         </div>
       </header>
 
@@ -122,24 +173,45 @@ export default function OpenGroup() {
           </div>
 
           <div className="shrink-0 border-t border-border bg-card p-3 space-y-2">
-            {showImageField && (
-              <Input
-                value={imageUrl}
-                onChange={e => setImageUrl(e.target.value)}
-                placeholder="URL da imagem (opcional)"
-                className="text-sm"
-              />
+            {imagePreview && (
+              <div className="relative inline-block">
+                <img
+                  src={imagePreview}
+                  alt="Prévia da imagem"
+                  className="h-20 w-20 object-cover rounded-lg border border-border"
+                />
+                <button
+                  type="button"
+                  onClick={clearImage}
+                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-sm"
+                  aria-label="Remover imagem"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
             )}
             <div className="flex gap-2 items-end">
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={onImageSelect}
+              />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 className="shrink-0 h-10 w-10"
-                onClick={() => setShowImageField(v => !v)}
-                title="Anexar imagem por URL"
+                onClick={() => imageInputRef.current?.click()}
+                disabled={processingImage}
+                title="Anexar imagem da galeria ou arquivos"
               >
-                <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                {processingImage ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                ) : (
+                  <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                )}
               </Button>
               <MentionTextarea
                 value={text}
@@ -154,7 +226,7 @@ export default function OpenGroup() {
                 type="button"
                 size="icon"
                 className="btn-primary shrink-0 h-10 w-10 rounded-full"
-                disabled={!text.trim() || postMessage.isPending}
+                disabled={!canSend}
                 onClick={handleSend}
               >
                 {postMessage.isPending ? (
@@ -174,8 +246,27 @@ export default function OpenGroup() {
           members={members.members}
           onlineCount={members.onlineCount}
           totalCount={members.totalCount}
+          className="hidden lg:flex"
         />
       </div>
+
+      {membersOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Fechar lista de membros"
+            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+            onClick={() => setMembersOpen(false)}
+          />
+          <GroupMembersSidebar
+            members={members.members}
+            onlineCount={members.onlineCount}
+            totalCount={members.totalCount}
+            className="fixed inset-y-0 right-0 z-50 flex w-[min(85vw,18rem)] shadow-xl bg-card lg:hidden"
+            onClose={() => setMembersOpen(false)}
+          />
+        </>
+      )}
     </div>
   );
 }

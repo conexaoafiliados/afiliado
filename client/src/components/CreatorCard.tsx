@@ -17,6 +17,7 @@ export interface CreatorCardData {
   tiktokFollowers: number;
   platformFollowers: number;
   followStatus: CreatorFollowStatus;
+  isOnline: boolean;
 }
 
 function followButtonLabel(status: CreatorFollowStatus, pending: boolean): string {

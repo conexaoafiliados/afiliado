@@ -2507,6 +2507,7 @@ var productOrders = (0, import_pg_core.pgTable)("product_orders", {
 var communityPosts = (0, import_pg_core.pgTable)("community_posts", {
   id: (0, import_pg_core.serial)("id").primaryKey(),
   userId: (0, import_pg_core.integer)("userId").notNull().references(() => users.id),
+  channel: (0, import_pg_core.varchar)("channel", { length: 32 }).default("feed").notNull(),
   content: (0, import_pg_core.text)("content").notNull(),
   imageUrl: (0, import_pg_core.varchar)("imageUrl", { length: 512 }),
   likes: (0, import_pg_core.integer)("likes").default(0).notNull(),
@@ -2566,6 +2567,46 @@ var courseLessons = (0, import_pg_core.pgTable)("course_lessons", {
   order: (0, import_pg_core.integer)("order").notNull(),
   duration: (0, import_pg_core.integer)("duration")
 });
+var learningTracks = (0, import_pg_core.pgTable)("learning_tracks", {
+  slug: (0, import_pg_core.varchar)("slug", { length: 64 }).primaryKey(),
+  title: (0, import_pg_core.varchar)("title", { length: 255 }).notNull(),
+  emoji: (0, import_pg_core.varchar)("emoji", { length: 16 }),
+  welcomeEnabled: (0, import_pg_core.boolean)("welcomeEnabled").default(false).notNull(),
+  sortOrder: (0, import_pg_core.integer)("sortOrder").default(0).notNull()
+});
+var learningSections = (0, import_pg_core.pgTable)("learning_sections", {
+  id: (0, import_pg_core.serial)("id").primaryKey(),
+  trackSlug: (0, import_pg_core.varchar)("trackSlug", { length: 64 }).notNull().references(() => learningTracks.slug),
+  slug: (0, import_pg_core.varchar)("slug", { length: 128 }).notNull(),
+  title: (0, import_pg_core.varchar)("title", { length: 255 }).notNull(),
+  sectionNumber: (0, import_pg_core.integer)("sectionNumber"),
+  sortOrder: (0, import_pg_core.integer)("sortOrder").notNull()
+});
+var learningLessons = (0, import_pg_core.pgTable)("learning_lessons", {
+  id: (0, import_pg_core.serial)("id").primaryKey(),
+  sectionId: (0, import_pg_core.integer)("sectionId").notNull().references(() => learningSections.id),
+  slug: (0, import_pg_core.varchar)("slug", { length: 128 }).notNull().unique(),
+  lessonLabel: (0, import_pg_core.varchar)("lessonLabel", { length: 32 }),
+  title: (0, import_pg_core.varchar)("title", { length: 255 }).notNull(),
+  durationSeconds: (0, import_pg_core.integer)("durationSeconds"),
+  /** ID ou URL do YouTube — preencher no Supabase quando o vídeo estiver pronto */
+  youtubeVideoId: (0, import_pg_core.varchar)("youtubeVideoId", { length: 128 }),
+  sortOrder: (0, import_pg_core.integer)("sortOrder").notNull()
+});
+var lessonLikes = (0, import_pg_core.pgTable)("lesson_likes", {
+  id: (0, import_pg_core.serial)("id").primaryKey(),
+  lessonSlug: (0, import_pg_core.varchar)("lessonSlug", { length: 128 }).notNull(),
+  userId: (0, import_pg_core.integer)("userId").notNull().references(() => users.id),
+  createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull()
+});
+var lessonComments = (0, import_pg_core.pgTable)("lesson_comments", {
+  id: (0, import_pg_core.serial)("id").primaryKey(),
+  lessonSlug: (0, import_pg_core.varchar)("lessonSlug", { length: 128 }).notNull(),
+  userId: (0, import_pg_core.integer)("userId").notNull().references(() => users.id),
+  parentCommentId: (0, import_pg_core.integer)("parentCommentId"),
+  content: (0, import_pg_core.text)("content").notNull(),
+  createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull()
+});
 var communityEvents = (0, import_pg_core.pgTable)("community_events", {
   id: (0, import_pg_core.serial)("id").primaryKey(),
   title: (0, import_pg_core.varchar)("title", { length: 255 }).notNull(),
@@ -2573,6 +2614,53 @@ var communityEvents = (0, import_pg_core.pgTable)("community_events", {
   startDate: (0, import_pg_core.timestamp)("startDate", { withTimezone: true }).notNull(),
   endDate: (0, import_pg_core.timestamp)("endDate", { withTimezone: true }),
   imageUrl: (0, import_pg_core.varchar)("imageUrl", { length: 512 }),
+  createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull()
+});
+var trainingEvents = (0, import_pg_core.pgTable)("training_events", {
+  id: (0, import_pg_core.serial)("id").primaryKey(),
+  title: (0, import_pg_core.varchar)("title", { length: 255 }).notNull(),
+  description: (0, import_pg_core.text)("description"),
+  imageUrl: (0, import_pg_core.varchar)("imageUrl", { length: 512 }),
+  category: (0, import_pg_core.varchar)("category", { length: 64 }).default("geral").notNull(),
+  eventType: (0, import_pg_core.varchar)("eventType", { length: 32 }).default("live").notNull(),
+  hostName: (0, import_pg_core.varchar)("hostName", { length: 120 }),
+  startDate: (0, import_pg_core.timestamp)("startDate", { withTimezone: true }).notNull(),
+  endDate: (0, import_pg_core.timestamp)("endDate", { withTimezone: true }),
+  liveStreamUrl: (0, import_pg_core.varchar)("liveStreamUrl", { length: 512 }),
+  seedParticipants: (0, import_pg_core.integer)("seedParticipants").default(0).notNull(),
+  createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull()
+});
+var trainingEventRegistrations = (0, import_pg_core.pgTable)("training_event_registrations", {
+  id: (0, import_pg_core.serial)("id").primaryKey(),
+  eventId: (0, import_pg_core.integer)("eventId").notNull().references(() => trainingEvents.id),
+  userId: (0, import_pg_core.integer)("userId").notNull().references(() => users.id),
+  createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull()
+});
+var announcements = (0, import_pg_core.pgTable)("announcements", {
+  id: (0, import_pg_core.serial)("id").primaryKey(),
+  userId: (0, import_pg_core.integer)("userId").notNull().references(() => users.id),
+  channel: (0, import_pg_core.varchar)("channel", { length: 32 }).default("avisos").notNull(),
+  title: (0, import_pg_core.varchar)("title", { length: 500 }).notNull(),
+  content: (0, import_pg_core.text)("content").notNull(),
+  imageUrl: (0, import_pg_core.varchar)("imageUrl", { length: 512 }),
+  attachmentUrl: (0, import_pg_core.varchar)("attachmentUrl", { length: 512 }),
+  attachmentName: (0, import_pg_core.varchar)("attachmentName", { length: 255 }),
+  likes: (0, import_pg_core.integer)("likes").default(0).notNull(),
+  createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: (0, import_pg_core.timestamp)("updatedAt", { withTimezone: true }).defaultNow().notNull()
+});
+var announcementLikes = (0, import_pg_core.pgTable)("announcement_likes", {
+  id: (0, import_pg_core.serial)("id").primaryKey(),
+  announcementId: (0, import_pg_core.integer)("announcementId").notNull().references(() => announcements.id),
+  userId: (0, import_pg_core.integer)("userId").notNull().references(() => users.id),
+  createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull()
+});
+var announcementComments = (0, import_pg_core.pgTable)("announcement_comments", {
+  id: (0, import_pg_core.serial)("id").primaryKey(),
+  announcementId: (0, import_pg_core.integer)("announcementId").notNull().references(() => announcements.id),
+  userId: (0, import_pg_core.integer)("userId").notNull().references(() => users.id),
+  parentCommentId: (0, import_pg_core.integer)("parentCommentId"),
+  content: (0, import_pg_core.text)("content").notNull(),
   createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull()
 });
 var analyticsDaily = (0, import_pg_core.pgTable)("analytics_daily", {
@@ -3143,10 +3231,11 @@ async function getCommunityPostById(postId) {
   const result = await db.select().from(communityPosts).where((0, import_drizzle_orm.eq)(communityPosts.id, postId)).limit(1);
   return result[0];
 }
-async function getCommunityFeed(viewerUserId, limit = 50, offset = 0) {
+async function getCommunityFeed(viewerUserId, limit = 50, offset = 0, channel = "feed") {
   const db = await getDb();
   if (!db) return [];
-  const posts = await db.select().from(communityPosts).orderBy((0, import_drizzle_orm.desc)(communityPosts.createdAt)).limit(limit).offset(offset);
+  const order = channel === "grupo-aberto" ? (0, import_drizzle_orm.asc)(communityPosts.createdAt) : (0, import_drizzle_orm.desc)(communityPosts.createdAt);
+  const posts = await db.select().from(communityPosts).where((0, import_drizzle_orm.eq)(communityPosts.channel, channel)).orderBy(order).limit(limit).offset(offset);
   if (posts.length === 0) return [];
   const postIds = posts.map((p) => p.id);
   const authorIds = [...new Set(posts.map((p) => p.userId))];
@@ -3154,6 +3243,7 @@ async function getCommunityFeed(viewerUserId, limit = 50, offset = 0) {
     id: users.id,
     name: users.name,
     username: users.username,
+    role: users.role,
     profileImageUrl: creatorProfiles.profileImageUrl
   }).from(users).leftJoin(creatorProfiles, (0, import_drizzle_orm.eq)(creatorProfiles.userId, users.id)).where((0, import_drizzle_orm.inArray)(users.id, authorIds));
   const authorMap = new Map(authors.map((a) => [a.id, a]));
@@ -3169,6 +3259,7 @@ async function getCommunityFeed(viewerUserId, limit = 50, offset = 0) {
     return {
       id: post.id,
       userId: post.userId,
+      channel: post.channel,
       content: post.content,
       imageUrl: post.imageUrl,
       likes: post.likes,
@@ -3177,14 +3268,15 @@ async function getCommunityFeed(viewerUserId, limit = 50, offset = 0) {
       createdAt: post.createdAt,
       authorName: author?.name || author?.username || "Creator",
       authorUsername: author?.username ?? null,
-      authorProfileImageUrl: author?.profileImageUrl ?? null
+      authorProfileImageUrl: author?.profileImageUrl ?? null,
+      authorRole: author?.role ?? "user"
     };
   });
 }
 async function getCommunityPostsByUser(userId, limit = 20) {
   const db = await getDb();
   if (!db) return [];
-  const posts = await db.select().from(communityPosts).where((0, import_drizzle_orm.eq)(communityPosts.userId, userId)).orderBy((0, import_drizzle_orm.desc)(communityPosts.createdAt)).limit(limit);
+  const posts = await db.select().from(communityPosts).where((0, import_drizzle_orm.and)((0, import_drizzle_orm.eq)(communityPosts.userId, userId), (0, import_drizzle_orm.eq)(communityPosts.channel, "feed"))).orderBy((0, import_drizzle_orm.desc)(communityPosts.createdAt)).limit(limit);
   if (posts.length === 0) return [];
   const postIds = posts.map((p) => p.id);
   const commentCounts = await db.select({
@@ -3230,6 +3322,10 @@ async function getUserPublicProfile(username, viewerId) {
     twitterHandle: profile?.twitterHandle ?? null,
     websiteUrl: profile?.websiteUrl ?? null,
     platformObjective: profile?.platformObjective ?? null,
+    city: profile?.city ?? null,
+    state: profile?.state ?? null,
+    age: profile?.age ?? null,
+    isOnline: isUserOnline(user.lastSignedIn),
     tiktokFollowers: progress?.currentFollowers ?? 0,
     targetFollowers: progress?.targetFollowers ?? 2e3,
     platformFollowers: stats.followers,
@@ -3239,20 +3335,24 @@ async function getUserPublicProfile(username, viewerId) {
     posts
   };
 }
-async function createCommunityPost(userId, content) {
+async function createCommunityPost(userId, content, options) {
   const db = await getDb();
   if (!db) return null;
+  const channel = options?.channel ?? "feed";
+  const link = channel === "grupo-aberto" ? "/start/grupo-aberto" : "/community/feed";
   const [post] = await db.insert(communityPosts).values({
     userId,
+    channel,
     content,
+    imageUrl: options?.imageUrl ?? null,
     createdAt: /* @__PURE__ */ new Date(),
     updatedAt: /* @__PURE__ */ new Date()
   }).returning({ id: communityPosts.id });
   await notifyMentionsInContent({
     content,
     actorUserId: userId,
-    link: "/community/feed",
-    context: "mencionou voc\xEA em um post"
+    link,
+    context: channel === "grupo-aberto" ? "mencionou voc\xEA no Grupo Aberto" : "mencionou voc\xEA em um post"
   });
   return post?.id ?? null;
 }
@@ -3419,6 +3519,11 @@ async function markAllNotificationsRead(userId) {
   if (!db) return;
   await db.update(notifications).set({ read: true }).where((0, import_drizzle_orm.eq)(notifications.userId, userId));
 }
+var ONLINE_THRESHOLD_MS = 15 * 60 * 1e3;
+function isUserOnline(lastSignedIn) {
+  if (!lastSignedIn) return false;
+  return Date.now() - new Date(lastSignedIn).getTime() < ONLINE_THRESHOLD_MS;
+}
 function resolveFollowStatus(iFollow, followsMe) {
   if (iFollow && followsMe) return "mutual";
   if (iFollow) return "following";
@@ -3438,6 +3543,8 @@ async function enrichCreatorsWithFollowData(viewerId, rows) {
   const iFollowSet = new Set(iFollowRows.map((r) => r.followingId));
   const theyFollowSet = new Set(theyFollowRows.map((r) => r.followerId));
   const countMap = new Map(followerCounts.map((c) => [c.userId, c.count]));
+  const signIns = await db.select({ id: users.id, lastSignedIn: users.lastSignedIn }).from(users).where((0, import_drizzle_orm.inArray)(users.id, userIds));
+  const signInMap = new Map(signIns.map((u) => [u.id, u.lastSignedIn]));
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
@@ -3446,7 +3553,8 @@ async function enrichCreatorsWithFollowData(viewerId, rows) {
     profileImageUrl: row.profileImageUrl,
     tiktokFollowers: row.tiktokFollowers ?? 0,
     platformFollowers: countMap.get(row.id) ?? 0,
-    followStatus: resolveFollowStatus(iFollowSet.has(row.id), theyFollowSet.has(row.id))
+    followStatus: resolveFollowStatus(iFollowSet.has(row.id), theyFollowSet.has(row.id)),
+    isOnline: isUserOnline(signInMap.get(row.id))
   }));
 }
 async function getFollowStats(userId) {
@@ -3577,6 +3685,328 @@ async function getUserAchievements(userId) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(userAchievements).where((0, import_drizzle_orm.eq)(userAchievements.userId, userId));
+}
+async function getLessonEngagement(lessonSlug, userId) {
+  const db = await getDb();
+  if (!db) return { likes: 0, liked: false, commentCount: 0 };
+  const [likeRows, userLike, commentRows] = await Promise.all([
+    db.select({ id: lessonLikes.id }).from(lessonLikes).where((0, import_drizzle_orm.eq)(lessonLikes.lessonSlug, lessonSlug)),
+    db.select({ id: lessonLikes.id }).from(lessonLikes).where((0, import_drizzle_orm.and)((0, import_drizzle_orm.eq)(lessonLikes.lessonSlug, lessonSlug), (0, import_drizzle_orm.eq)(lessonLikes.userId, userId))).limit(1),
+    db.select({ id: lessonComments.id }).from(lessonComments).where((0, import_drizzle_orm.eq)(lessonComments.lessonSlug, lessonSlug))
+  ]);
+  return {
+    likes: likeRows.length,
+    liked: userLike.length > 0,
+    commentCount: commentRows.length
+  };
+}
+async function toggleLessonLike(userId, lessonSlug) {
+  const db = await getDb();
+  if (!db) return { liked: false, likes: 0 };
+  const existing = await db.select().from(lessonLikes).where((0, import_drizzle_orm.and)((0, import_drizzle_orm.eq)(lessonLikes.lessonSlug, lessonSlug), (0, import_drizzle_orm.eq)(lessonLikes.userId, userId))).limit(1);
+  if (existing.length > 0) {
+    await db.delete(lessonLikes).where((0, import_drizzle_orm.eq)(lessonLikes.id, existing[0].id));
+    const likeRows2 = await db.select({ id: lessonLikes.id }).from(lessonLikes).where((0, import_drizzle_orm.eq)(lessonLikes.lessonSlug, lessonSlug));
+    return { liked: false, likes: likeRows2.length };
+  }
+  await db.insert(lessonLikes).values({ lessonSlug, userId });
+  const likeRows = await db.select({ id: lessonLikes.id }).from(lessonLikes).where((0, import_drizzle_orm.eq)(lessonLikes.lessonSlug, lessonSlug));
+  return { liked: true, likes: likeRows.length };
+}
+async function getLessonComments(lessonSlug) {
+  const db = await getDb();
+  if (!db) return [];
+  const comments = await db.select().from(lessonComments).where((0, import_drizzle_orm.eq)(lessonComments.lessonSlug, lessonSlug)).orderBy((0, import_drizzle_orm.asc)(lessonComments.createdAt));
+  if (comments.length === 0) return [];
+  const userIds = [...new Set(comments.map((c) => c.userId))];
+  const authors = await db.select({
+    id: users.id,
+    name: users.name,
+    username: users.username,
+    profileImageUrl: creatorProfiles.profileImageUrl
+  }).from(users).leftJoin(creatorProfiles, (0, import_drizzle_orm.eq)(creatorProfiles.userId, users.id)).where((0, import_drizzle_orm.inArray)(users.id, userIds));
+  const authorMap = new Map(authors.map((a) => [a.id, a]));
+  return comments.map((c) => {
+    const author = authorMap.get(c.userId);
+    return {
+      id: c.id,
+      lessonSlug: c.lessonSlug,
+      userId: c.userId,
+      parentCommentId: c.parentCommentId ?? null,
+      content: c.content,
+      createdAt: c.createdAt,
+      authorName: author?.name || author?.username || "Creator",
+      authorUsername: author?.username ?? null,
+      authorProfileImageUrl: author?.profileImageUrl ?? null
+    };
+  });
+}
+async function createLessonComment(userId, lessonSlug, content, parentCommentId) {
+  const db = await getDb();
+  if (!db) return null;
+  if (parentCommentId) {
+    const parent = await db.select().from(lessonComments).where((0, import_drizzle_orm.eq)(lessonComments.id, parentCommentId)).limit(1);
+    if (parent.length === 0 || parent[0].lessonSlug !== lessonSlug) return null;
+  }
+  const rows = await db.insert(lessonComments).values({ lessonSlug, userId, content, parentCommentId: parentCommentId ?? null }).returning({ id: lessonComments.id });
+  return rows[0]?.id ?? null;
+}
+async function learningLessonExists(lessonSlug) {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ id: learningLessons.id }).from(learningLessons).where((0, import_drizzle_orm.eq)(learningLessons.slug, lessonSlug)).limit(1);
+  return rows.length > 0;
+}
+async function getLearningTrack(trackSlug) {
+  const db = await getDb();
+  if (!db) return null;
+  const tracks = await db.select().from(learningTracks).where((0, import_drizzle_orm.eq)(learningTracks.slug, trackSlug)).limit(1);
+  const track = tracks[0];
+  if (!track) return null;
+  const sections = await db.select().from(learningSections).where((0, import_drizzle_orm.eq)(learningSections.trackSlug, trackSlug)).orderBy((0, import_drizzle_orm.asc)(learningSections.sortOrder));
+  const sectionIds = sections.map((s) => s.id);
+  const lessons = sectionIds.length === 0 ? [] : await db.select().from(learningLessons).where((0, import_drizzle_orm.inArray)(learningLessons.sectionId, sectionIds)).orderBy((0, import_drizzle_orm.asc)(learningLessons.sortOrder));
+  const lessonsBySection = /* @__PURE__ */ new Map();
+  for (const lesson of lessons) {
+    const arr = lessonsBySection.get(lesson.sectionId) ?? [];
+    arr.push(lesson);
+    lessonsBySection.set(lesson.sectionId, arr);
+  }
+  return {
+    slug: track.slug,
+    title: track.title,
+    emoji: track.emoji,
+    welcomeEnabled: track.welcomeEnabled,
+    sections: sections.map((section) => ({
+      id: section.id,
+      slug: section.slug,
+      title: section.title,
+      lessons: (lessonsBySection.get(section.id) ?? []).map((lesson) => ({
+        id: lesson.id,
+        slug: lesson.slug,
+        lessonLabel: lesson.lessonLabel,
+        title: lesson.title,
+        durationSeconds: lesson.durationSeconds,
+        youtubeVideoId: lesson.youtubeVideoId
+      }))
+    }))
+  };
+}
+async function getLearningLesson(lessonSlug) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select({
+    id: learningLessons.id,
+    slug: learningLessons.slug,
+    lessonLabel: learningLessons.lessonLabel,
+    title: learningLessons.title,
+    durationSeconds: learningLessons.durationSeconds,
+    youtubeVideoId: learningLessons.youtubeVideoId,
+    sectionId: learningSections.id,
+    sectionTitle: learningSections.title,
+    sectionSlug: learningSections.slug,
+    trackSlug: learningTracks.slug,
+    trackTitle: learningTracks.title,
+    trackEmoji: learningTracks.emoji
+  }).from(learningLessons).innerJoin(learningSections, (0, import_drizzle_orm.eq)(learningSections.id, learningLessons.sectionId)).innerJoin(learningTracks, (0, import_drizzle_orm.eq)(learningTracks.slug, learningSections.trackSlug)).where((0, import_drizzle_orm.eq)(learningLessons.slug, lessonSlug)).limit(1);
+  return rows[0] ?? null;
+}
+async function getAnnouncementById(announcementId) {
+  const db = await getDb();
+  if (!db) return void 0;
+  const rows = await db.select().from(announcements).where((0, import_drizzle_orm.eq)(announcements.id, announcementId)).limit(1);
+  return rows[0];
+}
+async function getAnnouncementsFeed(viewerUserId, limit = 50, offset = 0, channel = "avisos") {
+  const db = await getDb();
+  if (!db) return [];
+  const items = await db.select().from(announcements).where((0, import_drizzle_orm.eq)(announcements.channel, channel)).orderBy((0, import_drizzle_orm.desc)(announcements.createdAt)).limit(limit).offset(offset);
+  if (items.length === 0) return [];
+  const ids = items.map((a) => a.id);
+  const authorIds = [...new Set(items.map((a) => a.userId))];
+  const authors = await db.select({
+    id: users.id,
+    name: users.name,
+    username: users.username,
+    role: users.role,
+    createdAt: users.createdAt,
+    profileImageUrl: creatorProfiles.profileImageUrl
+  }).from(users).leftJoin(creatorProfiles, (0, import_drizzle_orm.eq)(creatorProfiles.userId, users.id)).where((0, import_drizzle_orm.inArray)(users.id, authorIds));
+  const authorMap = new Map(authors.map((a) => [a.id, a]));
+  const commentCounts = await db.select({
+    announcementId: announcementComments.announcementId,
+    count: import_drizzle_orm.sql`count(*)::int`
+  }).from(announcementComments).where((0, import_drizzle_orm.inArray)(announcementComments.announcementId, ids)).groupBy(announcementComments.announcementId);
+  const countMap = new Map(commentCounts.map((c) => [c.announcementId, c.count]));
+  const viewerLikes = await db.select({ announcementId: announcementLikes.announcementId }).from(announcementLikes).where((0, import_drizzle_orm.and)((0, import_drizzle_orm.eq)(announcementLikes.userId, viewerUserId), (0, import_drizzle_orm.inArray)(announcementLikes.announcementId, ids)));
+  const likedSet = new Set(viewerLikes.map((l) => l.announcementId));
+  return items.map((item) => {
+    const author = authorMap.get(item.userId);
+    return {
+      id: item.id,
+      userId: item.userId,
+      title: item.title,
+      content: item.content,
+      imageUrl: item.imageUrl,
+      attachmentUrl: item.attachmentUrl,
+      attachmentName: item.attachmentName,
+      likes: item.likes,
+      commentCount: countMap.get(item.id) ?? 0,
+      liked: likedSet.has(item.id),
+      createdAt: item.createdAt,
+      authorName: author?.name || author?.username || "Equipe",
+      authorUsername: author?.username ?? null,
+      authorProfileImageUrl: author?.profileImageUrl ?? null,
+      authorRole: author?.role ?? "user",
+      authorMemberSince: author?.createdAt ?? item.createdAt
+    };
+  });
+}
+async function createAnnouncement(userId, data) {
+  const db = await getDb();
+  if (!db) return null;
+  const now = /* @__PURE__ */ new Date();
+  const [row] = await db.insert(announcements).values({
+    userId,
+    channel: data.channel ?? "avisos",
+    title: data.title,
+    content: data.content,
+    imageUrl: data.imageUrl ?? null,
+    attachmentUrl: data.attachmentUrl ?? null,
+    attachmentName: data.attachmentName ?? null,
+    createdAt: now,
+    updatedAt: now
+  }).returning({ id: announcements.id });
+  return row?.id ?? null;
+}
+async function toggleAnnouncementLike(userId, announcementId) {
+  const db = await getDb();
+  if (!db) return { liked: false, likes: 0 };
+  const item = await getAnnouncementById(announcementId);
+  if (!item) return { liked: false, likes: 0 };
+  const existing = await db.select().from(announcementLikes).where((0, import_drizzle_orm.and)((0, import_drizzle_orm.eq)(announcementLikes.announcementId, announcementId), (0, import_drizzle_orm.eq)(announcementLikes.userId, userId))).limit(1);
+  if (existing.length > 0) {
+    await db.delete(announcementLikes).where((0, import_drizzle_orm.eq)(announcementLikes.id, existing[0].id));
+    const newCount2 = Math.max(0, item.likes - 1);
+    await db.update(announcements).set({ likes: newCount2, updatedAt: /* @__PURE__ */ new Date() }).where((0, import_drizzle_orm.eq)(announcements.id, announcementId));
+    return { liked: false, likes: newCount2 };
+  }
+  await db.insert(announcementLikes).values({ announcementId, userId });
+  const newCount = item.likes + 1;
+  await db.update(announcements).set({ likes: newCount, updatedAt: /* @__PURE__ */ new Date() }).where((0, import_drizzle_orm.eq)(announcements.id, announcementId));
+  return { liked: true, likes: newCount };
+}
+async function getAnnouncementComments(announcementId) {
+  const db = await getDb();
+  if (!db) return [];
+  const comments = await db.select().from(announcementComments).where((0, import_drizzle_orm.eq)(announcementComments.announcementId, announcementId)).orderBy((0, import_drizzle_orm.asc)(announcementComments.createdAt));
+  if (comments.length === 0) return [];
+  const userIds = [...new Set(comments.map((c) => c.userId))];
+  const authors = await db.select({
+    id: users.id,
+    name: users.name,
+    username: users.username,
+    profileImageUrl: creatorProfiles.profileImageUrl
+  }).from(users).leftJoin(creatorProfiles, (0, import_drizzle_orm.eq)(creatorProfiles.userId, users.id)).where((0, import_drizzle_orm.inArray)(users.id, userIds));
+  const authorMap = new Map(authors.map((a) => [a.id, a]));
+  return comments.map((c) => {
+    const author = authorMap.get(c.userId);
+    return {
+      id: c.id,
+      announcementId: c.announcementId,
+      userId: c.userId,
+      parentCommentId: c.parentCommentId ?? null,
+      content: c.content,
+      createdAt: c.createdAt,
+      authorName: author?.name || author?.username || "Creator",
+      authorUsername: author?.username ?? null,
+      authorProfileImageUrl: author?.profileImageUrl ?? null
+    };
+  });
+}
+async function createAnnouncementComment(userId, announcementId, content, parentCommentId) {
+  const db = await getDb();
+  if (!db) return null;
+  const item = await getAnnouncementById(announcementId);
+  if (!item) return null;
+  if (parentCommentId) {
+    const parent = await db.select().from(announcementComments).where((0, import_drizzle_orm.eq)(announcementComments.id, parentCommentId)).limit(1);
+    if (parent.length === 0 || parent[0].announcementId !== announcementId) return null;
+  }
+  const rows = await db.insert(announcementComments).values({ announcementId, userId, content, parentCommentId: parentCommentId ?? null }).returning({ id: announcementComments.id });
+  return rows[0]?.id ?? null;
+}
+async function getTrainingEvents(userId, options = {}) {
+  const db = await getDb();
+  if (!db) return [];
+  const now = /* @__PURE__ */ new Date();
+  const events = await db.select().from(trainingEvents).orderBy((0, import_drizzle_orm.asc)(trainingEvents.startDate));
+  let filtered = events;
+  if (options.upcomingOnly) {
+    filtered = filtered.filter((e) => e.startDate >= now || e.endDate && e.endDate >= now);
+  }
+  if (options.category && options.category !== "all") {
+    filtered = filtered.filter((e) => e.category === options.category);
+  }
+  if (filtered.length === 0) return [];
+  const eventIds = filtered.map((e) => e.id);
+  const regCounts = await db.select({
+    eventId: trainingEventRegistrations.eventId,
+    count: import_drizzle_orm.sql`count(*)::int`
+  }).from(trainingEventRegistrations).where((0, import_drizzle_orm.inArray)(trainingEventRegistrations.eventId, eventIds)).groupBy(trainingEventRegistrations.eventId);
+  const countMap = new Map(regCounts.map((r) => [r.eventId, r.count]));
+  const userRegs = await db.select({ eventId: trainingEventRegistrations.eventId }).from(trainingEventRegistrations).where((0, import_drizzle_orm.and)((0, import_drizzle_orm.eq)(trainingEventRegistrations.userId, userId), (0, import_drizzle_orm.inArray)(trainingEventRegistrations.eventId, eventIds)));
+  const registeredSet = new Set(userRegs.map((r) => r.eventId));
+  return filtered.map((event) => ({
+    id: event.id,
+    title: event.title,
+    description: event.description,
+    imageUrl: event.imageUrl,
+    category: event.category,
+    eventType: event.eventType,
+    hostName: event.hostName,
+    startDate: event.startDate,
+    endDate: event.endDate,
+    liveStreamUrl: event.liveStreamUrl,
+    participantCount: (countMap.get(event.id) ?? 0) + (event.seedParticipants ?? 0),
+    registered: registeredSet.has(event.id)
+  }));
+}
+async function toggleTrainingRegistration(userId, eventId) {
+  const db = await getDb();
+  if (!db) return { registered: false };
+  const event = await db.select().from(trainingEvents).where((0, import_drizzle_orm.eq)(trainingEvents.id, eventId)).limit(1);
+  if (event.length === 0) return { registered: false };
+  const existing = await db.select().from(trainingEventRegistrations).where((0, import_drizzle_orm.and)((0, import_drizzle_orm.eq)(trainingEventRegistrations.eventId, eventId), (0, import_drizzle_orm.eq)(trainingEventRegistrations.userId, userId))).limit(1);
+  if (existing.length > 0) {
+    await db.delete(trainingEventRegistrations).where((0, import_drizzle_orm.eq)(trainingEventRegistrations.id, existing[0].id));
+    return { registered: false };
+  }
+  await db.insert(trainingEventRegistrations).values({ eventId, userId });
+  return { registered: true };
+}
+async function getGroupMembers(viewerUserId) {
+  const db = await getDb();
+  if (!db) return { members: [], onlineCount: 0, totalCount: 0 };
+  const rows = await db.select({
+    id: users.id,
+    name: users.name,
+    username: users.username,
+    role: users.role,
+    lastSignedIn: users.lastSignedIn,
+    profileImageUrl: creatorProfiles.profileImageUrl
+  }).from(users).leftJoin(creatorProfiles, (0, import_drizzle_orm.eq)(creatorProfiles.userId, users.id)).orderBy((0, import_drizzle_orm.desc)(users.lastSignedIn)).limit(200);
+  const members = rows.map((row) => ({
+    id: row.id,
+    name: row.name || row.username || "Creator",
+    username: row.username,
+    role: row.role,
+    profileImageUrl: row.profileImageUrl,
+    isOnline: isUserOnline(row.lastSignedIn),
+    isSelf: row.id === viewerUserId
+  }));
+  const onlineCount = members.filter((m) => m.isOnline).length;
+  return { members, onlineCount, totalCount: members.length };
 }
 
 // server/_core/context.ts
@@ -8819,6 +9249,12 @@ var protectedProcedure = t.procedure.use(({ ctx, next }) => {
   }
   return next({ ctx: { ...ctx, user: ctx.user } });
 });
+var adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.user.role !== "admin") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem fazer isso" });
+  }
+  return next({ ctx });
+});
 
 // server/const.ts
 var APP_NAME = "Conex\xF5es Creator";
@@ -8885,10 +9321,53 @@ var shopRouter = router({
 });
 
 // server/routers/community.ts
+var channelSchema = external_exports.enum(["feed", "grupo-aberto"]);
+var postInputSchema = external_exports.object({
+  content: external_exports.string().max(5e3),
+  channel: channelSchema.default("feed"),
+  imageUrl: external_exports.string().url().optional().or(external_exports.literal("")),
+  imageBase64: external_exports.string().optional(),
+  imageMime: external_exports.string().optional()
+}).refine((data) => data.content.trim().length > 0 || data.imageUrl || data.imageBase64, {
+  message: "Escreva uma mensagem ou anexe uma imagem"
+});
 var communityRouter = router({
-  feed: protectedProcedure.input(external_exports.object({ limit: external_exports.number().min(1).max(100).default(50), offset: external_exports.number().min(0).default(0) })).query(async ({ ctx, input }) => getCommunityFeed(ctx.user.id, input.limit, input.offset)),
-  post: protectedProcedure.input(external_exports.object({ content: external_exports.string().min(1).max(5e3) })).mutation(async ({ ctx, input }) => {
-    const id = await createCommunityPost(ctx.user.id, input.content);
+  feed: protectedProcedure.input(
+    external_exports.object({
+      limit: external_exports.number().min(1).max(100).default(50),
+      offset: external_exports.number().min(0).default(0),
+      channel: channelSchema.default("feed")
+    }).optional()
+  ).query(
+    async ({ ctx, input }) => getCommunityFeed(
+      ctx.user.id,
+      input?.limit ?? 50,
+      input?.offset ?? 0,
+      input?.channel ?? "feed"
+    )
+  ),
+  members: protectedProcedure.query(async ({ ctx }) => getGroupMembers(ctx.user.id)),
+  post: protectedProcedure.input(postInputSchema).mutation(async ({ ctx, input }) => {
+    let imageUrl = input.imageUrl || void 0;
+    if (input.imageBase64) {
+      const uploaded = await uploadImage(
+        "community-posts",
+        `${ctx.user.id}/${Date.now()}`,
+        input.imageBase64,
+        input.imageMime
+      );
+      if (!uploaded) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "N\xE3o foi poss\xEDvel enviar a imagem. Tente novamente."
+        });
+      }
+      imageUrl = uploaded;
+    }
+    const id = await createCommunityPost(ctx.user.id, input.content.trim(), {
+      channel: input.channel,
+      imageUrl
+    });
     if (!id) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "N\xE3o foi poss\xEDvel publicar" });
     return { success: true, id };
   }),
@@ -9472,6 +9951,238 @@ var followsRouter = router({
   })
 });
 
+// shared/learning/firstStep.ts
+var FIRST_STEP_MODULE = {
+  title: "Seu primeiro passo",
+  emoji: "\u{1F44B}",
+  sections: [
+    {
+      id: "conheca-app",
+      title: "Conhe\xE7a nosso App!",
+      lessons: [
+        {
+          slug: "como-usar-o-club",
+          title: "Como usar o Club?",
+          durationSeconds: 223,
+          icon: "\u25B6\uFE0F"
+        }
+      ]
+    },
+    {
+      id: "conheca-time",
+      title: "Conhe\xE7a o Time",
+      lessons: [
+        {
+          slug: "mayra-gestora",
+          title: "Mayra - Gestora da Comunidade",
+          durationSeconds: 10,
+          icon: "\u25B6\uFE0F"
+        },
+        {
+          slug: "leo-gerente",
+          title: "Leo - Gerente de Contas",
+          durationSeconds: 8,
+          icon: "\u25B6\uFE0F"
+        }
+      ]
+    },
+    {
+      id: "jornada-crescimento",
+      title: "Entenda a jornada de crescimento!",
+      lessons: [
+        {
+          slug: "sobre-amplify-agenciamento",
+          title: "Sobre a Amplify e o Agenciamento",
+          icon: "\u{1F4C4}"
+        },
+        {
+          slug: "beneficios-agencia-gmv",
+          title: "Benef\xEDcios da Ag\xEAncia e como aumentar meu GMV?",
+          icon: "\u{1F4C4}"
+        },
+        {
+          slug: "programa-indicacao",
+          title: "Programa de Indica\xE7\xE3o",
+          icon: "\u{1F4C4}"
+        }
+      ]
+    },
+    {
+      id: "guia-duvidas",
+      title: "Guia de tira d\xFAvidas",
+      lessons: [
+        {
+          slug: "suporte-punicoes",
+          title: "Suporte e Puni\xE7\xF5es",
+          icon: "\u{1F4C4}"
+        },
+        {
+          slug: "treinamentos",
+          title: "Treinamentos",
+          icon: "\u{1F4C4}"
+        },
+        {
+          slug: "amostras-campanhas",
+          title: "Amostras e Campanhas",
+          durationSeconds: 34,
+          icon: "\u25B6\uFE0F"
+        }
+      ]
+    },
+    {
+      id: "download-app",
+      title: "Download do aplicativo",
+      lessons: [
+        {
+          slug: "download-app",
+          title: "Download do App",
+          durationSeconds: 16,
+          icon: "\u25B6\uFE0F"
+        }
+      ]
+    }
+  ]
+};
+var FIRST_STEP_LESSONS = FIRST_STEP_MODULE.sections.flatMap((s) => s.lessons);
+var FIRST_STEP_LESSON_SLUGS = new Set(FIRST_STEP_LESSONS.map((l) => l.slug));
+
+// server/routers/learning.ts
+async function assertValidLessonSlug(lessonSlug) {
+  if (FIRST_STEP_LESSON_SLUGS.has(lessonSlug)) return;
+  const exists = await learningLessonExists(lessonSlug);
+  if (!exists) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Aula n\xE3o encontrada" });
+  }
+}
+var learningRouter = router({
+  track: protectedProcedure.input(external_exports.object({ trackSlug: external_exports.string().min(1).max(64) })).query(async ({ input }) => {
+    const track = await getLearningTrack(input.trackSlug);
+    if (!track) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Trilha n\xE3o encontrada" });
+    }
+    return track;
+  }),
+  lesson: protectedProcedure.input(external_exports.object({ lessonSlug: external_exports.string().min(1).max(128) })).query(async ({ input }) => {
+    const lesson = await getLearningLesson(input.lessonSlug);
+    if (!lesson) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Aula n\xE3o encontrada" });
+    }
+    return lesson;
+  }),
+  engagement: protectedProcedure.input(external_exports.object({ lessonSlug: external_exports.string().min(1).max(128) })).query(async ({ ctx, input }) => {
+    await assertValidLessonSlug(input.lessonSlug);
+    return getLessonEngagement(input.lessonSlug, ctx.user.id);
+  }),
+  like: protectedProcedure.input(external_exports.object({ lessonSlug: external_exports.string().min(1).max(128) })).mutation(async ({ ctx, input }) => {
+    await assertValidLessonSlug(input.lessonSlug);
+    return toggleLessonLike(ctx.user.id, input.lessonSlug);
+  }),
+  comments: protectedProcedure.input(external_exports.object({ lessonSlug: external_exports.string().min(1).max(128) })).query(async ({ input }) => {
+    await assertValidLessonSlug(input.lessonSlug);
+    return getLessonComments(input.lessonSlug);
+  }),
+  comment: protectedProcedure.input(
+    external_exports.object({
+      lessonSlug: external_exports.string().min(1).max(128),
+      content: external_exports.string().min(1).max(2e3),
+      parentCommentId: external_exports.number().optional()
+    })
+  ).mutation(async ({ ctx, input }) => {
+    await assertValidLessonSlug(input.lessonSlug);
+    const id = await createLessonComment(
+      ctx.user.id,
+      input.lessonSlug,
+      input.content,
+      input.parentCommentId
+    );
+    if (!id) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: input.parentCommentId ? "Coment\xE1rio n\xE3o encontrado" : "N\xE3o foi poss\xEDvel comentar"
+      });
+    }
+    return { success: true, id };
+  })
+});
+
+// server/routers/announcements.ts
+var announcementsRouter = router({
+  feed: protectedProcedure.input(
+    external_exports.object({
+      limit: external_exports.number().min(1).max(100).default(50),
+      offset: external_exports.number().min(0).default(0),
+      channel: external_exports.enum(["avisos", "punicoes"]).default("avisos")
+    }).optional()
+  ).query(
+    async ({ ctx, input }) => getAnnouncementsFeed(
+      ctx.user.id,
+      input?.limit ?? 50,
+      input?.offset ?? 0,
+      input?.channel ?? "avisos"
+    )
+  ),
+  post: adminProcedure.input(
+    external_exports.object({
+      title: external_exports.string().min(1).max(500),
+      content: external_exports.string().min(1).max(1e4),
+      imageUrl: external_exports.string().url().optional().or(external_exports.literal("")),
+      attachmentUrl: external_exports.string().url().optional().or(external_exports.literal("")),
+      attachmentName: external_exports.string().max(255).optional()
+    })
+  ).mutation(async ({ ctx, input }) => {
+    const id = await createAnnouncement(ctx.user.id, {
+      title: input.title.trim(),
+      content: input.content.trim(),
+      imageUrl: input.imageUrl || void 0,
+      attachmentUrl: input.attachmentUrl || void 0,
+      attachmentName: input.attachmentName
+    });
+    if (!id) {
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "N\xE3o foi poss\xEDvel publicar o aviso" });
+    }
+    return { success: true, id };
+  }),
+  like: protectedProcedure.input(external_exports.object({ announcementId: external_exports.number() })).mutation(async ({ ctx, input }) => toggleAnnouncementLike(ctx.user.id, input.announcementId)),
+  comments: protectedProcedure.input(external_exports.object({ announcementId: external_exports.number() })).query(async ({ input }) => getAnnouncementComments(input.announcementId)),
+  comment: protectedProcedure.input(
+    external_exports.object({
+      announcementId: external_exports.number(),
+      content: external_exports.string().min(1).max(2e3),
+      parentCommentId: external_exports.number().optional()
+    })
+  ).mutation(async ({ ctx, input }) => {
+    const id = await createAnnouncementComment(
+      ctx.user.id,
+      input.announcementId,
+      input.content,
+      input.parentCommentId
+    );
+    if (!id) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: input.parentCommentId ? "Coment\xE1rio n\xE3o encontrado" : "Aviso n\xE3o encontrado"
+      });
+    }
+    return { success: true, id };
+  })
+});
+
+// server/routers/trainings.ts
+var trainingsRouter = router({
+  list: protectedProcedure.input(
+    external_exports.object({
+      upcomingOnly: external_exports.boolean().default(true),
+      category: external_exports.enum(["all", "geral", "indicacao", "estrategia"]).default("all")
+    }).optional()
+  ).query(
+    async ({ ctx, input }) => getTrainingEvents(ctx.user.id, {
+      upcomingOnly: input?.upcomingOnly ?? true,
+      category: input?.category ?? "all"
+    })
+  ),
+  register: protectedProcedure.input(external_exports.object({ eventId: external_exports.number() })).mutation(async ({ ctx, input }) => toggleTrainingRegistration(ctx.user.id, input.eventId))
+});
+
 // server/routers/index.ts
 var appRouter = router({
   system: systemRouter,
@@ -9593,6 +10304,9 @@ var appRouter = router({
   analytics: analyticsRouter,
   notifications: notificationsRouter,
   follows: followsRouter,
+  learning: learningRouter,
+  announcements: announcementsRouter,
+  trainings: trainingsRouter,
   users: router({
     search: protectedProcedure.input(external_exports.object({ q: external_exports.string().min(1).max(30) })).query(async ({ input }) => searchUsersByUsername(input.q))
   })
