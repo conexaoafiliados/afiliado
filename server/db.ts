@@ -678,13 +678,20 @@ export async function getCommunityPostById(postId: number) {
   return result[0];
 }
 
-export async function getCommunityFeed(viewerUserId: number, limit = 50, offset = 0) {
+export async function getCommunityFeed(
+  viewerUserId: number,
+  limit = 50,
+  offset = 0,
+  channel = "feed"
+) {
   const db = await getDb();
   if (!db) return [];
+  const order = channel === "grupo-aberto" ? asc(communityPosts.createdAt) : desc(communityPosts.createdAt);
   const posts = await db
     .select()
     .from(communityPosts)
-    .orderBy(desc(communityPosts.createdAt))
+    .where(eq(communityPosts.channel, channel))
+    .orderBy(order)
     .limit(limit)
     .offset(offset);
   if (posts.length === 0) return [];
@@ -697,6 +704,7 @@ export async function getCommunityFeed(viewerUserId: number, limit = 50, offset 
       id: users.id,
       name: users.name,
       username: users.username,
+      role: users.role,
       profileImageUrl: creatorProfiles.profileImageUrl,
     })
     .from(users)
@@ -727,6 +735,7 @@ export async function getCommunityFeed(viewerUserId: number, limit = 50, offset 
     return {
       id: post.id,
       userId: post.userId,
+      channel: post.channel,
       content: post.content,
       imageUrl: post.imageUrl,
       likes: post.likes,
@@ -736,6 +745,7 @@ export async function getCommunityFeed(viewerUserId: number, limit = 50, offset 
       authorName: author?.name || author?.username || "Creator",
       authorUsername: author?.username ?? null,
       authorProfileImageUrl: author?.profileImageUrl ?? null,
+      authorRole: author?.role ?? "user",
     };
   });
 }
@@ -746,7 +756,7 @@ export async function getCommunityPostsByUser(userId: number, limit = 20) {
   const posts = await db
     .select()
     .from(communityPosts)
-    .where(eq(communityPosts.userId, userId))
+    .where(and(eq(communityPosts.userId, userId), eq(communityPosts.channel, "feed")))
     .orderBy(desc(communityPosts.createdAt))
     .limit(limit);
   if (posts.length === 0) return [];
@@ -814,14 +824,22 @@ export async function getUserPublicProfile(username: string, viewerId: number) {
   };
 }
 
-export async function createCommunityPost(userId: number, content: string) {
+export async function createCommunityPost(
+  userId: number,
+  content: string,
+  options?: { channel?: string; imageUrl?: string }
+) {
   const db = await getDb();
   if (!db) return null;
+  const channel = options?.channel ?? "feed";
+  const link = channel === "grupo-aberto" ? "/start/grupo-aberto" : "/community/feed";
   const [post] = await db
     .insert(communityPosts)
     .values({
       userId,
+      channel,
       content,
+      imageUrl: options?.imageUrl ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
     })
@@ -829,8 +847,8 @@ export async function createCommunityPost(userId: number, content: string) {
   await notifyMentionsInContent({
     content,
     actorUserId: userId,
-    link: "/community/feed",
-    context: "mencionou você em um post",
+    link,
+    context: channel === "grupo-aberto" ? "mencionou você no Grupo Aberto" : "mencionou você em um post",
   });
   return post?.id ?? null;
 }
@@ -1577,13 +1595,19 @@ async function getAnnouncementById(announcementId: number) {
   return rows[0];
 }
 
-export async function getAnnouncementsFeed(viewerUserId: number, limit = 50, offset = 0) {
+export async function getAnnouncementsFeed(
+  viewerUserId: number,
+  limit = 50,
+  offset = 0,
+  channel = "avisos"
+) {
   const db = await getDb();
   if (!db) return [];
 
   const items = await db
     .select()
     .from(announcements)
+    .where(eq(announcements.channel, channel))
     .orderBy(desc(announcements.createdAt))
     .limit(limit)
     .offset(offset);
@@ -1651,6 +1675,7 @@ export async function createAnnouncement(
   data: {
     title: string;
     content: string;
+    channel?: string;
     imageUrl?: string;
     attachmentUrl?: string;
     attachmentName?: string;
@@ -1663,6 +1688,7 @@ export async function createAnnouncement(
     .insert(announcements)
     .values({
       userId,
+      channel: data.channel ?? "avisos",
       title: data.title,
       content: data.content,
       imageUrl: data.imageUrl ?? null,
@@ -1857,4 +1883,39 @@ export async function toggleTrainingRegistration(userId: number, eventId: number
 
   await db.insert(trainingEventRegistrations).values({ eventId, userId });
   return { registered: true };
+}
+
+const ONLINE_THRESHOLD_MS = 15 * 60 * 1000;
+
+export async function getGroupMembers(viewerUserId: number) {
+  const db = await getDb();
+  if (!db) return { members: [], onlineCount: 0, totalCount: 0 };
+
+  const rows = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      username: users.username,
+      role: users.role,
+      lastSignedIn: users.lastSignedIn,
+      profileImageUrl: creatorProfiles.profileImageUrl,
+    })
+    .from(users)
+    .leftJoin(creatorProfiles, eq(creatorProfiles.userId, users.id))
+    .orderBy(desc(users.lastSignedIn))
+    .limit(200);
+
+  const now = Date.now();
+  const members = rows.map(row => ({
+    id: row.id,
+    name: row.name || row.username || "Creator",
+    username: row.username,
+    role: row.role,
+    profileImageUrl: row.profileImageUrl,
+    isOnline: now - new Date(row.lastSignedIn).getTime() < ONLINE_THRESHOLD_MS,
+    isSelf: row.id === viewerUserId,
+  }));
+
+  const onlineCount = members.filter(m => m.isOnline).length;
+  return { members, onlineCount, totalCount: members.length };
 }

@@ -28,6 +28,8 @@ import DeepDiveLesson from "./pages/DeepDiveLesson";
 import Announcements from "./pages/Announcements";
 import Trainings from "./pages/Trainings";
 import InPersonEvents from "./pages/InPersonEvents";
+import Punishments from "./pages/Punishments";
+import PunishmentGuide from "./pages/PunishmentGuide";
 import DashboardLayout from "./components/DashboardLayout";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Loader2 } from "lucide-react";
@@ -66,6 +68,8 @@ const DeepDiveLessonPage = withProtected(DeepDiveLesson);
 const AnnouncementsPage = withProtected(Announcements);
 const TrainingsPage = withProtected(Trainings);
 const InPersonEventsPage = withProtected(InPersonEvents);
+const PunishmentsPage = withProtected(Punishments);
+const PunishmentGuidePage = withProtected(PunishmentGuide);
 
 function Router() {
   const { loading } = useAuth();
@@ -96,6 +100,8 @@ function Router() {
       <Route path={"/community/feed"} component={CommunityPage} />
       <Route path={"/analytics/overview"} component={AnalyticsPage} />
       <Route path={"/checkout"} component={CheckoutPage} />
+      <Route path={"/acessos/punicoes/guia"} component={PunishmentGuidePage} />
+      <Route path={"/acessos/punicoes"} component={PunishmentsPage} />
       <Route path={"/acessos/eventos"} component={InPersonEventsPage} />
       <Route path={"/acessos/treinamentos"} component={TrainingsPage} />
       <Route path={"/acessos/avisos"} component={AnnouncementsPage} />

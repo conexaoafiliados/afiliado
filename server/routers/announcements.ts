@@ -16,11 +16,17 @@ export const announcementsRouter = router({
         .object({
           limit: z.number().min(1).max(100).default(50),
           offset: z.number().min(0).default(0),
+          channel: z.enum(["avisos", "punicoes"]).default("avisos"),
         })
         .optional()
     )
     .query(async ({ ctx, input }) =>
-      getAnnouncementsFeed(ctx.user.id, input?.limit ?? 50, input?.offset ?? 0)
+      getAnnouncementsFeed(
+        ctx.user.id,
+        input?.limit ?? 50,
+        input?.offset ?? 0,
+        input?.channel ?? "avisos"
+      )
     ),
 
   post: adminProcedure

@@ -161,6 +161,7 @@ export const productOrders = pgTable("product_orders", {
 export const communityPosts = pgTable("community_posts", {
   id: serial("id").primaryKey(),
   userId: integer("userId").notNull().references(() => users.id),
+  channel: varchar("channel", { length: 32 }).default("feed").notNull(),
   content: text("content").notNull(),
   imageUrl: varchar("imageUrl", { length: 512 }),
   likes: integer("likes").default(0).notNull(),
@@ -308,6 +309,7 @@ export const trainingEventRegistrations = pgTable("training_event_registrations"
 export const announcements = pgTable("announcements", {
   id: serial("id").primaryKey(),
   userId: integer("userId").notNull().references(() => users.id),
+  channel: varchar("channel", { length: 32 }).default("avisos").notNull(),
   title: varchar("title", { length: 500 }).notNull(),
   content: text("content").notNull(),
   imageUrl: varchar("imageUrl", { length: 512 }),
