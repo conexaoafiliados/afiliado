@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import {
@@ -18,6 +18,7 @@ import {
   products,
   userAchievements,
   userCourses,
+  userFollows,
   userMissions,
   users,
 } from "../drizzle/schema";
@@ -569,7 +570,7 @@ async function notifyMentionsInContent(opts: {
 export async function createNotification(data: {
   userId: number;
   actorUserId?: number;
-  type: "post_like" | "post_comment" | "mention" | "goal_unlock";
+  type: "post_like" | "post_comment" | "mention" | "goal_unlock" | "user_follow";
   title: string;
   body?: string;
   link?: string;
@@ -624,6 +625,205 @@ export async function markAllNotificationsRead(userId: number) {
   const db = await getDb();
   if (!db) return;
   await db.update(notifications).set({ read: true }).where(eq(notifications.userId, userId));
+}
+
+export type FollowStatus = "none" | "following" | "follower" | "mutual";
+
+export type CreatorCard = {
+  id: number;
+  name: string | null;
+  username: string | null;
+  bio: string | null;
+  profileImageUrl: string | null;
+  tiktokFollowers: number;
+  platformFollowers: number;
+  followStatus: FollowStatus;
+};
+
+function resolveFollowStatus(iFollow: boolean, followsMe: boolean): FollowStatus {
+  if (iFollow && followsMe) return "mutual";
+  if (iFollow) return "following";
+  if (followsMe) return "follower";
+  return "none";
+}
+
+async function enrichCreatorsWithFollowData(
+  viewerId: number,
+  rows: Array<{
+    id: number;
+    name: string | null;
+    username: string | null;
+    bio: string | null;
+    profileImageUrl: string | null;
+    tiktokFollowers: number | null;
+  }>
+): Promise<CreatorCard[]> {
+  const db = await getDb();
+  if (!db || rows.length === 0) return [];
+
+  const userIds = rows.map(r => r.id);
+
+  const iFollowRows = await db
+    .select({ followingId: userFollows.followingId })
+    .from(userFollows)
+    .where(and(eq(userFollows.followerId, viewerId), inArray(userFollows.followingId, userIds)));
+
+  const theyFollowRows = await db
+    .select({ followerId: userFollows.followerId })
+    .from(userFollows)
+    .where(and(eq(userFollows.followingId, viewerId), inArray(userFollows.followerId, userIds)));
+
+  const followerCounts = await db
+    .select({
+      userId: userFollows.followingId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(userFollows)
+    .where(inArray(userFollows.followingId, userIds))
+    .groupBy(userFollows.followingId);
+
+  const iFollowSet = new Set(iFollowRows.map(r => r.followingId));
+  const theyFollowSet = new Set(theyFollowRows.map(r => r.followerId));
+  const countMap = new Map(followerCounts.map(c => [c.userId, c.count]));
+
+  return rows.map(row => ({
+    id: row.id,
+    name: row.name,
+    username: row.username,
+    bio: row.bio,
+    profileImageUrl: row.profileImageUrl,
+    tiktokFollowers: row.tiktokFollowers ?? 0,
+    platformFollowers: countMap.get(row.id) ?? 0,
+    followStatus: resolveFollowStatus(iFollowSet.has(row.id), theyFollowSet.has(row.id)),
+  }));
+}
+
+export async function getFollowStats(userId: number) {
+  const db = await getDb();
+  if (!db) return { following: 0, followers: 0 };
+  const [following] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(userFollows)
+    .where(eq(userFollows.followerId, userId));
+  const [followers] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(userFollows)
+    .where(eq(userFollows.followingId, userId));
+  return {
+    following: following?.count ?? 0,
+    followers: followers?.count ?? 0,
+  };
+}
+
+export async function discoverCreators(
+  viewerId: number,
+  opts: { query?: string; limit?: number; offset?: number } = {}
+) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const conditions = [ne(users.id, viewerId)];
+  if (opts.query?.trim()) {
+    const q = `%${opts.query.trim().toLowerCase()}%`;
+    conditions.push(or(ilike(users.username, q), ilike(users.name, q))!);
+  }
+
+  const rows = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      username: users.username,
+      bio: creatorProfiles.bio,
+      profileImageUrl: creatorProfiles.profileImageUrl,
+      tiktokFollowers: followerProgress.currentFollowers,
+    })
+    .from(users)
+    .leftJoin(creatorProfiles, eq(creatorProfiles.userId, users.id))
+    .leftJoin(followerProgress, eq(followerProgress.userId, users.id))
+    .where(and(...conditions))
+    .orderBy(desc(users.createdAt))
+    .limit(opts.limit ?? 20)
+    .offset(opts.offset ?? 0);
+
+  return enrichCreatorsWithFollowData(viewerId, rows);
+}
+
+export async function getFollowingCreators(viewerId: number, limit = 30) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const rows = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      username: users.username,
+      bio: creatorProfiles.bio,
+      profileImageUrl: creatorProfiles.profileImageUrl,
+      tiktokFollowers: followerProgress.currentFollowers,
+    })
+    .from(userFollows)
+    .innerJoin(users, eq(users.id, userFollows.followingId))
+    .leftJoin(creatorProfiles, eq(creatorProfiles.userId, users.id))
+    .leftJoin(followerProgress, eq(followerProgress.userId, users.id))
+    .where(eq(userFollows.followerId, viewerId))
+    .orderBy(desc(userFollows.createdAt))
+    .limit(limit);
+
+  return enrichCreatorsWithFollowData(viewerId, rows);
+}
+
+export async function getFollowerCreators(viewerId: number, limit = 30) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const rows = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      username: users.username,
+      bio: creatorProfiles.bio,
+      profileImageUrl: creatorProfiles.profileImageUrl,
+      tiktokFollowers: followerProgress.currentFollowers,
+    })
+    .from(userFollows)
+    .innerJoin(users, eq(users.id, userFollows.followerId))
+    .leftJoin(creatorProfiles, eq(creatorProfiles.userId, users.id))
+    .leftJoin(followerProgress, eq(followerProgress.userId, users.id))
+    .where(eq(userFollows.followingId, viewerId))
+    .orderBy(desc(userFollows.createdAt))
+    .limit(limit);
+
+  return enrichCreatorsWithFollowData(viewerId, rows);
+}
+
+export async function toggleUserFollow(followerId: number, followingId: number) {
+  const db = await getDb();
+  if (!db) return { following: false };
+
+  const existing = await db
+    .select()
+    .from(userFollows)
+    .where(and(eq(userFollows.followerId, followerId), eq(userFollows.followingId, followingId)))
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db.delete(userFollows).where(eq(userFollows.id, existing[0].id));
+    return { following: false };
+  }
+
+  await db.insert(userFollows).values({ followerId, followingId });
+
+  const actor = await getUserById(followerId);
+  await createNotification({
+    userId: followingId,
+    actorUserId: followerId,
+    type: "user_follow",
+    title: "Novo seguidor",
+    body: `${actor?.name || actor?.username || "Alguém"} começou a seguir você.`,
+    link: "/community/feed",
+  });
+
+  return { following: true };
 }
 
 export async function getAllMissions() {

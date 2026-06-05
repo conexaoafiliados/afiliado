@@ -24,6 +24,7 @@ import { authRouter } from "./auth";
 import { analyticsRouter } from "./analytics";
 import { tiktokRouter } from "./tiktok";
 import { notificationsRouter } from "./notifications";
+import { followsRouter } from "./follows";
 
 export const appRouter = router({
   system: systemRouter,
@@ -142,6 +143,7 @@ export const appRouter = router({
   tiktok: tiktokRouter,
   analytics: analyticsRouter,
   notifications: notificationsRouter,
+  follows: followsRouter,
 
   users: router({
     search: protectedProcedure

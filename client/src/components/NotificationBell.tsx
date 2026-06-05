@@ -10,6 +10,7 @@ const typeLabels: Record<string, string> = {
   post_comment: "💬",
   mention: "@",
   goal_unlock: "🎯",
+  user_follow: "👤",
 };
 
 export function NotificationBell() {

@@ -23,6 +23,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "post_comment",
   "mention",
   "goal_unlock",
+  "user_follow",
 ]);
 
 export const users = pgTable("users", {
@@ -179,6 +180,13 @@ export const postLikes = pgTable("post_likes", {
   id: serial("id").primaryKey(),
   postId: integer("postId").notNull().references(() => communityPosts.id),
   userId: integer("userId").notNull().references(() => users.id),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const userFollows = pgTable("user_follows", {
+  id: serial("id").primaryKey(),
+  followerId: integer("followerId").notNull().references(() => users.id),
+  followingId: integer("followingId").notNull().references(() => users.id),
   createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
 });
 

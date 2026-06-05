@@ -1,3 +1,4 @@
+import { CreatorsPanel } from "@/components/CreatorsPanel";
 import { MentionTextarea } from "@/components/MentionTextarea";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -41,13 +42,15 @@ export default function Community() {
   );
 
   return (
-    <div className="space-y-8 max-w-2xl mx-auto">
+    <div className="space-y-8 max-w-4xl mx-auto">
       <div>
         <h1 className="text-4xl font-bold mb-2">Comunidade</h1>
         <p className="text-muted-foreground">
-          Conecte-se com outros creators, comente e marque pessoas com @usuario
+          Siga outros creators, comente e marque pessoas com @usuario
         </p>
       </div>
+
+      <CreatorsPanel />
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />

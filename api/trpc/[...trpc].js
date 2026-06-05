@@ -2389,7 +2389,8 @@ var notificationTypeEnum = (0, import_pg_core.pgEnum)("notification_type", [
   "post_like",
   "post_comment",
   "mention",
-  "goal_unlock"
+  "goal_unlock",
+  "user_follow"
 ]);
 var users = (0, import_pg_core.pgTable)("users", {
   id: (0, import_pg_core.serial)("id").primaryKey(),
@@ -2523,6 +2524,12 @@ var postLikes = (0, import_pg_core.pgTable)("post_likes", {
   id: (0, import_pg_core.serial)("id").primaryKey(),
   postId: (0, import_pg_core.integer)("postId").notNull().references(() => communityPosts.id),
   userId: (0, import_pg_core.integer)("userId").notNull().references(() => users.id),
+  createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull()
+});
+var userFollows = (0, import_pg_core.pgTable)("user_follows", {
+  id: (0, import_pg_core.serial)("id").primaryKey(),
+  followerId: (0, import_pg_core.integer)("followerId").notNull().references(() => users.id),
+  followingId: (0, import_pg_core.integer)("followingId").notNull().references(() => users.id),
   createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull()
 });
 var notifications = (0, import_pg_core.pgTable)("notifications", {
@@ -3098,6 +3105,110 @@ async function markAllNotificationsRead(userId) {
   const db = await getDb();
   if (!db) return;
   await db.update(notifications).set({ read: true }).where((0, import_drizzle_orm.eq)(notifications.userId, userId));
+}
+function resolveFollowStatus(iFollow, followsMe) {
+  if (iFollow && followsMe) return "mutual";
+  if (iFollow) return "following";
+  if (followsMe) return "follower";
+  return "none";
+}
+async function enrichCreatorsWithFollowData(viewerId, rows) {
+  const db = await getDb();
+  if (!db || rows.length === 0) return [];
+  const userIds = rows.map((r) => r.id);
+  const iFollowRows = await db.select({ followingId: userFollows.followingId }).from(userFollows).where((0, import_drizzle_orm.and)((0, import_drizzle_orm.eq)(userFollows.followerId, viewerId), (0, import_drizzle_orm.inArray)(userFollows.followingId, userIds)));
+  const theyFollowRows = await db.select({ followerId: userFollows.followerId }).from(userFollows).where((0, import_drizzle_orm.and)((0, import_drizzle_orm.eq)(userFollows.followingId, viewerId), (0, import_drizzle_orm.inArray)(userFollows.followerId, userIds)));
+  const followerCounts = await db.select({
+    userId: userFollows.followingId,
+    count: import_drizzle_orm.sql`count(*)::int`
+  }).from(userFollows).where((0, import_drizzle_orm.inArray)(userFollows.followingId, userIds)).groupBy(userFollows.followingId);
+  const iFollowSet = new Set(iFollowRows.map((r) => r.followingId));
+  const theyFollowSet = new Set(theyFollowRows.map((r) => r.followerId));
+  const countMap = new Map(followerCounts.map((c) => [c.userId, c.count]));
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    username: row.username,
+    bio: row.bio,
+    profileImageUrl: row.profileImageUrl,
+    tiktokFollowers: row.tiktokFollowers ?? 0,
+    platformFollowers: countMap.get(row.id) ?? 0,
+    followStatus: resolveFollowStatus(iFollowSet.has(row.id), theyFollowSet.has(row.id))
+  }));
+}
+async function getFollowStats(userId) {
+  const db = await getDb();
+  if (!db) return { following: 0, followers: 0 };
+  const [following] = await db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(userFollows).where((0, import_drizzle_orm.eq)(userFollows.followerId, userId));
+  const [followers] = await db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(userFollows).where((0, import_drizzle_orm.eq)(userFollows.followingId, userId));
+  return {
+    following: following?.count ?? 0,
+    followers: followers?.count ?? 0
+  };
+}
+async function discoverCreators(viewerId, opts = {}) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [(0, import_drizzle_orm.ne)(users.id, viewerId)];
+  if (opts.query?.trim()) {
+    const q = `%${opts.query.trim().toLowerCase()}%`;
+    conditions.push((0, import_drizzle_orm.or)((0, import_drizzle_orm.ilike)(users.username, q), (0, import_drizzle_orm.ilike)(users.name, q)));
+  }
+  const rows = await db.select({
+    id: users.id,
+    name: users.name,
+    username: users.username,
+    bio: creatorProfiles.bio,
+    profileImageUrl: creatorProfiles.profileImageUrl,
+    tiktokFollowers: followerProgress.currentFollowers
+  }).from(users).leftJoin(creatorProfiles, (0, import_drizzle_orm.eq)(creatorProfiles.userId, users.id)).leftJoin(followerProgress, (0, import_drizzle_orm.eq)(followerProgress.userId, users.id)).where((0, import_drizzle_orm.and)(...conditions)).orderBy((0, import_drizzle_orm.desc)(users.createdAt)).limit(opts.limit ?? 20).offset(opts.offset ?? 0);
+  return enrichCreatorsWithFollowData(viewerId, rows);
+}
+async function getFollowingCreators(viewerId, limit = 30) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select({
+    id: users.id,
+    name: users.name,
+    username: users.username,
+    bio: creatorProfiles.bio,
+    profileImageUrl: creatorProfiles.profileImageUrl,
+    tiktokFollowers: followerProgress.currentFollowers
+  }).from(userFollows).innerJoin(users, (0, import_drizzle_orm.eq)(users.id, userFollows.followingId)).leftJoin(creatorProfiles, (0, import_drizzle_orm.eq)(creatorProfiles.userId, users.id)).leftJoin(followerProgress, (0, import_drizzle_orm.eq)(followerProgress.userId, users.id)).where((0, import_drizzle_orm.eq)(userFollows.followerId, viewerId)).orderBy((0, import_drizzle_orm.desc)(userFollows.createdAt)).limit(limit);
+  return enrichCreatorsWithFollowData(viewerId, rows);
+}
+async function getFollowerCreators(viewerId, limit = 30) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select({
+    id: users.id,
+    name: users.name,
+    username: users.username,
+    bio: creatorProfiles.bio,
+    profileImageUrl: creatorProfiles.profileImageUrl,
+    tiktokFollowers: followerProgress.currentFollowers
+  }).from(userFollows).innerJoin(users, (0, import_drizzle_orm.eq)(users.id, userFollows.followerId)).leftJoin(creatorProfiles, (0, import_drizzle_orm.eq)(creatorProfiles.userId, users.id)).leftJoin(followerProgress, (0, import_drizzle_orm.eq)(followerProgress.userId, users.id)).where((0, import_drizzle_orm.eq)(userFollows.followingId, viewerId)).orderBy((0, import_drizzle_orm.desc)(userFollows.createdAt)).limit(limit);
+  return enrichCreatorsWithFollowData(viewerId, rows);
+}
+async function toggleUserFollow(followerId, followingId) {
+  const db = await getDb();
+  if (!db) return { following: false };
+  const existing = await db.select().from(userFollows).where((0, import_drizzle_orm.and)((0, import_drizzle_orm.eq)(userFollows.followerId, followerId), (0, import_drizzle_orm.eq)(userFollows.followingId, followingId))).limit(1);
+  if (existing.length > 0) {
+    await db.delete(userFollows).where((0, import_drizzle_orm.eq)(userFollows.id, existing[0].id));
+    return { following: false };
+  }
+  await db.insert(userFollows).values({ followerId, followingId });
+  const actor = await getUserById(followerId);
+  await createNotification({
+    userId: followingId,
+    actorUserId: followerId,
+    type: "user_follow",
+    title: "Novo seguidor",
+    body: `${actor?.name || actor?.username || "Algu\xE9m"} come\xE7ou a seguir voc\xEA.`,
+    link: "/community/feed"
+  });
+  return { following: true };
 }
 async function getAllMissions() {
   const db = await getDb();
@@ -8973,6 +9084,33 @@ var notificationsRouter = router({
   })
 });
 
+// server/routers/follows.ts
+var followsRouter = router({
+  stats: protectedProcedure.query(async ({ ctx }) => getFollowStats(ctx.user.id)),
+  discover: protectedProcedure.input(
+    external_exports.object({
+      query: external_exports.string().max(50).optional(),
+      limit: external_exports.number().min(1).max(50).default(20),
+      offset: external_exports.number().min(0).default(0)
+    }).optional()
+  ).query(
+    async ({ ctx, input }) => discoverCreators(ctx.user.id, {
+      query: input?.query,
+      limit: input?.limit ?? 20,
+      offset: input?.offset ?? 0
+    })
+  ),
+  following: protectedProcedure.input(external_exports.object({ limit: external_exports.number().min(1).max(50).default(30) }).optional()).query(async ({ ctx, input }) => getFollowingCreators(ctx.user.id, input?.limit ?? 30)),
+  followers: protectedProcedure.input(external_exports.object({ limit: external_exports.number().min(1).max(50).default(30) }).optional()).query(async ({ ctx, input }) => getFollowerCreators(ctx.user.id, input?.limit ?? 30)),
+  toggle: protectedProcedure.input(external_exports.object({ userId: external_exports.number() })).mutation(async ({ ctx, input }) => {
+    if (input.userId === ctx.user.id) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Voc\xEA n\xE3o pode seguir a si mesmo" });
+    }
+    const result = await toggleUserFollow(ctx.user.id, input.userId);
+    return result;
+  })
+});
+
 // server/routers/index.ts
 var appRouter = router({
   system: systemRouter,
@@ -9072,6 +9210,7 @@ var appRouter = router({
   tiktok: tiktokRouter,
   analytics: analyticsRouter,
   notifications: notificationsRouter,
+  follows: followsRouter,
   users: router({
     search: protectedProcedure.input(external_exports.object({ q: external_exports.string().min(1).max(30) })).query(async ({ input }) => searchUsersByUsername(input.q))
   })
