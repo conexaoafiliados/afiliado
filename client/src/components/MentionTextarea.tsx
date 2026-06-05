@@ -8,9 +8,19 @@ interface MentionTextareaProps {
   placeholder?: string;
   rows?: number;
   className?: string;
+  onSubmit?: () => void;
+  hideHint?: boolean;
 }
 
-export function MentionTextarea({ value, onChange, placeholder, rows = 3, className }: MentionTextareaProps) {
+export function MentionTextarea({
+  value,
+  onChange,
+  placeholder,
+  rows = 3,
+  className,
+  onSubmit,
+  hideHint,
+}: MentionTextareaProps) {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [highlight, setHighlight] = useState(0);
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -50,6 +60,11 @@ export function MentionTextarea({ value, onChange, placeholder, rows = 3, classN
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey && !mentionQuery && onSubmit) {
+      e.preventDefault();
+      onSubmit();
+      return;
+    }
     if (!mentionQuery || suggestions.length === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -98,7 +113,9 @@ export function MentionTextarea({ value, onChange, placeholder, rows = 3, classN
           ))}
         </ul>
       )}
-      <p className="text-xs text-muted-foreground mt-1">Use @usuario para marcar alguém</p>
+      {!hideHint && (
+        <p className="text-xs text-muted-foreground mt-1">Use @usuario para marcar alguém</p>
+      )}
     </div>
   );
 }

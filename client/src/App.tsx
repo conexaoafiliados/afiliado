@@ -30,6 +30,8 @@ import Trainings from "./pages/Trainings";
 import InPersonEvents from "./pages/InPersonEvents";
 import Punishments from "./pages/Punishments";
 import PunishmentGuide from "./pages/PunishmentGuide";
+import OpenGroup from "./pages/OpenGroup";
+import Campaigns from "./pages/Campaigns";
 import DashboardLayout from "./components/DashboardLayout";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Loader2 } from "lucide-react";
@@ -70,6 +72,8 @@ const TrainingsPage = withProtected(Trainings);
 const InPersonEventsPage = withProtected(InPersonEvents);
 const PunishmentsPage = withProtected(Punishments);
 const PunishmentGuidePage = withProtected(PunishmentGuide);
+const OpenGroupPage = withProtected(OpenGroup);
+const CampaignsPage = withProtected(Campaigns);
 
 function Router() {
   const { loading } = useAuth();
@@ -100,6 +104,8 @@ function Router() {
       <Route path={"/community/feed"} component={CommunityPage} />
       <Route path={"/analytics/overview"} component={AnalyticsPage} />
       <Route path={"/checkout"} component={CheckoutPage} />
+      <Route path={"/start/campanhas"} component={CampaignsPage} />
+      <Route path={"/start/grupo-aberto"} component={OpenGroupPage} />
       <Route path={"/acessos/punicoes/guia"} component={PunishmentGuidePage} />
       <Route path={"/acessos/punicoes"} component={PunishmentsPage} />
       <Route path={"/acessos/eventos"} component={InPersonEventsPage} />
