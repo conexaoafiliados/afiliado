@@ -1,9 +1,11 @@
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { cn } from "@/lib/utils";
 import {
   Award,
   BarChart3,
   ChevronDown,
   LayoutDashboard,
+  Shield,
   Target,
   User,
   Users,
@@ -142,6 +144,7 @@ function NavSectionBlock({
 
 export function SidebarNav({ onNavigate, className }: SidebarNavProps) {
   const [location] = useLocation();
+  const { isStaff } = useAdminAccess();
 
   return (
     <nav className={cn("flex flex-col", className)}>
@@ -198,6 +201,22 @@ export function SidebarNav({ onNavigate, className }: SidebarNavProps) {
       ))}
 
       <div className="mt-2 space-y-0.5 px-1">
+        {isStaff && (
+          <Link href="/admin">
+            <a
+              onClick={onNavigate}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                isActivePath(location, "/admin")
+                  ? "bg-accent/15 text-accent font-medium"
+                  : "text-foreground/80 hover:bg-muted/60"
+              )}
+            >
+              <Shield className="h-4 w-4 shrink-0" />
+              <span>Administração</span>
+            </a>
+          </Link>
+        )}
         {bottomItems.map(item => {
           const active = isActivePath(location, item.path);
           const Icon = item.icon;

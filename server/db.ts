@@ -32,8 +32,11 @@ import {
   userCourses,
   userFollows,
   userMissions,
+  userPermissions,
   users,
 } from "../drizzle/schema";
+import type { AdminPermission } from "../shared/adminPermissions";
+import { ALL_ADMIN_PERMISSIONS } from "../shared/adminPermissions";
 import { achievementCongratsLabel, FOLLOWER_ACHIEVEMENTS } from "./_core/achievementRules";
 import { resolveFollowerGoal, formatGoalLabel } from "./_core/goals";
 import { extractMentionUsernames } from "./_core/mentions";
@@ -635,11 +638,17 @@ export async function createProduct(userId: number, product: Record<string, unkn
   });
 }
 
-export async function updateUserById(userId: number, fields: { name?: string }) {
+export async function updateUserById(
+  userId: number,
+  fields: { name?: string; role?: "user" | "admin" }
+) {
   const db = await getDb();
   if (!db) return;
-  if (!fields.name) return;
-  await db.update(users).set({ name: fields.name, updatedAt: new Date() }).where(eq(users.id, userId));
+  const update: Record<string, unknown> = { updatedAt: new Date() };
+  if (fields.name !== undefined) update.name = fields.name;
+  if (fields.role !== undefined) update.role = fields.role;
+  if (Object.keys(update).length <= 1) return;
+  await db.update(users).set(update).where(eq(users.id, userId));
 }
 
 export async function searchUsersByUsername(query: string, limit = 8) {
@@ -1934,4 +1943,538 @@ export async function getGroupMembers(viewerUserId: number) {
 
   const onlineCount = members.filter(m => m.isOnline).length;
   return { members, onlineCount, totalCount: members.length };
+}
+
+let _userPermissionsTableExists: boolean | undefined;
+
+async function hasUserPermissionsTable(): Promise<boolean> {
+  if (_userPermissionsTableExists !== undefined) return _userPermissionsTableExists;
+  const db = await getDb();
+  if (!db) {
+    _userPermissionsTableExists = false;
+    return false;
+  }
+  try {
+    const rows = await db.execute<{ exists: boolean }>(sql`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'user_permissions'
+      ) AS exists
+    `);
+    _userPermissionsTableExists = Boolean((rows[0] as { exists?: boolean })?.exists);
+  } catch {
+    _userPermissionsTableExists = false;
+  }
+  return _userPermissionsTableExists;
+}
+
+export async function getUserPermissions(userId: number): Promise<AdminPermission[]> {
+  if (!(await hasUserPermissionsTable())) return [];
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    const rows = await db
+      .select({ permission: userPermissions.permission })
+      .from(userPermissions)
+      .where(eq(userPermissions.userId, userId));
+    return rows.map(r => r.permission as AdminPermission).filter(p => ALL_ADMIN_PERMISSIONS.includes(p));
+  } catch {
+    return [];
+  }
+}
+
+export async function setUserPermissions(
+  userId: number,
+  permissions: AdminPermission[],
+  grantedBy: number
+): Promise<void> {
+  const db = await getDb();
+  if (!db || !(await hasUserPermissionsTable())) return;
+  const valid = [...new Set(permissions.filter(p => ALL_ADMIN_PERMISSIONS.includes(p)))];
+  await db.delete(userPermissions).where(eq(userPermissions.userId, userId));
+  if (valid.length === 0) return;
+  await db.insert(userPermissions).values(
+    valid.map(permission => ({ userId, permission, grantedBy }))
+  );
+}
+
+export async function updateUserRole(userId: number, role: "user" | "admin"): Promise<void> {
+  await updateUserById(userId, { role });
+}
+
+export async function getAdminPlatformOverview() {
+  const db = await getDb();
+  const empty = {
+    users: 0,
+    onlineUsers: 0,
+    newUsersWeek: 0,
+    posts: 0,
+    comments: 0,
+    likes: 0,
+    follows: 0,
+    orders: 0,
+    paidOrders: 0,
+    revenue: 0,
+    missionsCompleted: 0,
+    achievementsUnlocked: 0,
+    trainingRegistrations: 0,
+    lessonComments: 0,
+    announcements: 0,
+    products: 0,
+    coursesEnrolled: 0,
+    avgFollowers: 0,
+    usersAt2k: 0,
+  };
+  if (!db) return empty;
+
+  try {
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const [
+      usersRow,
+      onlineRow,
+      newUsersRow,
+      postsRow,
+      commentsRow,
+      likesRow,
+      followsRow,
+      ordersRow,
+      paidRow,
+      revenueRow,
+      missionsRow,
+      achievementsRow,
+      trainingRow,
+      lessonCommentsRow,
+      announcementsRow,
+      productsRow,
+      coursesRow,
+      avgFollowersRow,
+      at2kRow,
+    ] = await Promise.all([
+      db.select({ count: sql<number>`count(*)::int` }).from(users),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(users)
+        .where(sql`${users.lastSignedIn} >= NOW() - INTERVAL '15 minutes'`),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(users)
+        .where(sql`${users.createdAt} >= ${weekAgo}`),
+      db.select({ count: sql<number>`count(*)::int` }).from(communityPosts),
+      db.select({ count: sql<number>`count(*)::int` }).from(postComments),
+      db.select({ count: sql<number>`count(*)::int` }).from(postLikes),
+      db.select({ count: sql<number>`count(*)::int` }).from(userFollows),
+      db.select({ count: sql<number>`count(*)::int` }).from(productOrders),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(productOrders)
+        .where(inArray(productOrders.status, ["paid", "shipped", "delivered"])),
+      db
+        .select({ total: sql<number>`coalesce(sum(${productOrders.totalPrice}), 0)::float` })
+        .from(productOrders)
+        .where(inArray(productOrders.status, ["paid", "shipped", "delivered"])),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(userMissions)
+        .where(eq(userMissions.status, "completed")),
+      db.select({ count: sql<number>`count(*)::int` }).from(userAchievements),
+      db.select({ count: sql<number>`count(*)::int` }).from(trainingEventRegistrations),
+      db.select({ count: sql<number>`count(*)::int` }).from(lessonComments),
+      db.select({ count: sql<number>`count(*)::int` }).from(announcements),
+      db.select({ count: sql<number>`count(*)::int` }).from(products),
+      db.select({ count: sql<number>`count(*)::int` }).from(userCourses),
+      db
+        .select({ avg: sql<number>`coalesce(avg(${followerProgress.currentFollowers}), 0)::float` })
+        .from(followerProgress),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(followerProgress)
+        .where(sql`${followerProgress.currentFollowers} >= 2000`),
+    ]);
+
+    return {
+      users: usersRow[0]?.count ?? 0,
+      onlineUsers: onlineRow[0]?.count ?? 0,
+      newUsersWeek: newUsersRow[0]?.count ?? 0,
+      posts: postsRow[0]?.count ?? 0,
+      comments: commentsRow[0]?.count ?? 0,
+      likes: likesRow[0]?.count ?? 0,
+      follows: followsRow[0]?.count ?? 0,
+      orders: ordersRow[0]?.count ?? 0,
+      paidOrders: paidRow[0]?.count ?? 0,
+      revenue: revenueRow[0]?.total ?? 0,
+      missionsCompleted: missionsRow[0]?.count ?? 0,
+      achievementsUnlocked: achievementsRow[0]?.count ?? 0,
+      trainingRegistrations: trainingRow[0]?.count ?? 0,
+      lessonComments: lessonCommentsRow[0]?.count ?? 0,
+      announcements: announcementsRow[0]?.count ?? 0,
+      products: productsRow[0]?.count ?? 0,
+      coursesEnrolled: coursesRow[0]?.count ?? 0,
+      avgFollowers: Math.round(avgFollowersRow[0]?.avg ?? 0),
+      usersAt2k: at2kRow[0]?.count ?? 0,
+    };
+  } catch (e) {
+    console.warn("[Admin] overview failed:", e);
+    return empty;
+  }
+}
+
+export async function listAdminUsers(opts: { query?: string; limit?: number; offset?: number } = {}) {
+  const db = await getDb();
+  if (!db) return { users: [], total: 0 };
+
+  const conditions = [];
+  if (opts.query?.trim()) {
+    const q = `%${opts.query.trim().toLowerCase()}%`;
+    conditions.push(or(ilike(users.username, q), ilike(users.name, q), ilike(users.email, q))!);
+  }
+
+  const whereClause = conditions.length ? and(...conditions) : undefined;
+
+  const [totalRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(users)
+    .where(whereClause);
+
+  const rows = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      username: users.username,
+      email: users.email,
+      role: users.role,
+      createdAt: users.createdAt,
+      lastSignedIn: users.lastSignedIn,
+      city: creatorProfiles.city,
+      state: creatorProfiles.state,
+      profileImageUrl: creatorProfiles.profileImageUrl,
+      currentFollowers: followerProgress.currentFollowers,
+      targetFollowers: followerProgress.targetFollowers,
+    })
+    .from(users)
+    .leftJoin(creatorProfiles, eq(creatorProfiles.userId, users.id))
+    .leftJoin(followerProgress, eq(followerProgress.userId, users.id))
+    .where(whereClause)
+    .orderBy(desc(users.createdAt))
+    .limit(opts.limit ?? 50)
+    .offset(opts.offset ?? 0);
+
+  const userIds = rows.map(r => r.id);
+  let permMap = new Map<number, string[]>();
+  if (userIds.length > 0 && (await hasUserPermissionsTable())) {
+    const perms = await db
+      .select({ userId: userPermissions.userId, permission: userPermissions.permission })
+      .from(userPermissions)
+      .where(inArray(userPermissions.userId, userIds));
+    for (const p of perms) {
+      const arr = permMap.get(p.userId) ?? [];
+      arr.push(p.permission);
+      permMap.set(p.userId, arr);
+    }
+  }
+
+  const followerCounts = userIds.length
+    ? await db
+        .select({ userId: userFollows.followingId, count: sql<number>`count(*)::int` })
+        .from(userFollows)
+        .where(inArray(userFollows.followingId, userIds))
+        .groupBy(userFollows.followingId)
+    : [];
+  const followerMap = new Map(followerCounts.map(f => [f.userId, f.count]));
+
+  const postCounts = userIds.length
+    ? await db
+        .select({ userId: communityPosts.userId, count: sql<number>`count(*)::int` })
+        .from(communityPosts)
+        .where(inArray(communityPosts.userId, userIds))
+        .groupBy(communityPosts.userId)
+    : [];
+  const postMap = new Map(postCounts.map(p => [p.userId, p.count]));
+
+  return {
+    total: totalRow?.count ?? 0,
+    users: rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      username: r.username,
+      email: r.email,
+      role: r.role,
+      createdAt: r.createdAt,
+      lastSignedIn: r.lastSignedIn,
+      isOnline: isUserOnline(r.lastSignedIn),
+      city: r.city,
+      state: r.state,
+      profileImageUrl: r.profileImageUrl,
+      currentFollowers: r.currentFollowers ?? 0,
+      targetFollowers: r.targetFollowers ?? 2000,
+      platformFollowers: followerMap.get(r.id) ?? 0,
+      posts: postMap.get(r.id) ?? 0,
+      permissions: permMap.get(r.id) ?? [],
+    })),
+  };
+}
+
+export async function getAdminGrowthLeaders(limit = 30) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const rows = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      username: users.username,
+      profileImageUrl: creatorProfiles.profileImageUrl,
+      currentFollowers: followerProgress.currentFollowers,
+      targetFollowers: followerProgress.targetFollowers,
+      progressPercentage: followerProgress.progressPercentage,
+      source: followerProgress.source,
+      lastUpdated: followerProgress.lastUpdated,
+    })
+    .from(followerProgress)
+    .innerJoin(users, eq(users.id, followerProgress.userId))
+    .leftJoin(creatorProfiles, eq(creatorProfiles.userId, users.id))
+    .orderBy(desc(followerProgress.currentFollowers))
+    .limit(limit);
+
+  return rows.map(r => ({
+    ...r,
+    currentFollowers: r.currentFollowers ?? 0,
+    targetFollowers: r.targetFollowers ?? 2000,
+    progressPercentage: parseFloat(String(r.progressPercentage ?? 0)),
+  }));
+}
+
+export async function getAdminEngagementRecent(limit = 20) {
+  const db = await getDb();
+  if (!db) return { topPosts: [], recentSignups: [] };
+
+  const topPosts = await db
+    .select({
+      id: communityPosts.id,
+      content: communityPosts.content,
+      likes: communityPosts.likes,
+      channel: communityPosts.channel,
+      createdAt: communityPosts.createdAt,
+      authorName: users.name,
+      authorUsername: users.username,
+    })
+    .from(communityPosts)
+    .innerJoin(users, eq(users.id, communityPosts.userId))
+    .orderBy(desc(communityPosts.likes), desc(communityPosts.createdAt))
+    .limit(limit);
+
+  const recentSignups = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      username: users.username,
+      createdAt: users.createdAt,
+      city: creatorProfiles.city,
+      state: creatorProfiles.state,
+    })
+    .from(users)
+    .leftJoin(creatorProfiles, eq(creatorProfiles.userId, users.id))
+    .orderBy(desc(users.createdAt))
+    .limit(10);
+
+  return { topPosts, recentSignups };
+}
+
+export async function getAdminCommerceOverview() {
+  const db = await getDb();
+  if (!db) return { recentOrders: [], topSellers: [] };
+
+  const recentOrders = await db
+    .select({
+      id: productOrders.id,
+      totalPrice: productOrders.totalPrice,
+      status: productOrders.status,
+      createdAt: productOrders.createdAt,
+      productTitle: products.title,
+      buyerName: users.name,
+      buyerUsername: users.username,
+      sellerId: products.userId,
+    })
+    .from(productOrders)
+    .innerJoin(products, eq(productOrders.productId, products.id))
+    .innerJoin(users, eq(productOrders.userId, users.id))
+    .orderBy(desc(productOrders.createdAt))
+    .limit(20);
+
+  const sellerIds = [...new Set(recentOrders.map(o => o.sellerId))];
+  const sellers =
+    sellerIds.length > 0
+      ? await db
+          .select({ id: users.id, name: users.name, username: users.username })
+          .from(users)
+          .where(inArray(users.id, sellerIds))
+      : [];
+  const sellerMap = new Map(sellers.map(s => [s.id, s]));
+
+  const topSellers = await db
+    .select({
+      userId: products.userId,
+      sellerName: users.name,
+      sellerUsername: users.username,
+      paidOrders: sql<number>`count(*) filter (where ${productOrders.status} in ('paid','shipped','delivered'))::int`,
+      revenue: sql<number>`coalesce(sum(${productOrders.totalPrice}) filter (where ${productOrders.status} in ('paid','shipped','delivered')), 0)::float`,
+    })
+    .from(productOrders)
+    .innerJoin(products, eq(productOrders.productId, products.id))
+    .innerJoin(users, eq(users.id, products.userId))
+    .groupBy(products.userId, users.name, users.username)
+    .orderBy(sql`coalesce(sum(${productOrders.totalPrice}) filter (where ${productOrders.status} in ('paid','shipped','delivered')), 0) desc`)
+    .limit(10);
+
+  return {
+    recentOrders: recentOrders.map(o => {
+      const seller = sellerMap.get(o.sellerId);
+      return {
+        id: o.id,
+        totalPrice: String(o.totalPrice),
+        status: o.status,
+        createdAt: o.createdAt,
+        productTitle: o.productTitle,
+        buyerName: o.buyerName,
+        buyerUsername: o.buyerUsername,
+        sellerName: seller?.name ?? null,
+        sellerUsername: seller?.username ?? null,
+      };
+    }),
+    topSellers,
+  };
+}
+
+export async function getAdminLearningOverview() {
+  const db = await getDb();
+  if (!db) return { tracks: [], topLessons: [] };
+
+  const tracks = await db.select().from(learningTracks).orderBy(asc(learningTracks.sortOrder));
+
+  const topLessons = await db
+    .select({
+      lessonSlug: lessonLikes.lessonSlug,
+      likes: sql<number>`count(*)::int`,
+    })
+    .from(lessonLikes)
+    .groupBy(lessonLikes.lessonSlug)
+    .orderBy(sql`count(*) desc`)
+    .limit(10);
+
+  const commentCounts = topLessons.length
+    ? await db
+        .select({
+          lessonSlug: lessonComments.lessonSlug,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(lessonComments)
+        .where(
+          inArray(
+            lessonComments.lessonSlug,
+            topLessons.map(l => l.lessonSlug)
+          )
+        )
+        .groupBy(lessonComments.lessonSlug)
+    : [];
+  const commentMap = new Map(commentCounts.map(c => [c.lessonSlug, c.count]));
+
+  return {
+    tracks: tracks.map(t => ({ slug: t.slug, title: t.title, emoji: t.emoji })),
+    topLessons: topLessons.map(l => ({
+      lessonSlug: l.lessonSlug,
+      likes: l.likes,
+      comments: commentMap.get(l.lessonSlug) ?? 0,
+    })),
+  };
+}
+
+export async function listAdminPostsForModeration(limit = 30, offset = 0) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const rows = await db
+    .select({
+      id: communityPosts.id,
+      content: communityPosts.content,
+      channel: communityPosts.channel,
+      likes: communityPosts.likes,
+      createdAt: communityPosts.createdAt,
+      authorId: users.id,
+      authorName: users.name,
+      authorUsername: users.username,
+    })
+    .from(communityPosts)
+    .innerJoin(users, eq(users.id, communityPosts.userId))
+    .orderBy(desc(communityPosts.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  const postIds = rows.map(r => r.id);
+  const commentCounts = postIds.length
+    ? await db
+        .select({ postId: postComments.postId, count: sql<number>`count(*)::int` })
+        .from(postComments)
+        .where(inArray(postComments.postId, postIds))
+        .groupBy(postComments.postId)
+    : [];
+  const commentMap = new Map(commentCounts.map(c => [c.postId, c.count]));
+
+  return rows.map(r => ({
+    ...r,
+    commentCount: commentMap.get(r.id) ?? 0,
+  }));
+}
+
+export async function adminDeleteCommunityPost(postId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  try {
+    await db.delete(postComments).where(eq(postComments.postId, postId));
+    await db.delete(postLikes).where(eq(postLikes.postId, postId));
+    await db.delete(communityPosts).where(eq(communityPosts.id, postId));
+    return true;
+  } catch (e) {
+    console.warn("[Admin] delete post failed:", e);
+    return false;
+  }
+}
+
+export async function getAdminSectionCounts() {
+  const db = await getDb();
+  if (!db) {
+    return {
+      missions: 0,
+      courses: 0,
+      trainingEvents: 0,
+      learningLessons: 0,
+      grupoPosts: 0,
+    };
+  }
+  try {
+    const [missionsRow, coursesRow, eventsRow, lessonsRow, grupoRow] = await Promise.all([
+      db.select({ count: sql<number>`count(*)::int` }).from(missions),
+      db.select({ count: sql<number>`count(*)::int` }).from(courses),
+      db.select({ count: sql<number>`count(*)::int` }).from(trainingEvents),
+      db.select({ count: sql<number>`count(*)::int` }).from(learningLessons),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(communityPosts)
+        .where(eq(communityPosts.channel, "grupo-aberto")),
+    ]);
+    return {
+      missions: missionsRow[0]?.count ?? 0,
+      courses: coursesRow[0]?.count ?? 0,
+      trainingEvents: eventsRow[0]?.count ?? 0,
+      learningLessons: lessonsRow[0]?.count ?? 0,
+      grupoPosts: grupoRow[0]?.count ?? 0,
+    };
+  } catch {
+    return {
+      missions: 0,
+      courses: 0,
+      trainingEvents: 0,
+      learningLessons: 0,
+      grupoPosts: 0,
+    };
+  }
 }

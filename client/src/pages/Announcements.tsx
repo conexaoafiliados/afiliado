@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MOCK_ANNOUNCEMENTS } from "@/data/mockAnnouncements";
-import { useAuth } from "@/_core/hooks/useAuth";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { trpc } from "@/lib/trpc";
 import { Bell, ChevronDown, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -14,8 +14,8 @@ import { toast } from "sonner";
 type SortOption = "recent" | "popular";
 
 export default function Announcements() {
-  const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const { canPublishAnnouncements } = useAdminAccess();
+  const isAdmin = canPublishAnnouncements;
   const [sort, setSort] = useState<SortOption>("recent");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");

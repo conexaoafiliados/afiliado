@@ -7,6 +7,7 @@ import {
   serial,
   text,
   timestamp,
+  unique,
   varchar,
 } from "drizzle-orm/pg-core";
 
@@ -191,6 +192,18 @@ export const userFollows = pgTable("user_follows", {
   followingId: integer("followingId").notNull().references(() => users.id),
   createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const userPermissions = pgTable(
+  "user_permissions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    permission: varchar("permission", { length: 64 }).notNull(),
+    grantedBy: integer("grantedBy").references(() => users.id),
+    createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+  },
+  t => [unique().on(t.userId, t.permission)]
+);
 
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),

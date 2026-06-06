@@ -2534,6 +2534,17 @@ var userFollows = (0, import_pg_core.pgTable)("user_follows", {
   followingId: (0, import_pg_core.integer)("followingId").notNull().references(() => users.id),
   createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull()
 });
+var userPermissions = (0, import_pg_core.pgTable)(
+  "user_permissions",
+  {
+    id: (0, import_pg_core.serial)("id").primaryKey(),
+    userId: (0, import_pg_core.integer)("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    permission: (0, import_pg_core.varchar)("permission", { length: 64 }).notNull(),
+    grantedBy: (0, import_pg_core.integer)("grantedBy").references(() => users.id),
+    createdAt: (0, import_pg_core.timestamp)("createdAt", { withTimezone: true }).defaultNow().notNull()
+  },
+  (t2) => [(0, import_pg_core.unique)().on(t2.userId, t2.permission)]
+);
 var notifications = (0, import_pg_core.pgTable)("notifications", {
   id: (0, import_pg_core.serial)("id").primaryKey(),
   userId: (0, import_pg_core.integer)("userId").notNull().references(() => users.id),
@@ -2673,6 +2684,39 @@ var analyticsDaily = (0, import_pg_core.pgTable)("analytics_daily", {
   salesRevenue: (0, import_pg_core.decimal)("salesRevenue", { precision: 10, scale: 2 }).default("0").notNull(),
   courseCompletions: (0, import_pg_core.integer)("courseCompletions").default(0).notNull()
 });
+
+// shared/adminPermissions.ts
+var ADMIN_PERMISSIONS = {
+  ANALYTICS_VIEW: "analytics.view",
+  USERS_MANAGE: "users.manage",
+  ANNOUNCEMENTS_PUBLISH: "announcements.publish",
+  PUNISHMENTS_PUBLISH: "punishments.publish",
+  COMMUNITY_MODERATE: "community.moderate",
+  TRAININGS_MANAGE: "trainings.manage",
+  LEARNING_MANAGE: "learning.manage",
+  SHOP_MANAGE: "shop.manage"
+};
+var ALL_ADMIN_PERMISSIONS = Object.values(ADMIN_PERMISSIONS);
+var ADMIN_PERMISSION_GROUPS = [
+  {
+    title: "Vis\xE3o e pessoas",
+    keys: [ADMIN_PERMISSIONS.ANALYTICS_VIEW, ADMIN_PERMISSIONS.USERS_MANAGE]
+  },
+  {
+    title: "Conte\xFAdo",
+    keys: [
+      ADMIN_PERMISSIONS.ANNOUNCEMENTS_PUBLISH,
+      ADMIN_PERMISSIONS.PUNISHMENTS_PUBLISH,
+      ADMIN_PERMISSIONS.COMMUNITY_MODERATE,
+      ADMIN_PERMISSIONS.TRAININGS_MANAGE,
+      ADMIN_PERMISSIONS.LEARNING_MANAGE
+    ]
+  },
+  {
+    title: "Com\xE9rcio",
+    keys: [ADMIN_PERMISSIONS.SHOP_MANAGE]
+  }
+];
 
 // server/_core/goals.ts
 function getNextTarget(completedTarget) {
@@ -3203,8 +3247,11 @@ async function createProduct(userId, product) {
 async function updateUserById(userId, fields) {
   const db = await getDb();
   if (!db) return;
-  if (!fields.name) return;
-  await db.update(users).set({ name: fields.name, updatedAt: /* @__PURE__ */ new Date() }).where((0, import_drizzle_orm.eq)(users.id, userId));
+  const update = { updatedAt: /* @__PURE__ */ new Date() };
+  if (fields.name !== void 0) update.name = fields.name;
+  if (fields.role !== void 0) update.role = fields.role;
+  if (Object.keys(update).length <= 1) return;
+  await db.update(users).set(update).where((0, import_drizzle_orm.eq)(users.id, userId));
 }
 async function searchUsersByUsername(query, limit = 8) {
   const db = await getDb();
@@ -4007,6 +4054,385 @@ async function getGroupMembers(viewerUserId) {
   }));
   const onlineCount = members.filter((m) => m.isOnline).length;
   return { members, onlineCount, totalCount: members.length };
+}
+var _userPermissionsTableExists;
+async function hasUserPermissionsTable() {
+  if (_userPermissionsTableExists !== void 0) return _userPermissionsTableExists;
+  const db = await getDb();
+  if (!db) {
+    _userPermissionsTableExists = false;
+    return false;
+  }
+  try {
+    const rows = await db.execute(import_drizzle_orm.sql`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'user_permissions'
+      ) AS exists
+    `);
+    _userPermissionsTableExists = Boolean(rows[0]?.exists);
+  } catch {
+    _userPermissionsTableExists = false;
+  }
+  return _userPermissionsTableExists;
+}
+async function getUserPermissions(userId) {
+  if (!await hasUserPermissionsTable()) return [];
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    const rows = await db.select({ permission: userPermissions.permission }).from(userPermissions).where((0, import_drizzle_orm.eq)(userPermissions.userId, userId));
+    return rows.map((r) => r.permission).filter((p) => ALL_ADMIN_PERMISSIONS.includes(p));
+  } catch {
+    return [];
+  }
+}
+async function setUserPermissions(userId, permissions, grantedBy) {
+  const db = await getDb();
+  if (!db || !await hasUserPermissionsTable()) return;
+  const valid = [...new Set(permissions.filter((p) => ALL_ADMIN_PERMISSIONS.includes(p)))];
+  await db.delete(userPermissions).where((0, import_drizzle_orm.eq)(userPermissions.userId, userId));
+  if (valid.length === 0) return;
+  await db.insert(userPermissions).values(
+    valid.map((permission) => ({ userId, permission, grantedBy }))
+  );
+}
+async function updateUserRole(userId, role) {
+  await updateUserById(userId, { role });
+}
+async function getAdminPlatformOverview() {
+  const db = await getDb();
+  const empty = {
+    users: 0,
+    onlineUsers: 0,
+    newUsersWeek: 0,
+    posts: 0,
+    comments: 0,
+    likes: 0,
+    follows: 0,
+    orders: 0,
+    paidOrders: 0,
+    revenue: 0,
+    missionsCompleted: 0,
+    achievementsUnlocked: 0,
+    trainingRegistrations: 0,
+    lessonComments: 0,
+    announcements: 0,
+    products: 0,
+    coursesEnrolled: 0,
+    avgFollowers: 0,
+    usersAt2k: 0
+  };
+  if (!db) return empty;
+  try {
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1e3);
+    const [
+      usersRow,
+      onlineRow,
+      newUsersRow,
+      postsRow,
+      commentsRow,
+      likesRow,
+      followsRow,
+      ordersRow,
+      paidRow,
+      revenueRow,
+      missionsRow,
+      achievementsRow,
+      trainingRow,
+      lessonCommentsRow,
+      announcementsRow,
+      productsRow,
+      coursesRow,
+      avgFollowersRow,
+      at2kRow
+    ] = await Promise.all([
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(users),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(users).where(import_drizzle_orm.sql`${users.lastSignedIn} >= NOW() - INTERVAL '15 minutes'`),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(users).where(import_drizzle_orm.sql`${users.createdAt} >= ${weekAgo}`),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(communityPosts),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(postComments),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(postLikes),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(userFollows),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(productOrders),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(productOrders).where((0, import_drizzle_orm.inArray)(productOrders.status, ["paid", "shipped", "delivered"])),
+      db.select({ total: import_drizzle_orm.sql`coalesce(sum(${productOrders.totalPrice}), 0)::float` }).from(productOrders).where((0, import_drizzle_orm.inArray)(productOrders.status, ["paid", "shipped", "delivered"])),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(userMissions).where((0, import_drizzle_orm.eq)(userMissions.status, "completed")),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(userAchievements),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(trainingEventRegistrations),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(lessonComments),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(announcements),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(products),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(userCourses),
+      db.select({ avg: import_drizzle_orm.sql`coalesce(avg(${followerProgress.currentFollowers}), 0)::float` }).from(followerProgress),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(followerProgress).where(import_drizzle_orm.sql`${followerProgress.currentFollowers} >= 2000`)
+    ]);
+    return {
+      users: usersRow[0]?.count ?? 0,
+      onlineUsers: onlineRow[0]?.count ?? 0,
+      newUsersWeek: newUsersRow[0]?.count ?? 0,
+      posts: postsRow[0]?.count ?? 0,
+      comments: commentsRow[0]?.count ?? 0,
+      likes: likesRow[0]?.count ?? 0,
+      follows: followsRow[0]?.count ?? 0,
+      orders: ordersRow[0]?.count ?? 0,
+      paidOrders: paidRow[0]?.count ?? 0,
+      revenue: revenueRow[0]?.total ?? 0,
+      missionsCompleted: missionsRow[0]?.count ?? 0,
+      achievementsUnlocked: achievementsRow[0]?.count ?? 0,
+      trainingRegistrations: trainingRow[0]?.count ?? 0,
+      lessonComments: lessonCommentsRow[0]?.count ?? 0,
+      announcements: announcementsRow[0]?.count ?? 0,
+      products: productsRow[0]?.count ?? 0,
+      coursesEnrolled: coursesRow[0]?.count ?? 0,
+      avgFollowers: Math.round(avgFollowersRow[0]?.avg ?? 0),
+      usersAt2k: at2kRow[0]?.count ?? 0
+    };
+  } catch (e) {
+    console.warn("[Admin] overview failed:", e);
+    return empty;
+  }
+}
+async function listAdminUsers(opts = {}) {
+  const db = await getDb();
+  if (!db) return { users: [], total: 0 };
+  const conditions = [];
+  if (opts.query?.trim()) {
+    const q = `%${opts.query.trim().toLowerCase()}%`;
+    conditions.push((0, import_drizzle_orm.or)((0, import_drizzle_orm.ilike)(users.username, q), (0, import_drizzle_orm.ilike)(users.name, q), (0, import_drizzle_orm.ilike)(users.email, q)));
+  }
+  const whereClause = conditions.length ? (0, import_drizzle_orm.and)(...conditions) : void 0;
+  const [totalRow] = await db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(users).where(whereClause);
+  const rows = await db.select({
+    id: users.id,
+    name: users.name,
+    username: users.username,
+    email: users.email,
+    role: users.role,
+    createdAt: users.createdAt,
+    lastSignedIn: users.lastSignedIn,
+    city: creatorProfiles.city,
+    state: creatorProfiles.state,
+    profileImageUrl: creatorProfiles.profileImageUrl,
+    currentFollowers: followerProgress.currentFollowers,
+    targetFollowers: followerProgress.targetFollowers
+  }).from(users).leftJoin(creatorProfiles, (0, import_drizzle_orm.eq)(creatorProfiles.userId, users.id)).leftJoin(followerProgress, (0, import_drizzle_orm.eq)(followerProgress.userId, users.id)).where(whereClause).orderBy((0, import_drizzle_orm.desc)(users.createdAt)).limit(opts.limit ?? 50).offset(opts.offset ?? 0);
+  const userIds = rows.map((r) => r.id);
+  let permMap = /* @__PURE__ */ new Map();
+  if (userIds.length > 0 && await hasUserPermissionsTable()) {
+    const perms = await db.select({ userId: userPermissions.userId, permission: userPermissions.permission }).from(userPermissions).where((0, import_drizzle_orm.inArray)(userPermissions.userId, userIds));
+    for (const p of perms) {
+      const arr = permMap.get(p.userId) ?? [];
+      arr.push(p.permission);
+      permMap.set(p.userId, arr);
+    }
+  }
+  const followerCounts = userIds.length ? await db.select({ userId: userFollows.followingId, count: import_drizzle_orm.sql`count(*)::int` }).from(userFollows).where((0, import_drizzle_orm.inArray)(userFollows.followingId, userIds)).groupBy(userFollows.followingId) : [];
+  const followerMap = new Map(followerCounts.map((f) => [f.userId, f.count]));
+  const postCounts = userIds.length ? await db.select({ userId: communityPosts.userId, count: import_drizzle_orm.sql`count(*)::int` }).from(communityPosts).where((0, import_drizzle_orm.inArray)(communityPosts.userId, userIds)).groupBy(communityPosts.userId) : [];
+  const postMap = new Map(postCounts.map((p) => [p.userId, p.count]));
+  return {
+    total: totalRow?.count ?? 0,
+    users: rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      username: r.username,
+      email: r.email,
+      role: r.role,
+      createdAt: r.createdAt,
+      lastSignedIn: r.lastSignedIn,
+      isOnline: isUserOnline(r.lastSignedIn),
+      city: r.city,
+      state: r.state,
+      profileImageUrl: r.profileImageUrl,
+      currentFollowers: r.currentFollowers ?? 0,
+      targetFollowers: r.targetFollowers ?? 2e3,
+      platformFollowers: followerMap.get(r.id) ?? 0,
+      posts: postMap.get(r.id) ?? 0,
+      permissions: permMap.get(r.id) ?? []
+    }))
+  };
+}
+async function getAdminGrowthLeaders(limit = 30) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select({
+    id: users.id,
+    name: users.name,
+    username: users.username,
+    profileImageUrl: creatorProfiles.profileImageUrl,
+    currentFollowers: followerProgress.currentFollowers,
+    targetFollowers: followerProgress.targetFollowers,
+    progressPercentage: followerProgress.progressPercentage,
+    source: followerProgress.source,
+    lastUpdated: followerProgress.lastUpdated
+  }).from(followerProgress).innerJoin(users, (0, import_drizzle_orm.eq)(users.id, followerProgress.userId)).leftJoin(creatorProfiles, (0, import_drizzle_orm.eq)(creatorProfiles.userId, users.id)).orderBy((0, import_drizzle_orm.desc)(followerProgress.currentFollowers)).limit(limit);
+  return rows.map((r) => ({
+    ...r,
+    currentFollowers: r.currentFollowers ?? 0,
+    targetFollowers: r.targetFollowers ?? 2e3,
+    progressPercentage: parseFloat(String(r.progressPercentage ?? 0))
+  }));
+}
+async function getAdminEngagementRecent(limit = 20) {
+  const db = await getDb();
+  if (!db) return { topPosts: [], recentSignups: [] };
+  const topPosts = await db.select({
+    id: communityPosts.id,
+    content: communityPosts.content,
+    likes: communityPosts.likes,
+    channel: communityPosts.channel,
+    createdAt: communityPosts.createdAt,
+    authorName: users.name,
+    authorUsername: users.username
+  }).from(communityPosts).innerJoin(users, (0, import_drizzle_orm.eq)(users.id, communityPosts.userId)).orderBy((0, import_drizzle_orm.desc)(communityPosts.likes), (0, import_drizzle_orm.desc)(communityPosts.createdAt)).limit(limit);
+  const recentSignups = await db.select({
+    id: users.id,
+    name: users.name,
+    username: users.username,
+    createdAt: users.createdAt,
+    city: creatorProfiles.city,
+    state: creatorProfiles.state
+  }).from(users).leftJoin(creatorProfiles, (0, import_drizzle_orm.eq)(creatorProfiles.userId, users.id)).orderBy((0, import_drizzle_orm.desc)(users.createdAt)).limit(10);
+  return { topPosts, recentSignups };
+}
+async function getAdminCommerceOverview() {
+  const db = await getDb();
+  if (!db) return { recentOrders: [], topSellers: [] };
+  const recentOrders = await db.select({
+    id: productOrders.id,
+    totalPrice: productOrders.totalPrice,
+    status: productOrders.status,
+    createdAt: productOrders.createdAt,
+    productTitle: products.title,
+    buyerName: users.name,
+    buyerUsername: users.username,
+    sellerId: products.userId
+  }).from(productOrders).innerJoin(products, (0, import_drizzle_orm.eq)(productOrders.productId, products.id)).innerJoin(users, (0, import_drizzle_orm.eq)(productOrders.userId, users.id)).orderBy((0, import_drizzle_orm.desc)(productOrders.createdAt)).limit(20);
+  const sellerIds = [...new Set(recentOrders.map((o) => o.sellerId))];
+  const sellers = sellerIds.length > 0 ? await db.select({ id: users.id, name: users.name, username: users.username }).from(users).where((0, import_drizzle_orm.inArray)(users.id, sellerIds)) : [];
+  const sellerMap = new Map(sellers.map((s) => [s.id, s]));
+  const topSellers = await db.select({
+    userId: products.userId,
+    sellerName: users.name,
+    sellerUsername: users.username,
+    paidOrders: import_drizzle_orm.sql`count(*) filter (where ${productOrders.status} in ('paid','shipped','delivered'))::int`,
+    revenue: import_drizzle_orm.sql`coalesce(sum(${productOrders.totalPrice}) filter (where ${productOrders.status} in ('paid','shipped','delivered')), 0)::float`
+  }).from(productOrders).innerJoin(products, (0, import_drizzle_orm.eq)(productOrders.productId, products.id)).innerJoin(users, (0, import_drizzle_orm.eq)(users.id, products.userId)).groupBy(products.userId, users.name, users.username).orderBy(import_drizzle_orm.sql`coalesce(sum(${productOrders.totalPrice}) filter (where ${productOrders.status} in ('paid','shipped','delivered')), 0) desc`).limit(10);
+  return {
+    recentOrders: recentOrders.map((o) => {
+      const seller = sellerMap.get(o.sellerId);
+      return {
+        id: o.id,
+        totalPrice: String(o.totalPrice),
+        status: o.status,
+        createdAt: o.createdAt,
+        productTitle: o.productTitle,
+        buyerName: o.buyerName,
+        buyerUsername: o.buyerUsername,
+        sellerName: seller?.name ?? null,
+        sellerUsername: seller?.username ?? null
+      };
+    }),
+    topSellers
+  };
+}
+async function getAdminLearningOverview() {
+  const db = await getDb();
+  if (!db) return { tracks: [], topLessons: [] };
+  const tracks = await db.select().from(learningTracks).orderBy((0, import_drizzle_orm.asc)(learningTracks.sortOrder));
+  const topLessons = await db.select({
+    lessonSlug: lessonLikes.lessonSlug,
+    likes: import_drizzle_orm.sql`count(*)::int`
+  }).from(lessonLikes).groupBy(lessonLikes.lessonSlug).orderBy(import_drizzle_orm.sql`count(*) desc`).limit(10);
+  const commentCounts = topLessons.length ? await db.select({
+    lessonSlug: lessonComments.lessonSlug,
+    count: import_drizzle_orm.sql`count(*)::int`
+  }).from(lessonComments).where(
+    (0, import_drizzle_orm.inArray)(
+      lessonComments.lessonSlug,
+      topLessons.map((l) => l.lessonSlug)
+    )
+  ).groupBy(lessonComments.lessonSlug) : [];
+  const commentMap = new Map(commentCounts.map((c) => [c.lessonSlug, c.count]));
+  return {
+    tracks: tracks.map((t2) => ({ slug: t2.slug, title: t2.title, emoji: t2.emoji })),
+    topLessons: topLessons.map((l) => ({
+      lessonSlug: l.lessonSlug,
+      likes: l.likes,
+      comments: commentMap.get(l.lessonSlug) ?? 0
+    }))
+  };
+}
+async function listAdminPostsForModeration(limit = 30, offset = 0) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select({
+    id: communityPosts.id,
+    content: communityPosts.content,
+    channel: communityPosts.channel,
+    likes: communityPosts.likes,
+    createdAt: communityPosts.createdAt,
+    authorId: users.id,
+    authorName: users.name,
+    authorUsername: users.username
+  }).from(communityPosts).innerJoin(users, (0, import_drizzle_orm.eq)(users.id, communityPosts.userId)).orderBy((0, import_drizzle_orm.desc)(communityPosts.createdAt)).limit(limit).offset(offset);
+  const postIds = rows.map((r) => r.id);
+  const commentCounts = postIds.length ? await db.select({ postId: postComments.postId, count: import_drizzle_orm.sql`count(*)::int` }).from(postComments).where((0, import_drizzle_orm.inArray)(postComments.postId, postIds)).groupBy(postComments.postId) : [];
+  const commentMap = new Map(commentCounts.map((c) => [c.postId, c.count]));
+  return rows.map((r) => ({
+    ...r,
+    commentCount: commentMap.get(r.id) ?? 0
+  }));
+}
+async function adminDeleteCommunityPost(postId) {
+  const db = await getDb();
+  if (!db) return false;
+  try {
+    await db.delete(postComments).where((0, import_drizzle_orm.eq)(postComments.postId, postId));
+    await db.delete(postLikes).where((0, import_drizzle_orm.eq)(postLikes.postId, postId));
+    await db.delete(communityPosts).where((0, import_drizzle_orm.eq)(communityPosts.id, postId));
+    return true;
+  } catch (e) {
+    console.warn("[Admin] delete post failed:", e);
+    return false;
+  }
+}
+async function getAdminSectionCounts() {
+  const db = await getDb();
+  if (!db) {
+    return {
+      missions: 0,
+      courses: 0,
+      trainingEvents: 0,
+      learningLessons: 0,
+      grupoPosts: 0
+    };
+  }
+  try {
+    const [missionsRow, coursesRow, eventsRow, lessonsRow, grupoRow] = await Promise.all([
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(missions),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(courses),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(trainingEvents),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(learningLessons),
+      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(communityPosts).where((0, import_drizzle_orm.eq)(communityPosts.channel, "grupo-aberto"))
+    ]);
+    return {
+      missions: missionsRow[0]?.count ?? 0,
+      courses: coursesRow[0]?.count ?? 0,
+      trainingEvents: eventsRow[0]?.count ?? 0,
+      learningLessons: lessonsRow[0]?.count ?? 0,
+      grupoPosts: grupoRow[0]?.count ?? 0
+    };
+  } catch {
+    return {
+      missions: 0,
+      courses: 0,
+      trainingEvents: 0,
+      learningLessons: 0,
+      grupoPosts: 0
+    };
+  }
 }
 
 // server/_core/context.ts
@@ -9237,6 +9663,19 @@ var registerCustom = SuperJSON.registerCustom;
 var registerSymbol = SuperJSON.registerSymbol;
 var allowErrorProps = SuperJSON.allowErrorProps;
 
+// server/_core/permissions.ts
+function isPlatformAdmin(user) {
+  return user.role === "admin";
+}
+async function resolveUserPermissions(user) {
+  if (isPlatformAdmin(user)) return [...ALL_ADMIN_PERMISSIONS];
+  return getUserPermissions(user.id);
+}
+function hasAnyPermission(user, permissions, required) {
+  if (isPlatformAdmin(user)) return true;
+  return required.some((p) => permissions.includes(p));
+}
+
 // server/_core/trpc.ts
 var t = initTRPC.context().create({
   transformer: dist_default
@@ -9250,11 +9689,28 @@ var protectedProcedure = t.procedure.use(({ ctx, next }) => {
   return next({ ctx: { ...ctx, user: ctx.user } });
 });
 var adminProcedure = protectedProcedure.use(({ ctx, next }) => {
-  if (ctx.user.role !== "admin") {
+  if (!isPlatformAdmin(ctx.user)) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem fazer isso" });
   }
   return next({ ctx });
 });
+var staffProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+  const permissions = await resolveUserPermissions(ctx.user);
+  if (!isPlatformAdmin(ctx.user) && permissions.length === 0) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Voc\xEA n\xE3o tem acesso ao painel administrativo" });
+  }
+  return next({ ctx: { ...ctx, permissions } });
+});
+function permissionProcedure(required) {
+  const requiredList = Array.isArray(required) ? required : [required];
+  return protectedProcedure.use(async ({ ctx, next }) => {
+    const permissions = await resolveUserPermissions(ctx.user);
+    if (!hasAnyPermission(ctx.user, permissions, requiredList)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Permiss\xE3o insuficiente para esta a\xE7\xE3o" });
+    }
+    return next({ ctx: { ...ctx, permissions } });
+  });
+}
 
 // server/const.ts
 var APP_NAME = "Conex\xF5es Creator";
@@ -10121,7 +10577,7 @@ var announcementsRouter = router({
       input?.channel ?? "avisos"
     )
   ),
-  post: adminProcedure.input(
+  post: permissionProcedure(ADMIN_PERMISSIONS.ANNOUNCEMENTS_PUBLISH).input(
     external_exports.object({
       title: external_exports.string().min(1).max(500),
       content: external_exports.string().min(1).max(1e4),
@@ -10181,6 +10637,87 @@ var trainingsRouter = router({
     })
   ),
   register: protectedProcedure.input(external_exports.object({ eventId: external_exports.number() })).mutation(async ({ ctx, input }) => toggleTrainingRegistration(ctx.user.id, input.eventId))
+});
+
+// server/routers/admin.ts
+var adminRouter = router({
+  myAccess: protectedProcedure.query(async ({ ctx }) => {
+    const permissions = await resolveUserPermissions(ctx.user);
+    return {
+      isAdmin: isPlatformAdmin(ctx.user),
+      isStaff: isPlatformAdmin(ctx.user) || permissions.length > 0,
+      permissions
+    };
+  }),
+  overview: permissionProcedure(ADMIN_PERMISSIONS.ANALYTICS_VIEW).query(async () => {
+    const [platform, sections] = await Promise.all([
+      getAdminPlatformOverview(),
+      getAdminSectionCounts()
+    ]);
+    return { platform, sections };
+  }),
+  users: permissionProcedure(ADMIN_PERMISSIONS.USERS_MANAGE).input(
+    external_exports.object({
+      query: external_exports.string().max(80).optional(),
+      limit: external_exports.number().min(1).max(100).default(50),
+      offset: external_exports.number().min(0).default(0)
+    }).optional()
+  ).query(
+    async ({ input }) => listAdminUsers({
+      query: input?.query,
+      limit: input?.limit ?? 50,
+      offset: input?.offset ?? 0
+    })
+  ),
+  updateUserRole: adminProcedure.input(
+    external_exports.object({
+      userId: external_exports.number(),
+      role: external_exports.enum(["user", "admin"])
+    })
+  ).mutation(async ({ ctx, input }) => {
+    if (input.userId === ctx.user.id && input.role !== "admin") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Voc\xEA n\xE3o pode remover seu pr\xF3prio acesso admin" });
+    }
+    await updateUserRole(input.userId, input.role);
+    if (input.role === "admin") {
+      await setUserPermissions(input.userId, [], ctx.user.id);
+    }
+    return { success: true };
+  }),
+  setPermissions: adminProcedure.input(
+    external_exports.object({
+      userId: external_exports.number(),
+      permissions: external_exports.array(external_exports.enum(ALL_ADMIN_PERMISSIONS))
+    })
+  ).mutation(async ({ ctx, input }) => {
+    if (input.userId === ctx.user.id) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Use outro admin para alterar suas permiss\xF5es" });
+    }
+    await setUserPermissions(input.userId, input.permissions, ctx.user.id);
+    return { success: true };
+  }),
+  growth: permissionProcedure(ADMIN_PERMISSIONS.ANALYTICS_VIEW).input(external_exports.object({ limit: external_exports.number().min(1).max(100).default(30) }).optional()).query(async ({ input }) => getAdminGrowthLeaders(input?.limit ?? 30)),
+  engagement: permissionProcedure(ADMIN_PERMISSIONS.ANALYTICS_VIEW).query(
+    async () => getAdminEngagementRecent(20)
+  ),
+  commerce: permissionProcedure([ADMIN_PERMISSIONS.SHOP_MANAGE, ADMIN_PERMISSIONS.ANALYTICS_VIEW]).query(
+    async () => getAdminCommerceOverview()
+  ),
+  learning: permissionProcedure([ADMIN_PERMISSIONS.LEARNING_MANAGE, ADMIN_PERMISSIONS.ANALYTICS_VIEW]).query(
+    async () => getAdminLearningOverview()
+  ),
+  moderationPosts: permissionProcedure(ADMIN_PERMISSIONS.COMMUNITY_MODERATE).input(external_exports.object({ limit: external_exports.number().min(1).max(50).default(30), offset: external_exports.number().min(0).default(0) }).optional()).query(async ({ input }) => listAdminPostsForModeration(input?.limit ?? 30, input?.offset ?? 0)),
+  deletePost: permissionProcedure(ADMIN_PERMISSIONS.COMMUNITY_MODERATE).input(external_exports.object({ postId: external_exports.number() })).mutation(async ({ input }) => {
+    const ok = await adminDeleteCommunityPost(input.postId);
+    if (!ok) {
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "N\xE3o foi poss\xEDvel remover o post" });
+    }
+    return { success: true };
+  }),
+  /** Lista permissões disponíveis (qualquer staff) */
+  permissionCatalog: staffProcedure.query(() => ({
+    permissions: ALL_ADMIN_PERMISSIONS
+  }))
 });
 
 // server/routers/index.ts
@@ -10307,6 +10844,7 @@ var appRouter = router({
   learning: learningRouter,
   announcements: announcementsRouter,
   trainings: trainingsRouter,
+  admin: adminRouter,
   users: router({
     search: protectedProcedure.input(external_exports.object({ q: external_exports.string().min(1).max(30) })).query(async ({ input }) => searchUsersByUsername(input.q))
   })

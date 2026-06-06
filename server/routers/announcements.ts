@@ -7,7 +7,8 @@ import {
   getAnnouncementsFeed,
   toggleAnnouncementLike,
 } from "../db";
-import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
+import { permissionProcedure, protectedProcedure, router } from "../_core/trpc";
+import { ADMIN_PERMISSIONS } from "../../shared/adminPermissions";
 
 export const announcementsRouter = router({
   feed: protectedProcedure
@@ -29,7 +30,7 @@ export const announcementsRouter = router({
       )
     ),
 
-  post: adminProcedure
+  post: permissionProcedure(ADMIN_PERMISSIONS.ANNOUNCEMENTS_PUBLISH)
     .input(
       z.object({
         title: z.string().min(1).max(500),
