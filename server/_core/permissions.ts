@@ -1,7 +1,12 @@
 import type { User } from "../../drizzle/schema";
 import type { AdminPermission } from "../../shared/adminPermissions";
 import { ALL_ADMIN_PERMISSIONS } from "../../shared/adminPermissions";
+import { SUPER_ADMIN_USERNAME } from "../../shared/const";
 import { getUserPermissions } from "../db";
+
+export function isSuperAdmin(user: Pick<User, "username"> | null | undefined): boolean {
+  return user?.username?.toLowerCase() === SUPER_ADMIN_USERNAME;
+}
 
 export function isPlatformAdmin(user: Pick<User, "role">): boolean {
   return user.role === "admin";

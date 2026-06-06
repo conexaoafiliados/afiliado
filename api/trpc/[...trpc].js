@@ -2812,6 +2812,9 @@ var ENV = {
   tiktokClientSecret: process.env.TIKTOK_CLIENT_SECRET ?? ""
 };
 
+// shared/const.ts
+var SUPER_ADMIN_USERNAME = "conelheiros";
+
 // server/db.ts
 var _db = null;
 async function getDb() {
@@ -2932,6 +2935,9 @@ async function upsertUser(user) {
     values.role = user.role;
     updateSet.role = user.role;
   } else if (user.openId === ENV.ownerOpenId) {
+    values.role = "admin";
+    updateSet.role = "admin";
+  } else if (user.username?.toLowerCase() === SUPER_ADMIN_USERNAME) {
     values.role = "admin";
     updateSet.role = "admin";
   }
@@ -4124,74 +4130,107 @@ async function getAdminPlatformOverview() {
     usersAt2k: 0
   };
   if (!db) return empty;
-  try {
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1e3);
-    const [
-      usersRow,
-      onlineRow,
-      newUsersRow,
-      postsRow,
-      commentsRow,
-      likesRow,
-      followsRow,
-      ordersRow,
-      paidRow,
-      revenueRow,
-      missionsRow,
-      achievementsRow,
-      trainingRow,
-      lessonCommentsRow,
-      announcementsRow,
-      productsRow,
-      coursesRow,
-      avgFollowersRow,
-      at2kRow
-    ] = await Promise.all([
-      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(users),
-      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(users).where(import_drizzle_orm.sql`${users.lastSignedIn} >= NOW() - INTERVAL '15 minutes'`),
-      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(users).where(import_drizzle_orm.sql`${users.createdAt} >= ${weekAgo}`),
-      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(communityPosts),
-      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(postComments),
-      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(postLikes),
-      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(userFollows),
-      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(productOrders),
-      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(productOrders).where((0, import_drizzle_orm.inArray)(productOrders.status, ["paid", "shipped", "delivered"])),
-      db.select({ total: import_drizzle_orm.sql`coalesce(sum(${productOrders.totalPrice}), 0)::float` }).from(productOrders).where((0, import_drizzle_orm.inArray)(productOrders.status, ["paid", "shipped", "delivered"])),
-      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(userMissions).where((0, import_drizzle_orm.eq)(userMissions.status, "completed")),
-      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(userAchievements),
-      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(trainingEventRegistrations),
-      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(lessonComments),
-      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(announcements),
-      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(products),
-      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(userCourses),
-      db.select({ avg: import_drizzle_orm.sql`coalesce(avg(${followerProgress.currentFollowers}), 0)::float` }).from(followerProgress),
-      db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(followerProgress).where(import_drizzle_orm.sql`${followerProgress.currentFollowers} >= 2000`)
-    ]);
-    return {
-      users: usersRow[0]?.count ?? 0,
-      onlineUsers: onlineRow[0]?.count ?? 0,
-      newUsersWeek: newUsersRow[0]?.count ?? 0,
-      posts: postsRow[0]?.count ?? 0,
-      comments: commentsRow[0]?.count ?? 0,
-      likes: likesRow[0]?.count ?? 0,
-      follows: followsRow[0]?.count ?? 0,
-      orders: ordersRow[0]?.count ?? 0,
-      paidOrders: paidRow[0]?.count ?? 0,
-      revenue: revenueRow[0]?.total ?? 0,
-      missionsCompleted: missionsRow[0]?.count ?? 0,
-      achievementsUnlocked: achievementsRow[0]?.count ?? 0,
-      trainingRegistrations: trainingRow[0]?.count ?? 0,
-      lessonComments: lessonCommentsRow[0]?.count ?? 0,
-      announcements: announcementsRow[0]?.count ?? 0,
-      products: productsRow[0]?.count ?? 0,
-      coursesEnrolled: coursesRow[0]?.count ?? 0,
-      avgFollowers: Math.round(avgFollowersRow[0]?.avg ?? 0),
-      usersAt2k: at2kRow[0]?.count ?? 0
-    };
-  } catch (e) {
-    console.warn("[Admin] overview failed:", e);
-    return empty;
+  async function countFrom(query) {
+    try {
+      const [row] = await query();
+      return row?.count ?? 0;
+    } catch {
+      return 0;
+    }
   }
+  async function sumFrom(query) {
+    try {
+      const [row] = await query();
+      return row?.total ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+  async function avgFrom(query) {
+    try {
+      const [row] = await query();
+      return row?.avg ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1e3);
+  const [
+    totalUsers,
+    onlineUsers,
+    newUsersWeek,
+    posts,
+    comments,
+    likes,
+    follows,
+    orders,
+    paidOrders,
+    revenue,
+    missionsCompleted,
+    achievementsUnlocked,
+    trainingRegistrations,
+    lessonComments2,
+    announcements2,
+    products2,
+    coursesEnrolled,
+    avgFollowers,
+    usersAt2k
+  ] = await Promise.all([
+    countFrom(() => db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(users)),
+    countFrom(
+      () => db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(users).where(import_drizzle_orm.sql`${users.lastSignedIn} >= NOW() - INTERVAL '15 minutes'`)
+    ),
+    countFrom(
+      () => db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(users).where(import_drizzle_orm.sql`${users.createdAt} >= ${weekAgo}`)
+    ),
+    countFrom(() => db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(communityPosts)),
+    countFrom(() => db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(postComments)),
+    countFrom(() => db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(postLikes)),
+    countFrom(() => db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(userFollows)),
+    countFrom(() => db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(productOrders)),
+    countFrom(
+      () => db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(productOrders).where((0, import_drizzle_orm.inArray)(productOrders.status, ["paid", "shipped", "delivered"]))
+    ),
+    sumFrom(
+      () => db.select({ total: import_drizzle_orm.sql`coalesce(sum(${productOrders.totalPrice}), 0)::float` }).from(productOrders).where((0, import_drizzle_orm.inArray)(productOrders.status, ["paid", "shipped", "delivered"]))
+    ),
+    countFrom(
+      () => db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(userMissions).where((0, import_drizzle_orm.eq)(userMissions.status, "completed"))
+    ),
+    countFrom(() => db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(userAchievements)),
+    countFrom(() => db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(trainingEventRegistrations)),
+    countFrom(() => db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(lessonComments2)),
+    countFrom(() => db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(announcements2)),
+    countFrom(() => db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(products2)),
+    countFrom(() => db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(userCourses)),
+    avgFrom(
+      () => db.select({ avg: import_drizzle_orm.sql`coalesce(avg(${followerProgress.currentFollowers}), 0)::float` }).from(followerProgress)
+    ),
+    countFrom(
+      () => db.select({ count: import_drizzle_orm.sql`count(*)::int` }).from(followerProgress).where(import_drizzle_orm.sql`${followerProgress.currentFollowers} >= 2000`)
+    )
+  ]);
+  return {
+    users: totalUsers,
+    onlineUsers,
+    newUsersWeek,
+    posts,
+    comments,
+    likes,
+    follows,
+    orders,
+    paidOrders,
+    revenue,
+    missionsCompleted,
+    achievementsUnlocked,
+    trainingRegistrations,
+    lessonComments: lessonComments2,
+    announcements: announcements2,
+    products: products2,
+    coursesEnrolled,
+    avgFollowers: Math.round(avgFollowers),
+    usersAt2k
+  };
 }
 async function listAdminUsers(opts = {}) {
   const db = await getDb();
@@ -9664,6 +9703,9 @@ var registerSymbol = SuperJSON.registerSymbol;
 var allowErrorProps = SuperJSON.allowErrorProps;
 
 // server/_core/permissions.ts
+function isSuperAdmin(user) {
+  return user?.username?.toLowerCase() === SUPER_ADMIN_USERNAME;
+}
 function isPlatformAdmin(user) {
   return user.role === "admin";
 }
@@ -10643,13 +10685,20 @@ var trainingsRouter = router({
 var adminRouter = router({
   myAccess: protectedProcedure.query(async ({ ctx }) => {
     const permissions = await resolveUserPermissions(ctx.user);
+    const superAdmin = isSuperAdmin(ctx.user);
     return {
       isAdmin: isPlatformAdmin(ctx.user),
+      isSuperAdmin: superAdmin,
+      canManageAdmins: superAdmin,
       isStaff: isPlatformAdmin(ctx.user) || permissions.length > 0,
       permissions
     };
   }),
-  overview: permissionProcedure(ADMIN_PERMISSIONS.ANALYTICS_VIEW).query(async () => {
+  overview: staffProcedure.query(async ({ ctx }) => {
+    const permissions = await resolveUserPermissions(ctx.user);
+    if (!isPlatformAdmin(ctx.user) && !permissions.includes(ADMIN_PERMISSIONS.ANALYTICS_VIEW)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Sem permiss\xE3o para ver analytics" });
+    }
     const [platform, sections] = await Promise.all([
       getAdminPlatformOverview(),
       getAdminSectionCounts()
@@ -10675,11 +10724,26 @@ var adminRouter = router({
       role: external_exports.enum(["user", "admin"])
     })
   ).mutation(async ({ ctx, input }) => {
-    if (input.userId === ctx.user.id && input.role !== "admin") {
-      throw new TRPCError({ code: "BAD_REQUEST", message: "Voc\xEA n\xE3o pode remover seu pr\xF3prio acesso admin" });
+    if (!isSuperAdmin(ctx.user)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Apenas @conelheiros pode promover ou remover administradores"
+      });
+    }
+    const target = await getUserById(input.userId);
+    if (!target) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Usu\xE1rio n\xE3o encontrado" });
+    }
+    if (isSuperAdmin(target) && input.role !== "admin") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "O administrador principal n\xE3o pode ser rebaixado"
+      });
     }
     await updateUserRole(input.userId, input.role);
     if (input.role === "admin") {
+      await setUserPermissions(input.userId, [], ctx.user.id);
+    } else {
       await setUserPermissions(input.userId, [], ctx.user.id);
     }
     return { success: true };
@@ -10690,8 +10754,27 @@ var adminRouter = router({
       permissions: external_exports.array(external_exports.enum(ALL_ADMIN_PERMISSIONS))
     })
   ).mutation(async ({ ctx, input }) => {
-    if (input.userId === ctx.user.id) {
-      throw new TRPCError({ code: "BAD_REQUEST", message: "Use outro admin para alterar suas permiss\xF5es" });
+    if (!isSuperAdmin(ctx.user)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Apenas @conelheiros pode alterar permiss\xF5es de outros usu\xE1rios"
+      });
+    }
+    const target = await getUserById(input.userId);
+    if (!target) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Usu\xE1rio n\xE3o encontrado" });
+    }
+    if (isSuperAdmin(target)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "O administrador principal j\xE1 tem acesso total"
+      });
+    }
+    if (target.role === "admin") {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Remova o papel admin antes de definir permiss\xF5es parciais"
+      });
     }
     await setUserPermissions(input.userId, input.permissions, ctx.user.id);
     return { success: true };

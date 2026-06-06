@@ -79,7 +79,7 @@ function OverviewTab() {
       </div>
 
       <Card className="card-elegant p-5">
-        <h3 className="font-semibold mb-4">Seções da plataforma</h3>
+        <h3 className="font-semibold mb-4">Seções da plataforma (dados reais do banco)</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
           <p>Missões: <strong>{s?.missions ?? 0}</strong></p>
           <p>Cursos: <strong>{s?.courses ?? 0}</strong></p>
@@ -96,7 +96,7 @@ function OverviewTab() {
   );
 }
 
-function UsersTab({ isAdmin }: { isAdmin: boolean }) {
+function UsersTab({ canManageAdmins }: { canManageAdmins: boolean }) {
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -183,7 +183,7 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
                       </Button>
                     </Link>
                   )}
-                  {isAdmin && u.role !== "admin" && (
+                  {canManageAdmins && u.role !== "admin" && u.username?.toLowerCase() !== "conelheiros" && (
                     <>
                       <Button
                         size="sm"
@@ -202,11 +202,27 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
                       </Button>
                     </>
                   )}
-                  {isAdmin && u.role === "admin" && (
+                  {u.role === "admin" && (
                     <span className="text-xs font-medium text-accent px-2 py-1 rounded-full bg-accent/10">
-                      Admin
+                      Admin{u.username?.toLowerCase() === "conelheiros" ? " principal" : ""}
                     </span>
                   )}
+                  {canManageAdmins &&
+                    u.role === "admin" &&
+                    u.username?.toLowerCase() !== "conelheiros" && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={updateRole.isPending}
+                        onClick={() => {
+                          if (confirm(`Remover admin de @${u.username}?`)) {
+                            updateRole.mutate({ userId: u.id, role: "user" });
+                          }
+                        }}
+                      >
+                        Remover admin
+                      </Button>
+                    )}
                 </div>
               </div>
 
@@ -498,7 +514,11 @@ export default function Admin() {
   const [tab, setTab] = useState<TabId>("overview");
 
   const visibleTabs = useMemo(
-    () => TABS.filter(t => !t.perm || t.perm(access)),
+    () =>
+      TABS.filter(t => {
+        if (t.id === "overview") return access.isAdmin || access.canViewAnalytics;
+        return !t.perm || t.perm(access);
+      }),
     [access]
   );
 
@@ -532,9 +552,11 @@ export default function Admin() {
           Administração
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {access.isAdmin
-            ? "Acesso total — gerencie a plataforma e delegue permissões"
-            : "Acesso delegado — use apenas as áreas liberadas para você"}
+          {access.isSuperAdmin
+            ? "Conta principal @conelheiros — controle total de admins e permissões"
+            : access.isAdmin
+              ? "Admin delegado — visão e ferramentas liberadas pelo administrador principal"
+              : "Acesso delegado — use apenas as áreas liberadas para você"}
         </p>
       </div>
 
@@ -560,8 +582,10 @@ export default function Admin() {
         })}
       </div>
 
-      {activeTab === "overview" && access.canViewAnalytics && <OverviewTab />}
-      {activeTab === "users" && access.canManageUsers && <UsersTab isAdmin={access.isAdmin} />}
+      {activeTab === "overview" && (access.isAdmin || access.canViewAnalytics) && <OverviewTab />}
+      {activeTab === "users" && access.canManageUsers && (
+        <UsersTab canManageAdmins={access.canManageAdmins} />
+      )}
       {activeTab === "growth" && access.canViewAnalytics && <GrowthTab />}
       {activeTab === "engagement" && access.canViewAnalytics && <EngagementTab />}
       {activeTab === "commerce" && (access.canShop || access.canViewAnalytics) && <CommerceTab />}

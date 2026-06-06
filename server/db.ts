@@ -41,6 +41,7 @@ import { achievementCongratsLabel, FOLLOWER_ACHIEVEMENTS } from "./_core/achieve
 import { resolveFollowerGoal, formatGoalLabel } from "./_core/goals";
 import { extractMentionUsernames } from "./_core/mentions";
 import { ENV } from "./_core/env";
+import { SUPER_ADMIN_USERNAME } from "../shared/const";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -218,6 +219,9 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     values.role = user.role;
     updateSet.role = user.role;
   } else if (user.openId === ENV.ownerOpenId) {
+    values.role = "admin";
+    updateSet.role = "admin";
+  } else if (user.username?.toLowerCase() === SUPER_ADMIN_USERNAME) {
     values.role = "admin";
     updateSet.role = "admin";
   }
@@ -2027,96 +2031,132 @@ export async function getAdminPlatformOverview() {
   };
   if (!db) return empty;
 
-  try {
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  async function countFrom(query: () => Promise<{ count: number }[]>) {
+    try {
+      const [row] = await query();
+      return row?.count ?? 0;
+    } catch {
+      return 0;
+    }
+  }
 
-    const [
-      usersRow,
-      onlineRow,
-      newUsersRow,
-      postsRow,
-      commentsRow,
-      likesRow,
-      followsRow,
-      ordersRow,
-      paidRow,
-      revenueRow,
-      missionsRow,
-      achievementsRow,
-      trainingRow,
-      lessonCommentsRow,
-      announcementsRow,
-      productsRow,
-      coursesRow,
-      avgFollowersRow,
-      at2kRow,
-    ] = await Promise.all([
-      db.select({ count: sql<number>`count(*)::int` }).from(users),
+  async function sumFrom(query: () => Promise<{ total: number }[]>) {
+    try {
+      const [row] = await query();
+      return row?.total ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  async function avgFrom(query: () => Promise<{ avg: number }[]>) {
+    try {
+      const [row] = await query();
+      return row?.avg ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const [
+    totalUsers,
+    onlineUsers,
+    newUsersWeek,
+    posts,
+    comments,
+    likes,
+    follows,
+    orders,
+    paidOrders,
+    revenue,
+    missionsCompleted,
+    achievementsUnlocked,
+    trainingRegistrations,
+    lessonComments,
+    announcements,
+    products,
+    coursesEnrolled,
+    avgFollowers,
+    usersAt2k,
+  ] = await Promise.all([
+    countFrom(() => db.select({ count: sql<number>`count(*)::int` }).from(users)),
+    countFrom(() =>
       db
         .select({ count: sql<number>`count(*)::int` })
         .from(users)
-        .where(sql`${users.lastSignedIn} >= NOW() - INTERVAL '15 minutes'`),
+        .where(sql`${users.lastSignedIn} >= NOW() - INTERVAL '15 minutes'`)
+    ),
+    countFrom(() =>
       db
         .select({ count: sql<number>`count(*)::int` })
         .from(users)
-        .where(sql`${users.createdAt} >= ${weekAgo}`),
-      db.select({ count: sql<number>`count(*)::int` }).from(communityPosts),
-      db.select({ count: sql<number>`count(*)::int` }).from(postComments),
-      db.select({ count: sql<number>`count(*)::int` }).from(postLikes),
-      db.select({ count: sql<number>`count(*)::int` }).from(userFollows),
-      db.select({ count: sql<number>`count(*)::int` }).from(productOrders),
+        .where(sql`${users.createdAt} >= ${weekAgo}`)
+    ),
+    countFrom(() => db.select({ count: sql<number>`count(*)::int` }).from(communityPosts)),
+    countFrom(() => db.select({ count: sql<number>`count(*)::int` }).from(postComments)),
+    countFrom(() => db.select({ count: sql<number>`count(*)::int` }).from(postLikes)),
+    countFrom(() => db.select({ count: sql<number>`count(*)::int` }).from(userFollows)),
+    countFrom(() => db.select({ count: sql<number>`count(*)::int` }).from(productOrders)),
+    countFrom(() =>
       db
         .select({ count: sql<number>`count(*)::int` })
         .from(productOrders)
-        .where(inArray(productOrders.status, ["paid", "shipped", "delivered"])),
+        .where(inArray(productOrders.status, ["paid", "shipped", "delivered"]))
+    ),
+    sumFrom(() =>
       db
         .select({ total: sql<number>`coalesce(sum(${productOrders.totalPrice}), 0)::float` })
         .from(productOrders)
-        .where(inArray(productOrders.status, ["paid", "shipped", "delivered"])),
+        .where(inArray(productOrders.status, ["paid", "shipped", "delivered"]))
+    ),
+    countFrom(() =>
       db
         .select({ count: sql<number>`count(*)::int` })
         .from(userMissions)
-        .where(eq(userMissions.status, "completed")),
-      db.select({ count: sql<number>`count(*)::int` }).from(userAchievements),
-      db.select({ count: sql<number>`count(*)::int` }).from(trainingEventRegistrations),
-      db.select({ count: sql<number>`count(*)::int` }).from(lessonComments),
-      db.select({ count: sql<number>`count(*)::int` }).from(announcements),
-      db.select({ count: sql<number>`count(*)::int` }).from(products),
-      db.select({ count: sql<number>`count(*)::int` }).from(userCourses),
+        .where(eq(userMissions.status, "completed"))
+    ),
+    countFrom(() => db.select({ count: sql<number>`count(*)::int` }).from(userAchievements)),
+    countFrom(() => db.select({ count: sql<number>`count(*)::int` }).from(trainingEventRegistrations)),
+    countFrom(() => db.select({ count: sql<number>`count(*)::int` }).from(lessonComments)),
+    countFrom(() => db.select({ count: sql<number>`count(*)::int` }).from(announcements)),
+    countFrom(() => db.select({ count: sql<number>`count(*)::int` }).from(products)),
+    countFrom(() => db.select({ count: sql<number>`count(*)::int` }).from(userCourses)),
+    avgFrom(() =>
       db
         .select({ avg: sql<number>`coalesce(avg(${followerProgress.currentFollowers}), 0)::float` })
-        .from(followerProgress),
+        .from(followerProgress)
+    ),
+    countFrom(() =>
       db
         .select({ count: sql<number>`count(*)::int` })
         .from(followerProgress)
-        .where(sql`${followerProgress.currentFollowers} >= 2000`),
-    ]);
+        .where(sql`${followerProgress.currentFollowers} >= 2000`)
+    ),
+  ]);
 
-    return {
-      users: usersRow[0]?.count ?? 0,
-      onlineUsers: onlineRow[0]?.count ?? 0,
-      newUsersWeek: newUsersRow[0]?.count ?? 0,
-      posts: postsRow[0]?.count ?? 0,
-      comments: commentsRow[0]?.count ?? 0,
-      likes: likesRow[0]?.count ?? 0,
-      follows: followsRow[0]?.count ?? 0,
-      orders: ordersRow[0]?.count ?? 0,
-      paidOrders: paidRow[0]?.count ?? 0,
-      revenue: revenueRow[0]?.total ?? 0,
-      missionsCompleted: missionsRow[0]?.count ?? 0,
-      achievementsUnlocked: achievementsRow[0]?.count ?? 0,
-      trainingRegistrations: trainingRow[0]?.count ?? 0,
-      lessonComments: lessonCommentsRow[0]?.count ?? 0,
-      announcements: announcementsRow[0]?.count ?? 0,
-      products: productsRow[0]?.count ?? 0,
-      coursesEnrolled: coursesRow[0]?.count ?? 0,
-      avgFollowers: Math.round(avgFollowersRow[0]?.avg ?? 0),
-      usersAt2k: at2kRow[0]?.count ?? 0,
-    };
-  } catch (e) {
-    console.warn("[Admin] overview failed:", e);
-    return empty;
-  }
+  return {
+    users: totalUsers,
+    onlineUsers,
+    newUsersWeek,
+    posts,
+    comments,
+    likes,
+    follows,
+    orders,
+    paidOrders,
+    revenue,
+    missionsCompleted,
+    achievementsUnlocked,
+    trainingRegistrations,
+    lessonComments,
+    announcements,
+    products,
+    coursesEnrolled,
+    avgFollowers: Math.round(avgFollowers),
+    usersAt2k,
+  };
 }
 
 export async function listAdminUsers(opts: { query?: string; limit?: number; offset?: number } = {}) {

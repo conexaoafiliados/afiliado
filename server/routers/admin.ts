@@ -15,8 +15,9 @@ import {
   listAdminUsers,
   setUserPermissions,
   updateUserRole,
+  getUserById,
 } from "../db";
-import { isPlatformAdmin, resolveUserPermissions } from "../_core/permissions";
+import { isPlatformAdmin, isSuperAdmin, resolveUserPermissions } from "../_core/permissions";
 import {
   adminProcedure,
   permissionProcedure,
@@ -28,14 +29,21 @@ import {
 export const adminRouter = router({
   myAccess: protectedProcedure.query(async ({ ctx }) => {
     const permissions = await resolveUserPermissions(ctx.user);
+    const superAdmin = isSuperAdmin(ctx.user);
     return {
       isAdmin: isPlatformAdmin(ctx.user),
+      isSuperAdmin: superAdmin,
+      canManageAdmins: superAdmin,
       isStaff: isPlatformAdmin(ctx.user) || permissions.length > 0,
       permissions,
     };
   }),
 
-  overview: permissionProcedure(ADMIN_PERMISSIONS.ANALYTICS_VIEW).query(async () => {
+  overview: staffProcedure.query(async ({ ctx }) => {
+    const permissions = await resolveUserPermissions(ctx.user);
+    if (!isPlatformAdmin(ctx.user) && !permissions.includes(ADMIN_PERMISSIONS.ANALYTICS_VIEW)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Sem permissão para ver analytics" });
+    }
     const [platform, sections] = await Promise.all([
       getAdminPlatformOverview(),
       getAdminSectionCounts(),
@@ -69,11 +77,29 @@ export const adminRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      if (input.userId === ctx.user.id && input.role !== "admin") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Você não pode remover seu próprio acesso admin" });
+      if (!isSuperAdmin(ctx.user)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Apenas @conelheiros pode promover ou remover administradores",
+        });
       }
+
+      const target = await getUserById(input.userId);
+      if (!target) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Usuário não encontrado" });
+      }
+
+      if (isSuperAdmin(target) && input.role !== "admin") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "O administrador principal não pode ser rebaixado",
+        });
+      }
+
       await updateUserRole(input.userId, input.role);
       if (input.role === "admin") {
+        await setUserPermissions(input.userId, [], ctx.user.id);
+      } else {
         await setUserPermissions(input.userId, [], ctx.user.id);
       }
       return { success: true };
@@ -87,9 +113,32 @@ export const adminRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      if (input.userId === ctx.user.id) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Use outro admin para alterar suas permissões" });
+      if (!isSuperAdmin(ctx.user)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Apenas @conelheiros pode alterar permissões de outros usuários",
+        });
       }
+
+      const target = await getUserById(input.userId);
+      if (!target) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Usuário não encontrado" });
+      }
+
+      if (isSuperAdmin(target)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "O administrador principal já tem acesso total",
+        });
+      }
+
+      if (target.role === "admin") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Remova o papel admin antes de definir permissões parciais",
+        });
+      }
+
       await setUserPermissions(input.userId, input.permissions, ctx.user.id);
       return { success: true };
     }),
