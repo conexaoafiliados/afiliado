@@ -8,13 +8,20 @@ import {
 } from "../db";
 import { authEmailForUsername, getSupabaseAdmin } from "../_core/supabaseAdmin";
 import { publicProcedure, router } from "../_core/trpc";
+import { normalizeUsername, USERNAME_MAX, USERNAME_MIN, USERNAME_REGEX } from "../../shared/username";
 
 const registerSchema = z.object({
   username: z
     .string()
-    .min(3, "Usuário deve ter pelo menos 3 caracteres")
-    .max(30)
-    .regex(/^[a-zA-Z0-9_]+$/, "Use apenas letras, números e _"),
+    .trim()
+    .transform(normalizeUsername)
+    .pipe(
+      z
+        .string()
+        .min(USERNAME_MIN, "Usuário deve ter pelo menos 3 caracteres")
+        .max(USERNAME_MAX, "Usuário deve ter no máximo 30 caracteres")
+        .regex(USERNAME_REGEX, "Use letras, números, ponto (.) ou _ — ex: karen.scarpelli")
+    ),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
   name: z.string().min(2, "Informe seu nome"),
   cep: z.string().min(8, "CEP inválido"),

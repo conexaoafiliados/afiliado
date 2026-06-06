@@ -6,7 +6,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { APP_NAME } from "@/const";
 import { useCep } from "@/hooks/useCep";
 import { applyAuthSession } from "@/lib/authSession";
+import { formatTrpcErrorMessage } from "@/lib/formatTrpcError";
 import { getSupabaseConfigError, supabase } from "@/lib/supabase";
+import { USERNAME_HINT } from "@shared/username";
 import { trpc } from "@/lib/trpc";
 import { Link, useLocation } from "wouter";
 import { AppLogo } from "@/components/AppLogo";
@@ -94,7 +96,7 @@ export default function Register() {
     }
     try {
       const session = await register.mutateAsync({
-        username: form.username,
+        username: form.username.trim(),
         password: form.password,
         name: form.name,
         cep: form.cep,
@@ -116,7 +118,7 @@ export default function Register() {
       setLocation("/dashboard");
     } catch (err: unknown) {
       if (err instanceof TRPCClientError) {
-        setError(err.message);
+        setError(formatTrpcErrorMessage(err));
       } else if (err instanceof Error && err.message.includes("JSON")) {
         setError("Erro no servidor. Confira SUPABASE_SERVICE_ROLE_KEY e DATABASE_URL na Vercel e faça Redeploy.");
       } else {
@@ -158,7 +160,15 @@ export default function Register() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="username">Usuário *</Label>
-              <Input id="username" required value={form.username} onChange={e => update("username", e.target.value)} placeholder="seu_usuario" />
+              <Input
+                id="username"
+                required
+                value={form.username}
+                onChange={e => update("username", e.target.value)}
+                placeholder="karen.scarpelli"
+                autoComplete="username"
+              />
+              <p className="text-xs text-muted-foreground">{USERNAME_HINT}</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="name">Nome completo *</Label>

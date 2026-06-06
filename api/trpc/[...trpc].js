@@ -2762,11 +2762,22 @@ function achievementCongratsLabel(threshold) {
   return `${formatGoalLabel(threshold)} seguidores`;
 }
 
+// shared/username.ts
+var USERNAME_REGEX = /^[a-z0-9._]+$/;
+var USERNAME_MIN = 3;
+var USERNAME_MAX = 30;
+function normalizeUsername(raw) {
+  return raw.trim().toLowerCase().replace(/^@+/, "");
+}
+var MENTION_USERNAME_PATTERN = "[a-zA-Z0-9._]";
+var MENTION_REGEX = new RegExp(`@(${MENTION_USERNAME_PATTERN}{3,30})`, "g");
+var MENTION_PARTIAL_REGEX = new RegExp(`@(${MENTION_USERNAME_PATTERN}*)$`);
+var MENTION_SPLIT_REGEX = new RegExp(`(@${MENTION_USERNAME_PATTERN}+)`, "g");
+
 // server/_core/mentions.ts
-var MENTION_RE = /@([a-zA-Z0-9_]{3,30})/g;
 function extractMentionUsernames(content) {
   const found = /* @__PURE__ */ new Set();
-  for (const match of content.matchAll(MENTION_RE)) {
+  for (const match of content.matchAll(MENTION_REGEX)) {
     found.add(match[1].toLowerCase());
   }
   return [...found];
@@ -10006,7 +10017,9 @@ var achievementsRouter = router({
 
 // server/routers/auth.ts
 var registerSchema = external_exports.object({
-  username: external_exports.string().min(3, "Usu\xE1rio deve ter pelo menos 3 caracteres").max(30).regex(/^[a-zA-Z0-9_]+$/, "Use apenas letras, n\xFAmeros e _"),
+  username: external_exports.string().trim().transform(normalizeUsername).pipe(
+    external_exports.string().min(USERNAME_MIN, "Usu\xE1rio deve ter pelo menos 3 caracteres").max(USERNAME_MAX, "Usu\xE1rio deve ter no m\xE1ximo 30 caracteres").regex(USERNAME_REGEX, "Use letras, n\xFAmeros, ponto (.) ou _ \u2014 ex: karen.scarpelli")
+  ),
   password: external_exports.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
   name: external_exports.string().min(2, "Informe seu nome"),
   cep: external_exports.string().min(8, "CEP inv\xE1lido"),

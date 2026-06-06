@@ -9,7 +9,7 @@ import { Link } from "wouter";
 import { useState } from "react";
 
 function renderContent(content: string) {
-  const parts = content.split(/(@[a-zA-Z0-9_]+)/g);
+  const parts = content.split(/(@[a-zA-Z0-9._]+)/g);
   return parts.map((part, i) =>
     part.startsWith("@") ? (
       <Link key={i} href={`/profile/${part.slice(1)}`} className="text-accent font-medium hover:underline">

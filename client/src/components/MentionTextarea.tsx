@@ -1,5 +1,6 @@
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
+import { MENTION_PARTIAL_REGEX } from "@shared/username";
 import { useEffect, useRef, useState } from "react";
 
 interface MentionTextareaProps {
@@ -39,7 +40,7 @@ export function MentionTextarea({
     onChange(next);
     const cursor = e.target.selectionStart;
     const before = next.slice(0, cursor);
-    const match = before.match(/@([a-zA-Z0-9_]*)$/);
+    const match = before.match(MENTION_PARTIAL_REGEX);
     setMentionQuery(match ? match[1] : null);
   }
 
@@ -49,7 +50,7 @@ export function MentionTextarea({
     const cursor = el.selectionStart;
     const before = value.slice(0, cursor);
     const after = value.slice(cursor);
-    const replaced = before.replace(/@([a-zA-Z0-9_]*)$/, `@${username} `);
+    const replaced = before.replace(MENTION_PARTIAL_REGEX, `@${username} `);
     onChange(replaced + after);
     setMentionQuery(null);
     requestAnimationFrame(() => {

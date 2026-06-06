@@ -1,8 +1,8 @@
-const MENTION_RE = /@([a-zA-Z0-9_]{3,30})/g;
+import { MENTION_REGEX } from "../../shared/username";
 
 export function extractMentionUsernames(content: string): string[] {
   const found = new Set<string>();
-  for (const match of content.matchAll(MENTION_RE)) {
+  for (const match of content.matchAll(MENTION_REGEX)) {
     found.add(match[1].toLowerCase());
   }
   return [...found];
