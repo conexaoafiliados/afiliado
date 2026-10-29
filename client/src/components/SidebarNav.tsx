@@ -14,7 +14,7 @@ import {
   User,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 
 type NavItem = {
@@ -128,7 +128,11 @@ function NavSectionBlock({
 }) {
   const containsActive = section.items.some(item => isItemActive(location, item));
   const [open, setOpen] = useState(section.defaultOpen ?? true);
-  const expanded = open || containsActive;
+
+  // Ao entrar numa rota da seção, reabre automaticamente; o usuário ainda pode recolher.
+  useEffect(() => {
+    if (containsActive) setOpen(true);
+  }, [containsActive, location]);
 
   return (
     <div>
@@ -136,11 +140,11 @@ function NavSectionBlock({
         <button
           type="button"
           onClick={() => setOpen(prev => !prev)}
-          aria-expanded={expanded}
+          aria-expanded={open}
           className="flex w-full items-center gap-1 px-3 pt-4 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
         >
           <span className="truncate">{section.title}</span>
-          <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform", expanded && "rotate-180")} />
+          <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform", open && "rotate-180")} />
         </button>
       ) : (
         <p className="px-3 pt-4 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -148,7 +152,7 @@ function NavSectionBlock({
         </p>
       )}
 
-      {expanded && (
+      {open && (
         <div className="space-y-0.5">
           {section.items.map(item => (
             <NavLink key={item.path} item={item} location={location} onNavigate={onNavigate} />

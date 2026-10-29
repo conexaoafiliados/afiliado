@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { formatGoalLabel } from "@/lib/goals";
 import { trpc } from "@/lib/trpc";
 import { ArrowRight, GraduationCap, Loader2, Megaphone, MessageSquare, Store, Target, TrendingUp } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 
 function ActionCard({
@@ -44,10 +44,19 @@ export default function Dashboard() {
   const { data: progress } = trpc.progress.get.useQuery(undefined, { enabled: hasDbUser, retry: false });
 
   // Permite links como /dashboard#interesses (a navegação SPA não rola sozinha até a âncora).
+  const [hash, setHash] = useState(() => (typeof window !== "undefined" ? window.location.hash : ""));
+
   useEffect(() => {
-    if (!home || typeof window === "undefined" || !window.location.hash) return;
-    document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ behavior: "smooth" });
-  }, [home]);
+    const syncHash = () => setHash(window.location.hash);
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, []);
+
+  useEffect(() => {
+    if (!home || !hash) return;
+    document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: "smooth" });
+  }, [home, hash]);
 
   if (!user) {
     return (

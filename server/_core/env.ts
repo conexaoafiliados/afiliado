@@ -1,4 +1,8 @@
-/** Converte URL direct (db.*.supabase.co) para pooler IPv4 da Vercel. */
+/** Converte URL direct (db.*.supabase.co) para pooler IPv4 (útil na Vercel).
+ *  Localmente mantém a URL direta — o pooler automático costuma falhar com
+ *  "tenant/user not found" se a região/host não bate com o projeto.
+ *  Force o pooler com DATABASE_POOLER_URL ou FORCE_DB_POOLER=1.
+ */
 export function resolveDatabaseUrl(raw: string): string {
   if (!raw) return "";
 
@@ -6,6 +10,10 @@ export function resolveDatabaseUrl(raw: string): string {
   if (override) return override;
 
   if (raw.includes("pooler.supabase.com")) return raw;
+
+  const onVercel = Boolean(process.env.VERCEL);
+  const forcePooler = process.env.FORCE_DB_POOLER === "1";
+  if (!onVercel && !forcePooler) return raw;
 
   try {
     const normalized = raw.replace(/^postgres:\/\//, "postgresql://");
