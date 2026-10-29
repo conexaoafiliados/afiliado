@@ -8,6 +8,7 @@ import {
   listPublishedBrands,
   saveUserPreferences,
 } from "../brandsDb";
+import { countUserPendingCampaignActions } from "../campaignsDb";
 import { getAllMissions, getCreatorProfile, getMissionsByUserId } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
 import { toTrpcError } from "./brands";
@@ -42,14 +43,16 @@ export const movementRouter = router({
 
   /** Dados reais para "Meu início". Nada aqui é fictício: ausência vira estado vazio na UI. */
   home: protectedProcedure.query(async ({ ctx }) => {
-    const [profile, preferences, brands, missions, mine, publishedBrandCount] = await Promise.all([
-      getCreatorProfile(ctx.user.id),
-      getUserPreferences(ctx.user.id),
-      listPublishedBrands(),
-      getAllMissions(),
-      getMissionsByUserId(ctx.user.id),
-      countPublishedBrands(),
-    ]);
+    const [profile, preferences, brands, missions, mine, publishedBrandCount, campaignActions] =
+      await Promise.all([
+        getCreatorProfile(ctx.user.id),
+        getUserPreferences(ctx.user.id),
+        listPublishedBrands(),
+        getAllMissions(),
+        getMissionsByUserId(ctx.user.id),
+        countPublishedBrands(),
+        countUserPendingCampaignActions(ctx.user.id),
+      ]);
 
     const profileFlags = {
       hasAvatar: Boolean(profile?.profileImageUrl),
@@ -64,6 +67,9 @@ export const movementRouter = router({
       userMissionsStarted: mine.length,
       publishedBrands: publishedBrandCount,
       userBrandInterests: preferences.brandIds.length,
+      openCampaigns: campaignActions.openCampaigns,
+      pendingCampaignApplications: campaignActions.myPending,
+      campaignDeliveriesNeeded: campaignActions.myNeedsDelivery,
     });
 
     return {
@@ -73,6 +79,7 @@ export const movementRouter = router({
       brands: brands.slice(0, 6),
       brandCount: publishedBrandCount,
       missions: { published: missions.length, started: mine.length },
+      campaigns: campaignActions,
     };
   }),
 });

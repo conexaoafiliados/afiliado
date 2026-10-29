@@ -1,5 +1,6 @@
 import { UserAvatar } from "@/components/UserAvatar";
 import { BrandsAdmin } from "@/components/admin/BrandsAdmin";
+import { CampaignsAdmin } from "@/components/admin/CampaignsAdmin";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import {
   BarChart3,
   BookOpen,
   Loader2,
+  Megaphone,
   Shield,
   ShoppingBag,
   Store,
@@ -31,7 +33,16 @@ import { Link, useLocation } from "wouter";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-type TabId = "overview" | "users" | "growth" | "engagement" | "brands" | "commerce" | "learning" | "moderation";
+type TabId =
+  | "overview"
+  | "users"
+  | "growth"
+  | "engagement"
+  | "brands"
+  | "campaigns"
+  | "commerce"
+  | "learning"
+  | "moderation";
 
 const TABS: { id: TabId; label: string; icon: typeof BarChart3; perm?: (a: ReturnType<typeof useAdminAccess>) => boolean }[] = [
   { id: "overview", label: "Visão geral", icon: BarChart3, perm: a => a.canViewAnalytics },
@@ -39,6 +50,7 @@ const TABS: { id: TabId; label: string; icon: typeof BarChart3; perm?: (a: Retur
   { id: "growth", label: "Crescimento", icon: TrendingUp, perm: a => a.canViewAnalytics },
   { id: "engagement", label: "Engajamento", icon: Zap, perm: a => a.canViewAnalytics },
   { id: "brands", label: "Marcas e produtos", icon: Store, perm: a => a.canBrands },
+  { id: "campaigns", label: "Campanhas", icon: Megaphone, perm: a => a.canCampaigns },
   { id: "commerce", label: "Loja", icon: ShoppingBag, perm: a => a.canShop || a.canViewAnalytics },
   { id: "learning", label: "Aprendizado", icon: BookOpen, perm: a => a.canLearning || a.canViewAnalytics },
   { id: "moderation", label: "Moderação", icon: Shield, perm: a => a.canModerate },
@@ -592,6 +604,7 @@ export default function Admin() {
       {activeTab === "growth" && access.canViewAnalytics && <GrowthTab />}
       {activeTab === "engagement" && access.canViewAnalytics && <EngagementTab />}
       {activeTab === "brands" && access.canBrands && <BrandsAdmin />}
+      {activeTab === "campaigns" && access.canCampaigns && <CampaignsAdmin />}
       {activeTab === "commerce" && (access.canShop || access.canViewAnalytics) && <CommerceTab />}
       {activeTab === "learning" && (access.canLearning || access.canViewAnalytics) && <LearningTab />}
       {activeTab === "moderation" && access.canModerate && <ModerationTab />}

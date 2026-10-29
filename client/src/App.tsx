@@ -34,6 +34,7 @@ import Punishments from "./pages/Punishments";
 import PunishmentGuide from "./pages/PunishmentGuide";
 import OpenGroup from "./pages/OpenGroup";
 import Campaigns from "./pages/Campaigns";
+import CampaignDetail from "./pages/CampaignDetail";
 import Admin from "./pages/Admin";
 import Brands from "./pages/Brands";
 import BrandDetail from "./pages/BrandDetail";
@@ -100,6 +101,7 @@ const PunishmentsPage = withProtected(Punishments);
 const PunishmentGuidePage = withProtected(PunishmentGuide);
 const OpenGroupPage = withProtected(OpenGroup);
 const CampaignsPage = withProtected(Campaigns);
+const CampaignDetailPage = withProtected(CampaignDetail);
 const AdminPage = withProtected(Admin);
 const LearnPage = withProtected(Learn);
 const BrandsPage = withMaybeProtected(Brands);
@@ -136,6 +138,7 @@ function Router() {
       <Route path={"/analytics/overview"} component={AnalyticsPage} />
       <Route path={"/admin"} component={AdminPage} />
       <Route path={"/checkout"} component={CheckoutPage} />
+      <Route path={"/campanhas/:slug"} component={CampaignDetailPage} />
       <Route path={"/campanhas"} component={CampaignsPage} />
       <Route path={"/start/campanhas"} component={CampaignsPage} />
       <Route path={"/aprender"} component={LearnPage} />

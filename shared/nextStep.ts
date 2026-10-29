@@ -1,13 +1,14 @@
 /**
  * Decide o "próximo passo real" do creator a partir de dados existentes.
  * Função pura: não inventa atividade — se nada se aplica, retorna null e a UI mostra estado vazio.
- *
- * Etapas seguintes (campanhas, candidaturas, entregas) acrescentam novos `kind` aqui.
  */
 
 export type NextStepKind =
   | "complete_profile"
   | "choose_interests"
+  | "submit_campaign_delivery"
+  | "follow_campaign_application"
+  | "open_campaign"
   | "start_mission"
   | "discover_brands"
   | "start_learning";
@@ -33,6 +34,12 @@ export type NextStepInput = {
   /** Marcas publicadas e quantas o usuário marcou como interesse. */
   publishedBrands: number;
   userBrandInterests: number;
+  /** Campanhas publicadas aceitando candidatura agora. */
+  openCampaigns: number;
+  /** Candidaturas do usuário ainda em análise. */
+  pendingCampaignApplications: number;
+  /** Aprovações que ainda precisam de entrega (ou reenvio). */
+  campaignDeliveriesNeeded: number;
 };
 
 export function getProfileMissingItems(profile: NextStepInput["profile"]): string[] {
@@ -62,6 +69,36 @@ export function computeNextStep(input: NextStepInput): NextStep | null {
       description: "Aprender, criar conteúdo, indicar ou vender. Você pode escolher mais de um e mudar quando quiser.",
       href: "/dashboard#interesses",
       cta: "Escolher interesses",
+    };
+  }
+
+  if (input.campaignDeliveriesNeeded > 0) {
+    return {
+      kind: "submit_campaign_delivery",
+      title: "Envie ou ajuste sua entrega",
+      description: "Há campanha aprovada esperando o link do conteúdo ou um reenvio após pedido de ajuste.",
+      href: "/campanhas",
+      cta: "Ver minhas campanhas",
+    };
+  }
+
+  if (input.pendingCampaignApplications > 0) {
+    return {
+      kind: "follow_campaign_application",
+      title: "Acompanhe sua candidatura",
+      description: "Sua candidatura está em análise. Você será avisado quando houver resposta.",
+      href: "/campanhas",
+      cta: "Ver candidaturas",
+    };
+  }
+
+  if (input.openCampaigns > 0) {
+    return {
+      kind: "open_campaign",
+      title: "Conheça uma campanha aberta",
+      description: "Há campanhas publicadas com critérios, prazos e condições para você avaliar antes de se candidatar.",
+      href: "/campanhas",
+      cta: "Ver campanhas",
     };
   }
 

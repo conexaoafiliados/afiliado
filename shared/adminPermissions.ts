@@ -8,6 +8,7 @@ export const ADMIN_PERMISSIONS = {
   LEARNING_MANAGE: "learning.manage",
   SHOP_MANAGE: "shop.manage",
   BRANDS_MANAGE: "brands.manage",
+  CAMPAIGNS_MANAGE: "campaigns.manage",
 } as const;
 
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[keyof typeof ADMIN_PERMISSIONS];
@@ -24,6 +25,7 @@ export const ADMIN_PERMISSION_LABELS: Record<AdminPermission, string> = {
   "learning.manage": "Gerenciar trilhas de aprendizado",
   "shop.manage": "Gerenciar loja e pedidos",
   "brands.manage": "Gerenciar marcas e produtos",
+  "campaigns.manage": "Gerenciar campanhas e candidaturas",
 };
 
 export const ADMIN_PERMISSION_GROUPS: { title: string; keys: AdminPermission[] }[] = [
@@ -43,6 +45,6 @@ export const ADMIN_PERMISSION_GROUPS: { title: string; keys: AdminPermission[] }
   },
   {
     title: "Comércio",
-    keys: [ADMIN_PERMISSIONS.SHOP_MANAGE, ADMIN_PERMISSIONS.BRANDS_MANAGE],
+    keys: [ADMIN_PERMISSIONS.SHOP_MANAGE, ADMIN_PERMISSIONS.BRANDS_MANAGE, ADMIN_PERMISSIONS.CAMPAIGNS_MANAGE],
   },
 ];

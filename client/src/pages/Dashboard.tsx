@@ -70,6 +70,7 @@ export default function Dashboard() {
   const nextStep = home?.nextStep;
   const missions = home?.missions;
   const brandCount = home?.brandCount ?? 0;
+  const openCampaigns = home?.campaigns?.openCampaigns ?? 0;
 
   const followers = progress?.currentFollowers ?? 0;
   const target = progress?.targetFollowers ?? 2000;
@@ -132,7 +133,11 @@ export default function Dashboard() {
           href="/campanhas"
           icon={<Megaphone className="h-6 w-6" />}
           title="Campanhas"
-          status="Nenhuma campanha aberta agora"
+          status={
+            openCampaigns > 0
+              ? `${openCampaigns} ${openCampaigns === 1 ? "campanha aberta" : "campanhas abertas"}`
+              : "Nenhuma campanha aberta agora"
+          }
         />
         <ActionCard
           href="/growth/missions"

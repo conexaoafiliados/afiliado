@@ -32,6 +32,7 @@ export function useAdminAccess() {
     canPublishAnnouncements: can(ADMIN_PERMISSIONS.ANNOUNCEMENTS_PUBLISH),
     canModerate: can(ADMIN_PERMISSIONS.COMMUNITY_MODERATE),
     canBrands: can(ADMIN_PERMISSIONS.BRANDS_MANAGE),
+    canCampaigns: can(ADMIN_PERMISSIONS.CAMPAIGNS_MANAGE),
     canShop: can(ADMIN_PERMISSIONS.SHOP_MANAGE),
     canLearning: can(ADMIN_PERMISSIONS.LEARNING_MANAGE),
     superAdminUsername: SUPER_ADMIN_USERNAME,

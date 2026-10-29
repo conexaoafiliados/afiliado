@@ -457,3 +457,109 @@ export const creatorPreferences = pgTable("creator_preferences", {
 export type Brand = typeof brands.$inferSelect;
 export type BrandProduct = typeof brandProducts.$inferSelect;
 export type BrandProductOffer = typeof brandProductOffers.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Movimento — campanhas (supabase/migration_movimento_etapa2_campanhas.sql)
+// ---------------------------------------------------------------------------
+
+export type CampaignSampleAddress = {
+  fullName: string;
+  phone: string;
+  street: string;
+  number: string;
+  complement?: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  zip: string;
+};
+
+export const campaigns = pgTable("campaigns", {
+  id: serial("id").primaryKey(),
+  brandId: integer("brandId")
+    .notNull()
+    .references(() => brands.id, { onDelete: "restrict" }),
+  slug: varchar("slug", { length: 80 }).notNull().unique(),
+  title: varchar("title", { length: 200 }).notNull(),
+  description: text("description"),
+  coverUrl: varchar("coverUrl", { length: 512 }),
+  briefing: text("briefing"),
+  participationCriteria: text("participationCriteria"),
+  expectedDeliverables: text("expectedDeliverables"),
+  contentFormats: jsonb("contentFormats").$type<string[]>().default([]).notNull(),
+  applicationOpensAt: timestamp("applicationOpensAt", { withTimezone: true }),
+  applicationClosesAt: timestamp("applicationClosesAt", { withTimezone: true }),
+  deliveryDeadline: timestamp("deliveryDeadline", { withTimezone: true }),
+  sampleConditions: text("sampleConditions"),
+  commissionConditions: text("commissionConditions"),
+  compensationConditions: text("compensationConditions"),
+  requiresSampleAddress: boolean("requiresSampleAddress").default(false).notNull(),
+  requiresRepostAuth: boolean("requiresRepostAuth").default(false).notNull(),
+  requiresAdUsageAuth: boolean("requiresAdUsageAuth").default(false).notNull(),
+  status: varchar("status", { length: 16 }).default("draft").notNull(),
+  publishedAt: timestamp("publishedAt", { withTimezone: true }),
+  closedAt: timestamp("closedAt", { withTimezone: true }),
+  createdBy: integer("createdBy").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const campaignProducts = pgTable(
+  "campaign_products",
+  {
+    campaignId: integer("campaignId")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    brandProductId: integer("brandProductId")
+      .notNull()
+      .references(() => brandProducts.id, { onDelete: "restrict" }),
+    createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+  },
+  t => [unique().on(t.campaignId, t.brandProductId)]
+);
+
+export const campaignApplications = pgTable(
+  "campaign_applications",
+  {
+    id: serial("id").primaryKey(),
+    campaignId: integer("campaignId")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    userId: integer("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: varchar("status", { length: 16 }).default("pending").notNull(),
+    message: text("message"),
+    sampleAddress: jsonb("sampleAddress").$type<CampaignSampleAddress | null>(),
+    allowRepost: boolean("allowRepost").default(false).notNull(),
+    allowAdUsage: boolean("allowAdUsage").default(false).notNull(),
+    reviewNote: text("reviewNote"),
+    reviewedAt: timestamp("reviewedAt", { withTimezone: true }),
+    reviewedBy: integer("reviewedBy").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
+  },
+  t => [unique().on(t.campaignId, t.userId)]
+);
+
+export const campaignDeliveries = pgTable("campaign_deliveries", {
+  id: serial("id").primaryKey(),
+  applicationId: integer("applicationId")
+    .notNull()
+    .references(() => campaignApplications.id, { onDelete: "cascade" }),
+  contentUrl: varchar("contentUrl", { length: 1024 }).notNull(),
+  note: text("note"),
+  status: varchar("status", { length: 16 }).default("submitted").notNull(),
+  revisionNote: text("revisionNote"),
+  attempt: integer("attempt").default(1).notNull(),
+  submittedAt: timestamp("submittedAt", { withTimezone: true }).defaultNow().notNull(),
+  reviewedAt: timestamp("reviewedAt", { withTimezone: true }),
+  reviewedBy: integer("reviewedBy").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type Campaign = typeof campaigns.$inferSelect;
+export type CampaignProduct = typeof campaignProducts.$inferSelect;
+export type CampaignApplication = typeof campaignApplications.$inferSelect;
+export type CampaignDelivery = typeof campaignDeliveries.$inferSelect;

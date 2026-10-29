@@ -32,6 +32,7 @@ import { announcementsRouter } from "./announcements";
 import { trainingsRouter } from "./trainings";
 import { adminRouter } from "./admin";
 import { brandsRouter } from "./brands";
+import { campaignsRouter } from "./campaigns";
 import { movementRouter } from "./movement";
 
 export const appRouter = router({
@@ -182,6 +183,7 @@ export const appRouter = router({
   trainings: trainingsRouter,
   admin: adminRouter,
   brands: brandsRouter,
+  campaigns: campaignsRouter,
   movement: movementRouter,
 
   users: router({

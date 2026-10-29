@@ -16,6 +16,10 @@ export default function BrandDetail() {
   const [, params] = useRoute("/marcas/:slug");
   const slug = params?.slug ?? "";
   const { data, isLoading, isError } = trpc.brands.getBySlug.useQuery({ slug }, { enabled: !!slug, retry: false });
+  const { data: brandCampaigns = [] } = trpc.campaigns.listVisible.useQuery(
+    { brandId: data?.brand.id ?? 0, includeClosed: false },
+    { enabled: Boolean(data?.brand.id) }
+  );
 
   if (isLoading) {
     return (
@@ -123,10 +127,28 @@ export default function BrandDetail() {
         <h2 className="text-xl font-semibold flex items-center gap-2">
           <Megaphone className="h-5 w-5" /> Campanhas
         </h2>
-        <Card className="p-6 text-sm text-muted-foreground">
-          Nenhuma campanha aberta para {brand.name} no momento. Quando houver, os critérios, prazos e condições
-          aparecerão aqui.
-        </Card>
+        {brandCampaigns.length === 0 ? (
+          <Card className="p-6 text-sm text-muted-foreground">
+            Nenhuma campanha aberta para {brand.name} no momento. Quando houver, os critérios, prazos e condições
+            aparecerão aqui.
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {brandCampaigns.map(c => (
+              <Link key={c.id} href={`/campanhas/${c.slug}`}>
+                <a className="block rounded-xl border border-border bg-card p-4 hover:shadow-sm transition-shadow">
+                  <p className="font-semibold">{c.title}</p>
+                  {c.description && (
+                    <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{c.description}</p>
+                  )}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {c.acceptingApplications ? "Aceitando candidaturas" : "Publicada"}
+                  </p>
+                </a>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

@@ -75,6 +75,9 @@ describe("computeNextStep", () => {
     userMissionsStarted: 0,
     publishedBrands: 0,
     userBrandInterests: 0,
+    openCampaigns: 0,
+    pendingCampaignApplications: 0,
+    campaignDeliveriesNeeded: 0,
   };
 
   it("prioriza completar o perfil", () => {
@@ -85,6 +88,12 @@ describe("computeNextStep", () => {
 
   it("sugere escolher interesses somente se nunca salvou", () => {
     expect(computeNextStep({ ...base, interestsSaved: false })?.kind).toBe("choose_interests");
+  });
+
+  it("prioriza campanhas abertas e entregas pendentes", () => {
+    expect(computeNextStep({ ...base, campaignDeliveriesNeeded: 1 })?.kind).toBe("submit_campaign_delivery");
+    expect(computeNextStep({ ...base, pendingCampaignApplications: 1 })?.kind).toBe("follow_campaign_application");
+    expect(computeNextStep({ ...base, openCampaigns: 2 })?.kind).toBe("open_campaign");
   });
 
   it("só sugere missão se existir missão publicada e nenhuma iniciada", () => {
