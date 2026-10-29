@@ -1,7 +1,7 @@
 {
   "name": "Conexões Creators",
   "short_name": "Creators",
-  "description": "Plataforma para creators iniciantes crescerem, aprenderem e venderem",
+  "description": "Comunidade para aprender, criar conteúdo, conhecer marcas e produtos, participar de campanhas e crescer junto.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -30,8 +30,8 @@
     }
   ],
   "shortcuts": [
-    { "name": "Dashboard", "url": "/dashboard", "description": "Painel principal" },
-    { "name": "Missões", "url": "/growth/missions", "description": "Jornada 2k" },
-    { "name": "Loja", "url": "/shop/browse", "description": "Produtos" }
+    { "name": "Meu início", "url": "/dashboard", "description": "Próximo passo do creator" },
+    { "name": "Marcas", "url": "/marcas", "description": "Marcas e produtos do movimento" },
+    { "name": "Missões", "url": "/growth/missions", "description": "Missões publicadas" }
   ]
 }

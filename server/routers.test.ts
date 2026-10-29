@@ -8,6 +8,7 @@ function createAuthContext(userId = 1): TrpcContext {
   const user: AuthenticatedUser = {
     id: userId,
     openId: `test-user-${userId}`,
+    username: `testuser${userId}`,
     email: `test${userId}@example.com`,
     name: `Test User ${userId}`,
     loginMethod: "supabase",
