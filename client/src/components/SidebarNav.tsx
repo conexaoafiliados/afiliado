@@ -4,13 +4,9 @@ import {
   Award,
   BarChart3,
   ChevronDown,
-  GraduationCap,
-  Home,
-  Megaphone,
+  LayoutDashboard,
   Shield,
-  Store,
   Target,
-  TrendingUp,
   User,
   Users,
 } from "lucide-react";
@@ -20,10 +16,7 @@ import { Link, useLocation } from "wouter";
 type NavItem = {
   label: string;
   path: string;
-  icon?: React.ComponentType<{ className?: string }>;
   emoji?: string;
-  /** Caminhos adicionais que também marcam este item como ativo (rotas legadas/relacionadas). */
-  alsoActive?: string[];
 };
 
 type NavSection = {
@@ -33,39 +26,53 @@ type NavSection = {
   items: NavItem[];
 };
 
-/** Acessos principais do movimento. */
-const mainItems: NavItem[] = [
-  { label: "Meu início", path: "/dashboard", icon: Home },
-  { label: "Marcas e produtos", path: "/marcas", icon: Store },
-  { label: "Campanhas", path: "/campanhas", icon: Megaphone, alsoActive: ["/start/campanhas"] },
-  { label: "Missões", path: "/growth/missions", icon: Target },
-  { label: "Aprender", path: "/aprender", icon: GraduationCap, alsoActive: ["/vender"] },
-  { label: "Comunidade", path: "/community/feed", icon: Users },
-  { label: "Meu perfil", path: "/profile/edit", icon: User },
-];
+type BottomNavItem = {
+  label: string;
+  path: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+const primaryItems = [
+  { label: "Comunidade", path: "/community/feed", icon: Users, primary: true },
+  { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard, primary: false },
+] as const;
 
 const sections: NavSection[] = [
   {
-    title: "MINHA EVOLUÇÃO",
-    collapsible: true,
-    defaultOpen: false,
+    title: "COMECE A VENDER!",
     items: [
-      { label: "Jornada de seguidores", path: "/growth/progress", icon: TrendingUp },
-      { label: "Conquistas", path: "/growth/achievements", icon: Award },
-      { label: "Analytics", path: "/analytics/overview", icon: BarChart3 },
+      { label: "Seu primeiro passo", path: "/vender/primeiro-passo", emoji: "👋" },
+      { label: "Se Aprofunde", path: "/vender/aprofunde", emoji: "📚" },
+      { label: "Progresso", path: "/growth/progress", emoji: "📈" },
     ],
   },
   {
-    title: "MAIS",
+    title: "PRINCIPAIS ACESSOS",
     collapsible: true,
-    defaultOpen: false,
+    defaultOpen: true,
     items: [
       { label: "Avisos", path: "/acessos/avisos", emoji: "🔔" },
       { label: "Treinamentos e Reuniões", path: "/acessos/treinamentos", emoji: "📅" },
-      { label: "Grupo Aberto", path: "/start/grupo-aberto", emoji: "📢" },
+      { label: "Eventos Presenciais", path: "/acessos/eventos", emoji: "🚐" },
       { label: "Punições", path: "/acessos/punicoes", emoji: "❌" },
+      { label: "Videos em Alta", path: "/acessos/videos", emoji: "🚀" },
+      { label: "Produtos em Alta", path: "/acessos/produtos", emoji: "📦" },
     ],
   },
+  {
+    title: "CATEGORIA START",
+    items: [
+      { label: "Grupo Aberto", path: "/start/grupo-aberto", emoji: "📢" },
+      { label: "Campanhas Conexões Creators", path: "/start/campanhas", emoji: "⭐" },
+    ],
+  },
+];
+
+const bottomItems: BottomNavItem[] = [
+  { label: "Missões", path: "/growth/missions", icon: Target },
+  { label: "Conquistas", path: "/growth/achievements", icon: Award },
+  { label: "Analytics", path: "/analytics/overview", icon: BarChart3 },
+  { label: "Perfil", path: "/profile/edit", icon: User },
 ];
 
 type SidebarNavProps = {
@@ -78,45 +85,6 @@ function isActivePath(current: string, path: string) {
   return current === path || current.startsWith(`${path}/`);
 }
 
-function isItemActive(current: string, item: NavItem) {
-  return isActivePath(current, item.path) || (item.alsoActive ?? []).some(p => isActivePath(current, p));
-}
-
-function NavLink({
-  item,
-  location,
-  onNavigate,
-  emphasis,
-}: {
-  item: NavItem;
-  location: string;
-  onNavigate?: () => void;
-  emphasis?: boolean;
-}) {
-  const active = isItemActive(location, item);
-  const Icon = item.icon;
-  return (
-    <Link href={item.path}>
-      <a
-        onClick={onNavigate}
-        aria-current={active ? "page" : undefined}
-        className={cn(
-          "flex items-center gap-3 rounded-lg px-3 text-sm transition-colors",
-          emphasis ? "py-2.5" : "py-2",
-          active ? "bg-accent/10 text-accent font-medium" : "text-foreground/80 hover:bg-muted/60"
-        )}
-      >
-        {Icon ? (
-          <Icon className="h-4 w-4 shrink-0" />
-        ) : (
-          item.emoji && <span className="text-base leading-none shrink-0 w-4 text-center">{item.emoji}</span>
-        )}
-        <span className="truncate">{item.label}</span>
-      </a>
-    </Link>
-  );
-}
-
 function NavSectionBlock({
   section,
   location,
@@ -126,9 +94,7 @@ function NavSectionBlock({
   location: string;
   onNavigate?: () => void;
 }) {
-  const containsActive = section.items.some(item => isItemActive(location, item));
   const [open, setOpen] = useState(section.defaultOpen ?? true);
-  const expanded = open || containsActive;
 
   return (
     <div>
@@ -136,11 +102,12 @@ function NavSectionBlock({
         <button
           type="button"
           onClick={() => setOpen(prev => !prev)}
-          aria-expanded={expanded}
           className="flex w-full items-center gap-1 px-3 pt-4 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
         >
           <span className="truncate">{section.title}</span>
-          <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform", expanded && "rotate-180")} />
+          <ChevronDown
+            className={cn("h-3.5 w-3.5 shrink-0 transition-transform", open && "rotate-180")}
+          />
         </button>
       ) : (
         <p className="px-3 pt-4 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -148,11 +115,27 @@ function NavSectionBlock({
         </p>
       )}
 
-      {expanded && (
+      {(!section.collapsible || open) && (
         <div className="space-y-0.5">
-          {section.items.map(item => (
-            <NavLink key={item.path} item={item} location={location} onNavigate={onNavigate} />
-          ))}
+          {section.items.map(item => {
+            const active = isActivePath(location, item.path);
+            return (
+              <Link key={item.path} href={item.path}>
+                <a
+                  onClick={onNavigate}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+                    active
+                      ? "bg-muted text-foreground font-medium"
+                      : "text-foreground/80 hover:bg-muted/60"
+                  )}
+                >
+                  {item.emoji && <span className="text-base leading-none shrink-0">{item.emoji}</span>}
+                  <span className="truncate">{item.label}</span>
+                </a>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
@@ -164,19 +147,61 @@ export function SidebarNav({ onNavigate, className }: SidebarNavProps) {
   const { isStaff } = useAdminAccess();
 
   return (
-    <nav className={cn("flex flex-col", className)} aria-label="Navegação principal">
-      <div className="space-y-0.5 px-1">
-        {mainItems.map(item => (
-          <NavLink key={item.path} item={item} location={location} onNavigate={onNavigate} emphasis />
-        ))}
+    <nav className={cn("flex flex-col", className)}>
+      <div className="space-y-1 px-1">
+        {primaryItems.map(item => {
+          const active = isActivePath(location, item.path);
+          const Icon = item.icon;
+
+          if (item.primary) {
+            return (
+              <Link key={item.path} href={item.path}>
+                <a
+                  onClick={onNavigate}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors",
+                    active
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-primary/90 text-primary-foreground hover:bg-primary"
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span>{item.label}</span>
+                </a>
+              </Link>
+            );
+          }
+
+          return (
+            <Link key={item.path} href={item.path}>
+              <a
+                onClick={onNavigate}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                  active
+                    ? "bg-muted text-foreground font-medium"
+                    : "text-foreground/80 hover:bg-muted/60"
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span>{item.label}</span>
+              </a>
+            </Link>
+          );
+        })}
       </div>
 
       {sections.map(section => (
-        <NavSectionBlock key={section.title} section={section} location={location} onNavigate={onNavigate} />
+        <NavSectionBlock
+          key={section.title}
+          section={section}
+          location={location}
+          onNavigate={onNavigate}
+        />
       ))}
 
-      {isStaff && (
-        <div className="mt-2 px-1">
+      <div className="mt-2 space-y-0.5 px-1">
+        {isStaff && (
           <Link href="/admin">
             <a
               onClick={onNavigate}
@@ -191,8 +216,28 @@ export function SidebarNav({ onNavigate, className }: SidebarNavProps) {
               <span>Administração</span>
             </a>
           </Link>
-        </div>
-      )}
+        )}
+        {bottomItems.map(item => {
+          const active = isActivePath(location, item.path);
+          const Icon = item.icon;
+          return (
+            <Link key={item.path} href={item.path}>
+              <a
+                onClick={onNavigate}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                  active
+                    ? "bg-muted text-foreground font-medium"
+                    : "text-foreground/80 hover:bg-muted/60"
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span>{item.label}</span>
+              </a>
+            </Link>
+          );
+        })}
+      </div>
     </nav>
   );
 }

@@ -9,8 +9,6 @@ import {
 import { authEmailForUsername, getSupabaseAdmin } from "../_core/supabaseAdmin";
 import { publicProcedure, router } from "../_core/trpc";
 import { normalizeUsername, USERNAME_MAX, USERNAME_MIN, USERNAME_REGEX } from "../../shared/username";
-import { INTEREST_KEYS } from "../../shared/brands";
-import { saveUserPreferences } from "../brandsDb";
 
 const registerSchema = z.object({
   username: z
@@ -42,9 +40,6 @@ const registerSchema = z.object({
   platformObjective: z.string().min(10, "Descreva seu objetivo (mín. 10 caracteres)"),
   profileImageBase64: z.string().optional(),
   profileImageMime: z.string().optional(),
-  /** Opcionais: não bloqueiam o cadastro e podem ser alterados depois. */
-  interests: z.array(z.enum(INTEREST_KEYS)).max(INTEREST_KEYS.length).optional(),
-  brandIds: z.array(z.number().int().positive()).max(100).optional(),
 });
 
 async function uploadAvatar(userId: string, base64: string, mime?: string) {
@@ -147,19 +142,6 @@ export const authRouter = router({
         await recordFollowerSnapshot(dbUser.id, input.currentFollowers, "manual");
       } catch (e) {
         console.warn("[Register] Profile save failed — check DATABASE_URL:", e);
-      }
-
-      // Interesses são opcionais e nunca devem impedir a criação da conta.
-      if (input.interests !== undefined || input.brandIds !== undefined) {
-        try {
-          await saveUserPreferences(
-            dbUser.id,
-            Array.from(new Set(input.interests ?? [])),
-            Array.from(new Set(input.brandIds ?? []))
-          );
-        } catch (e) {
-          console.warn("[Register] Preferences save skipped (aplique migration_movimento_etapa1.sql?):", e);
-        }
       }
     } else {
       console.warn("[Register] User not in DB — check DATABASE_URL and migration_auth_fields.sql");

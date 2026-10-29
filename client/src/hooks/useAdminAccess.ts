@@ -9,7 +9,7 @@ export function useAdminAccess() {
     staleTime: 60_000,
   });
 
-  const permissions: string[] = data?.permissions ?? [];
+  const permissions = data?.permissions ?? [];
   const isAdmin = data?.isAdmin ?? false;
   const isSuperAdmin = data?.isSuperAdmin ?? false;
   const isStaff = data?.isStaff ?? false;
@@ -31,7 +31,6 @@ export function useAdminAccess() {
     canManageUsers: can(ADMIN_PERMISSIONS.USERS_MANAGE),
     canPublishAnnouncements: can(ADMIN_PERMISSIONS.ANNOUNCEMENTS_PUBLISH),
     canModerate: can(ADMIN_PERMISSIONS.COMMUNITY_MODERATE),
-    canBrands: can(ADMIN_PERMISSIONS.BRANDS_MANAGE),
     canShop: can(ADMIN_PERMISSIONS.SHOP_MANAGE),
     canLearning: can(ADMIN_PERMISSIONS.LEARNING_MANAGE),
     superAdminUsername: SUPER_ADMIN_USERNAME,

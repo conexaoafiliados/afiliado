@@ -16,16 +16,11 @@ import { Loader2, User } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { TRPCClientError } from "@trpc/client";
 import { toast } from "sonner";
-import { PreferencesFields } from "@/components/PreferencesFields";
-import type { InterestKey } from "@shared/brands";
 
 export default function Register() {
   const [, setLocation] = useLocation();
   const { fetchCep, loading: cepLoading, error: cepError } = useCep();
   const register = trpc.auth.register.useMutation();
-  const { data: publishedBrands = [] } = trpc.brands.listPublished.useQuery();
-  const [interests, setInterests] = useState<InterestKey[]>([]);
-  const [brandIds, setBrandIds] = useState<number[]>([]);
 
   const [form, setForm] = useState({
     username: "",
@@ -117,8 +112,6 @@ export default function Register() {
         platformObjective: form.platformObjective,
         profileImageBase64: photoBase64 ?? undefined,
         profileImageMime: photoMime,
-        interests,
-        brandIds,
       });
       await applyAuthSession(session.accessToken, session.refreshToken);
       toast.success("Conta criada com sucesso!");
@@ -252,25 +245,8 @@ export default function Register() {
                 onChange={e => update("platformObjective", e.target.value)}
                 rows={3}
               />
-              <p className="text-xs text-muted-foreground">Ex.: aprender, criar conteúdo, conhecer marcas, indicar ou vender produtos.</p>
+              <p className="text-xs text-muted-foreground">Sugestões: crescer até 2k, aprender conteúdo, monetizar, conectar com creators, vender produtos.</p>
             </div>
-          </div>
-
-          {/* Interesses (opcionais) */}
-          <div className="space-y-3">
-            <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Seus interesses (opcional)</h2>
-            <PreferencesFields
-              interests={interests}
-              brandIds={brandIds}
-              brands={publishedBrands}
-              onInterestsChange={setInterests}
-              onBrandIdsChange={setBrandIds}
-              disabled={register.isPending}
-            />
-            <p className="text-xs text-muted-foreground">
-              Escolher um interesse não libera acessos especiais nem aprova você como afiliada ou embaixadora. Você pode
-              mudar tudo depois no seu perfil.
-            </p>
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}

@@ -35,11 +35,6 @@ import PunishmentGuide from "./pages/PunishmentGuide";
 import OpenGroup from "./pages/OpenGroup";
 import Campaigns from "./pages/Campaigns";
 import Admin from "./pages/Admin";
-import Brands from "./pages/Brands";
-import BrandDetail from "./pages/BrandDetail";
-import ProductDetail from "./pages/ProductDetail";
-import Learn from "./pages/Learn";
-import PublicLayout from "./components/PublicLayout";
 import DashboardLayout from "./components/DashboardLayout";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Loader2 } from "lucide-react";
@@ -47,22 +42,6 @@ import type { ReactNode } from "react";
 
 function Protected({ children }: { children: ReactNode }) {
   return <DashboardLayout>{children}</DashboardLayout>;
-}
-
-/** Páginas públicas de marcas: usam o layout do app se houver sessão, senão um layout público. */
-function MaybeProtected({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <DashboardLayout>{children}</DashboardLayout> : <PublicLayout>{children}</PublicLayout>;
-}
-
-function withMaybeProtected(Page: () => React.JSX.Element) {
-  return function MaybeProtectedPage() {
-    return (
-      <MaybeProtected>
-        <Page />
-      </MaybeProtected>
-    );
-  };
 }
 
 function withProtected(Page: () => React.JSX.Element) {
@@ -101,10 +80,6 @@ const PunishmentGuidePage = withProtected(PunishmentGuide);
 const OpenGroupPage = withProtected(OpenGroup);
 const CampaignsPage = withProtected(Campaigns);
 const AdminPage = withProtected(Admin);
-const LearnPage = withProtected(Learn);
-const BrandsPage = withMaybeProtected(Brands);
-const BrandDetailPage = withMaybeProtected(BrandDetail);
-const ProductDetailPage = withMaybeProtected(ProductDetail);
 
 function Router() {
   const { loading } = useAuth();
@@ -136,12 +111,7 @@ function Router() {
       <Route path={"/analytics/overview"} component={AnalyticsPage} />
       <Route path={"/admin"} component={AdminPage} />
       <Route path={"/checkout"} component={CheckoutPage} />
-      <Route path={"/campanhas"} component={CampaignsPage} />
       <Route path={"/start/campanhas"} component={CampaignsPage} />
-      <Route path={"/aprender"} component={LearnPage} />
-      <Route path={"/marcas/:slug/:productSlug"} component={ProductDetailPage} />
-      <Route path={"/marcas/:slug"} component={BrandDetailPage} />
-      <Route path={"/marcas"} component={BrandsPage} />
       <Route path={"/start/grupo-aberto"} component={OpenGroupPage} />
       <Route path={"/acessos/punicoes/guia"} component={PunishmentGuidePage} />
       <Route path={"/acessos/punicoes"} component={PunishmentsPage} />
