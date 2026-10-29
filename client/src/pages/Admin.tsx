@@ -1,6 +1,7 @@
 import { UserAvatar } from "@/components/UserAvatar";
 import { BrandsAdmin } from "@/components/admin/BrandsAdmin";
 import { CampaignsAdmin } from "@/components/admin/CampaignsAdmin";
+import { MissionsAdmin } from "@/components/admin/MissionsAdmin";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -435,6 +436,7 @@ function CommerceTab() {
 
 function LearningTab() {
   const { data, isLoading } = trpc.admin.learning.useQuery();
+  const access = useAdminAccess();
 
   if (isLoading) {
     return (
@@ -445,30 +447,38 @@ function LearningTab() {
   }
 
   return (
-    <div className="grid lg:grid-cols-2 gap-6">
-      <Card className="card-elegant p-5">
-        <h3 className="font-semibold mb-3">Trilhas</h3>
-        <ul className="space-y-2 text-sm">
-          {(data?.tracks ?? []).map(t => (
-            <li key={t.slug}>
-              {t.emoji} {t.title}
-            </li>
-          ))}
-        </ul>
-      </Card>
-      <Card className="card-elegant p-5">
-        <h3 className="font-semibold mb-3">Aulas mais curtidas</h3>
-        <ul className="space-y-2 text-sm">
-          {(data?.topLessons ?? []).map(l => (
-            <li key={l.lessonSlug} className="flex justify-between">
-              <span className="truncate">{l.lessonSlug}</span>
-              <span className="text-muted-foreground shrink-0">
-                {l.likes} ♥ · {l.comments} com.
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Card>
+    <div className="space-y-8">
+      {access.canLearning && <MissionsAdmin />}
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        <Card className="card-elegant p-5">
+          <h3 className="font-semibold mb-3">Trilhas</h3>
+          <ul className="space-y-2 text-sm">
+            {(data?.tracks ?? []).map(t => (
+              <li key={t.slug}>
+                {t.emoji} {t.title}
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted-foreground mt-3">
+            Para vincular uma trilha a uma marca, use a API/admin learning (brandId). Trilhas sem marca são gerais do
+            clube.
+          </p>
+        </Card>
+        <Card className="card-elegant p-5">
+          <h3 className="font-semibold mb-3">Aulas mais curtidas</h3>
+          <ul className="space-y-2 text-sm">
+            {(data?.topLessons ?? []).map(l => (
+              <li key={l.lessonSlug} className="flex justify-between">
+                <span className="truncate">{l.lessonSlug}</span>
+                <span className="text-muted-foreground shrink-0">
+                  {l.likes} ♥ · {l.comments} com.
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { ADMIN_PERMISSIONS } from "../../shared/adminPermissions";
 import { FIRST_STEP_LESSON_SLUGS } from "@shared/learning/firstStep";
 import {
   createLessonComment,
@@ -8,9 +9,11 @@ import {
   getLessonComments,
   getLessonEngagement,
   learningLessonExists,
+  listLearningTracks,
+  setLearningTrackBrand,
   toggleLessonLike,
 } from "../db";
-import { protectedProcedure, router } from "../_core/trpc";
+import { permissionProcedure, protectedProcedure, publicProcedure, router } from "../_core/trpc";
 
 async function assertValidLessonSlug(lessonSlug: string) {
   if (FIRST_STEP_LESSON_SLUGS.has(lessonSlug)) return;
@@ -21,6 +24,9 @@ async function assertValidLessonSlug(lessonSlug: string) {
 }
 
 export const learningRouter = router({
+  /** Trilhas cadastradas (gerais ou por marca). Cursos legados permanecem em /courses. */
+  listTracks: publicProcedure.query(async () => listLearningTracks()),
+
   track: protectedProcedure
     .input(z.object({ trackSlug: z.string().min(1).max(64) }))
     .query(async ({ input }) => {
@@ -29,6 +35,20 @@ export const learningRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Trilha não encontrada" });
       }
       return track;
+    }),
+
+  adminSetTrackBrand: permissionProcedure(ADMIN_PERMISSIONS.LEARNING_MANAGE)
+    .input(
+      z.object({
+        slug: z.string().min(1).max(64),
+        brandId: z.number().int().positive().nullish().transform(v => v ?? null),
+        description: z.string().trim().max(2000).nullish().transform(v => (v ? v : null)),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const row = await setLearningTrackBrand(input.slug, input.brandId, input.description);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Trilha não encontrada" });
+      return row;
     }),
 
   lesson: protectedProcedure

@@ -11,6 +11,8 @@ interface MissionCardProps {
   difficulty: "easy" | "medium" | "hard";
   reward: number;
   status: "pending" | "in_progress" | "completed";
+  brandLabel?: string | null;
+  validationStatus?: string;
   onAccept?: (id: number) => void;
   onContinue?: (id: number) => void;
 }
@@ -23,6 +25,8 @@ export function MissionCard({
   difficulty,
   reward,
   status,
+  brandLabel,
+  validationStatus = "none",
   onAccept,
   onContinue,
 }: MissionCardProps) {
@@ -63,6 +67,17 @@ export function MissionCard({
     }
   };
 
+  const actionLabel =
+    status === "completed"
+      ? "✓ Concluída e validada"
+      : validationStatus === "pending_review"
+        ? "Aguardando validação"
+        : validationStatus === "rejected"
+          ? "Reenviar participação"
+          : status === "in_progress"
+            ? "Enviar participação"
+            : "Aceitar Missão";
+
   return (
     <Card className="card-elegant hover-lift">
       <div className="flex items-start justify-between mb-4">
@@ -71,35 +86,36 @@ export function MissionCard({
           <div>
             <h3 className="font-semibold text-lg">{title}</h3>
             <p className="text-sm text-muted-foreground mt-1">{description}</p>
+            {brandLabel && <p className="text-xs text-accent mt-2 font-medium">{brandLabel}</p>}
           </div>
         </div>
       </div>
 
       <div className="flex items-center justify-between gap-2 mb-4">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Badge className={getDifficultyColor(difficulty)}>
             {difficulty === "easy" && "Fácil"}
             {difficulty === "medium" && "Médio"}
             {difficulty === "hard" && "Difícil"}
           </Badge>
           <Badge variant="outline">{getCategoryLabel(category)}</Badge>
+          {validationStatus === "pending_review" && <Badge variant="outline">Em análise</Badge>}
         </div>
         <div className="text-right">
           <p className="font-bold text-accent">{reward} pts</p>
+          <p className="text-[10px] text-muted-foreground">após validação</p>
         </div>
       </div>
 
       <Button
         className="w-full btn-primary"
-        disabled={status === "completed"}
+        disabled={status === "completed" || validationStatus === "pending_review"}
         onClick={() => {
           if (status === "pending" && onAccept) onAccept(id);
           if (status === "in_progress" && onContinue) onContinue(id);
         }}
       >
-        {status === "completed" && "✓ Concluída"}
-        {status === "in_progress" && "Continuar"}
-        {status === "pending" && "Aceitar Missão"}
+        {actionLabel}
       </Button>
     </Card>
   );
