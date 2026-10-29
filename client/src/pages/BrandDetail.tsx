@@ -1,8 +1,16 @@
-import { BrandAvatar } from "@/components/BrandCard";
 import { Card } from "@/components/ui/card";
+import { readableTextColor } from "@shared/brands";
 import { trpc } from "@/lib/trpc";
 import { Loader2, Megaphone, Package } from "lucide-react";
 import { Link, useRoute } from "wouter";
+
+function softTint(hex: string | null | undefined, alpha = 0.14): string {
+  if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return "var(--muted)";
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 export default function BrandDetail() {
   const [, params] = useRoute("/marcas/:slug");
@@ -39,19 +47,42 @@ export default function BrandDetail() {
       </Link>
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-        <div className="relative h-36 sm:h-48 w-full overflow-hidden" style={{ backgroundColor: accent }}>
-          {brand.coverUrl && <img src={brand.coverUrl} alt="" className="h-full w-full object-cover" />}
+        <div className="h-1.5 w-full" style={{ backgroundColor: accent }} aria-hidden />
+        <div
+          className="relative flex min-h-[140px] sm:min-h-[180px] items-center justify-center px-6 py-8"
+          style={{
+            background: brand.coverUrl
+              ? undefined
+              : `linear-gradient(165deg, ${softTint(brand.accentColor, 0.22)} 0%, ${softTint(brand.accentColor, 0.06)} 100%)`,
+          }}
+        >
+          {brand.coverUrl && (
+            <img src={brand.coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-35" />
+          )}
+          {brand.logoUrl ? (
+            <img
+              src={brand.logoUrl}
+              alt={`Logo ${brand.name}`}
+              className="relative z-[1] max-h-20 sm:max-h-28 w-auto max-w-[min(100%,320px)] object-contain drop-shadow-sm"
+            />
+          ) : (
+            <div
+              className="relative z-[1] flex h-20 w-20 items-center justify-center rounded-2xl text-3xl font-bold shadow-sm"
+              style={{ backgroundColor: accent, color: readableTextColor(brand.accentColor) }}
+            >
+              {brand.name.charAt(0).toUpperCase()}
+            </div>
+          )}
         </div>
-        <div className="px-5 pb-6 -mt-9 sm:-mt-10">
-          <BrandAvatar brand={brand} size={80} />
-          <h1 className="mt-3 text-2xl sm:text-3xl font-bold">{brand.name}</h1>
+        <div className="px-5 sm:px-6 pb-6 pt-5 border-t border-border/60 space-y-2">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{brand.name}</h1>
           {brand.communicationConcept && (
-            <p className="mt-1 text-lg font-semibold" style={{ color: brand.accentColor ?? undefined }}>
+            <p className="text-lg font-semibold" style={{ color: accent }}>
               {brand.communicationConcept}
             </p>
           )}
           {brand.description && (
-            <p className="mt-3 text-muted-foreground whitespace-pre-line max-w-3xl">{brand.description}</p>
+            <p className="pt-1 text-muted-foreground whitespace-pre-line max-w-3xl leading-relaxed">{brand.description}</p>
           )}
         </div>
       </section>
