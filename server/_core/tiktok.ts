@@ -4,7 +4,9 @@ import { ENV } from "./env";
 const TIKTOK_AUTH = "https://www.tiktok.com/v2/auth/authorize/";
 const TIKTOK_TOKEN = "https://open.tiktokapis.com/v2/oauth/token/";
 const TIKTOK_USER_INFO = "https://open.tiktokapis.com/v2/user/info/";
-const SCOPES = "user.info.basic,user.info.profile,user.info.stats";
+const TIKTOK_VIDEO_LIST = "https://open.tiktokapis.com/v2/video/list/";
+/** video.list é opcional: se aprovado, somamos views/comentários dos vídeos. */
+const SCOPES = "user.info.basic,user.info.profile,user.info.stats,video.list";
 
 export function isTikTokConfigured() {
   return Boolean(ENV.tiktokClientKey && ENV.tiktokClientSecret);
@@ -86,7 +88,8 @@ export async function refreshTikTokToken(refreshToken: string) {
 }
 
 export async function fetchTikTokUserStats(accessToken: string) {
-  const fields = "open_id,display_name,username,follower_count,following_count,video_count";
+  const fields =
+    "open_id,display_name,username,follower_count,following_count,likes_count,video_count";
   const res = await fetch(`${TIKTOK_USER_INFO}?fields=${fields}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -98,6 +101,7 @@ export async function fetchTikTokUserStats(accessToken: string) {
         username?: string;
         follower_count?: number;
         following_count?: number;
+        likes_count?: number;
         video_count?: number;
       };
     };
@@ -107,4 +111,39 @@ export async function fetchTikTokUserStats(accessToken: string) {
     throw new Error(json.error?.message ?? "Não foi possível ler dados do TikTok");
   }
   return json.data.user;
+}
+
+/** Soma views/comentários/curtidas dos vídeos recentes (requer scope video.list). */
+export async function fetchTikTokVideoAggregates(accessToken: string): Promise<{
+  views: number;
+  comments: number;
+  likes: number;
+  mediaCount: number;
+} | null> {
+  try {
+    const res = await fetch(`${TIKTOK_VIDEO_LIST}?fields=id,view_count,comment_count,like_count`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ max_count: 20 }),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      data?: {
+        videos?: Array<{ view_count?: number; comment_count?: number; like_count?: number }>;
+      };
+    };
+    const videos = json.data?.videos ?? [];
+    if (!videos.length) return { views: 0, comments: 0, likes: 0, mediaCount: 0 };
+    return {
+      views: videos.reduce((s, v) => s + (v.view_count ?? 0), 0),
+      comments: videos.reduce((s, v) => s + (v.comment_count ?? 0), 0),
+      likes: videos.reduce((s, v) => s + (v.like_count ?? 0), 0),
+      mediaCount: videos.length,
+    };
+  } catch {
+    return null;
+  }
 }

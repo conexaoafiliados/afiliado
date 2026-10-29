@@ -6,10 +6,12 @@ import {
   getTikTokTokens,
   recordFollowerSnapshot,
   saveTikTokConnection,
+  upsertSocialStats,
 } from "../db";
 import {
   exchangeTikTokCode,
   fetchTikTokUserStats,
+  fetchTikTokVideoAggregates,
   getTikTokAuthorizeUrl,
   isTikTokConfigured,
   parseTikTokState,
@@ -24,15 +26,18 @@ async function syncFollowersForUser(userId: number) {
   }
 
   let accessToken = tokens.accessToken;
-  const expiresAt = tokens.expiresAt ? new Date(tokens.expiresAt) : null;
+  let refreshToken = tokens.refreshToken;
+  let expiresAt = tokens.expiresAt ? new Date(tokens.expiresAt) : null;
   if (expiresAt && expiresAt.getTime() < Date.now() + 60_000) {
     const refreshed = await refreshTikTokToken(tokens.refreshToken);
     accessToken = refreshed.access_token;
+    refreshToken = refreshed.refresh_token;
+    expiresAt = new Date(Date.now() + refreshed.expires_in * 1000);
     await saveTikTokConnection(userId, {
       openId: refreshed.open_id,
       accessToken: refreshed.access_token,
       refreshToken: refreshed.refresh_token,
-      expiresAt: new Date(Date.now() + refreshed.expires_in * 1000),
+      expiresAt,
       displayName: tokens.displayName ?? undefined,
       username: tokens.username ?? undefined,
     });
@@ -40,11 +45,21 @@ async function syncFollowersForUser(userId: number) {
 
   const stats = await fetchTikTokUserStats(accessToken);
   const followers = stats.follower_count ?? 0;
+  const videoAgg = await fetchTikTokVideoAggregates(accessToken);
+
   await recordFollowerSnapshot(userId, followers, "tiktok");
+  await upsertSocialStats(userId, "tiktok", {
+    followers,
+    likes: videoAgg?.likes ?? stats.likes_count ?? 0,
+    views: videoAgg?.views ?? 0,
+    comments: videoAgg?.comments ?? 0,
+    mediaCount: videoAgg?.mediaCount ?? stats.video_count ?? 0,
+  });
+
   await saveTikTokConnection(userId, {
     openId: stats.open_id ?? tokens.openId ?? "",
     accessToken,
-    refreshToken: tokens.refreshToken,
+    refreshToken,
     expiresAt: expiresAt ?? new Date(Date.now() + 86400_000),
     displayName: stats.display_name,
     username: stats.username,
@@ -52,6 +67,9 @@ async function syncFollowersForUser(userId: number) {
 
   return {
     followers,
+    likes: videoAgg?.likes ?? stats.likes_count ?? 0,
+    views: videoAgg?.views ?? 0,
+    comments: videoAgg?.comments ?? 0,
     displayName: stats.display_name,
     username: stats.username,
     followingCount: stats.following_count ?? 0,
@@ -76,19 +94,14 @@ export const tiktokRouter = router({
     if (!isTikTokConfigured()) {
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
-        message: "TikTok API não configurada (TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET na Vercel)",
+        message: "TikTok API não configurada (TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET)",
       });
     }
     return { url: getTikTokAuthorizeUrl(ctx.user.id) };
   }),
 
   completeConnect: protectedProcedure
-    .input(
-      z.object({
-        code: z.string().min(1),
-        state: z.string().optional(),
-      })
-    )
+    .input(z.object({ code: z.string().min(1), state: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       if (!isTikTokConfigured()) {
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: "TikTok API não configurada" });

@@ -54,4 +54,7 @@ export const ENV = {
   appUrl: (process.env.APP_URL ?? process.env.VITE_APP_URL ?? "http://localhost:3000").replace(/\/$/, ""),
   tiktokClientKey: process.env.TIKTOK_CLIENT_KEY ?? "",
   tiktokClientSecret: process.env.TIKTOK_CLIENT_SECRET ?? "",
+  /** Meta / Facebook Login + Instagram Graph (conta Business/Creator ligada a Página). */
+  metaAppId: process.env.META_APP_ID ?? process.env.FACEBOOK_APP_ID ?? "",
+  metaAppSecret: process.env.META_APP_SECRET ?? process.env.FACEBOOK_APP_SECRET ?? "",
 };

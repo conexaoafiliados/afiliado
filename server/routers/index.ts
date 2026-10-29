@@ -25,6 +25,7 @@ import { achievementsRouter } from "./achievements";
 import { authRouter } from "./auth";
 import { analyticsRouter } from "./analytics";
 import { tiktokRouter } from "./tiktok";
+import { instagramRouter } from "./instagram";
 import { notificationsRouter } from "./notifications";
 import { followsRouter } from "./follows";
 import { learningRouter } from "./learning";
@@ -175,6 +176,7 @@ export const appRouter = router({
   payments: paymentsRouter,
   orders: ordersRouter,
   tiktok: tiktokRouter,
+  instagram: instagramRouter,
   analytics: analyticsRouter,
   notifications: notificationsRouter,
   follows: followsRouter,

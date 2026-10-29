@@ -66,6 +66,12 @@ export const creatorProfiles = pgTable("creator_profiles", {
   tiktokTokenExpiresAt: timestamp("tiktokTokenExpiresAt", { withTimezone: true }),
   tiktokLinkedAt: timestamp("tiktokLinkedAt", { withTimezone: true }),
   tiktokDisplayName: varchar("tiktokDisplayName", { length: 120 }),
+  instagramUserId: varchar("instagramUserId", { length: 64 }),
+  instagramPageId: varchar("instagramPageId", { length: 64 }),
+  instagramAccessToken: text("instagramAccessToken"),
+  instagramTokenExpiresAt: timestamp("instagramTokenExpiresAt", { withTimezone: true }),
+  instagramLinkedAt: timestamp("instagramLinkedAt", { withTimezone: true }),
+  instagramDisplayName: varchar("instagramDisplayName", { length: 120 }),
   youtubeHandle: varchar("youtubeHandle", { length: 100 }),
   twitterHandle: varchar("twitterHandle", { length: 100 }),
   websiteUrl: varchar("websiteUrl", { length: 512 }),
@@ -99,6 +105,29 @@ export type FollowerProgress = typeof followerProgress.$inferSelect;
 export type InsertFollowerProgress = typeof followerProgress.$inferInsert;
 export type FollowerHistory = typeof followerHistory.$inferSelect;
 
+/** Métricas oficiais por rede (TikTok / Instagram). Não mistura com comunidade nem loja. */
+export const creatorSocialStats = pgTable(
+  "creator_social_stats",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    platform: varchar("platform", { length: 16 }).notNull(),
+    followers: integer("followers").default(0).notNull(),
+    likes: integer("likes").default(0).notNull(),
+    views: integer("views").default(0).notNull(),
+    comments: integer("comments").default(0).notNull(),
+    mediaCount: integer("mediaCount").default(0).notNull(),
+    lastSyncAt: timestamp("lastSyncAt", { withTimezone: true }),
+    createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
+  },
+  t => [unique().on(t.userId, t.platform)]
+);
+
+export type CreatorSocialStats = typeof creatorSocialStats.$inferSelect;
+
 export const missions = pgTable("missions", {
   id: serial("id").primaryKey(),
   title: varchar("title", { length: 255 }).notNull(),
@@ -108,17 +137,32 @@ export const missions = pgTable("missions", {
   reward: integer("reward").default(0).notNull(),
   imageUrl: varchar("imageUrl", { length: 512 }),
   isActive: boolean("isActive").default(true).notNull(),
+  /** NULL = missão geral do clube; preenchido = específica de uma marca. */
+  brandId: integer("brandId"),
+  requiresProof: boolean("requiresProof").default(false).notNull(),
   createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const userMissions = pgTable("user_missions", {
-  id: serial("id").primaryKey(),
-  userId: integer("userId").notNull().references(() => users.id),
-  missionId: integer("missionId").notNull().references(() => missions.id),
-  status: missionStatusEnum("status").default("pending").notNull(),
-  completedAt: timestamp("completedAt", { withTimezone: true }),
-  pointsEarned: integer("pointsEarned").default(0),
-});
+export const userMissions = pgTable(
+  "user_missions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull().references(() => users.id),
+    missionId: integer("missionId").notNull().references(() => missions.id),
+    status: missionStatusEnum("status").default("pending").notNull(),
+    completedAt: timestamp("completedAt", { withTimezone: true }),
+    pointsEarned: integer("pointsEarned").default(0),
+    submissionUrl: varchar("submissionUrl", { length: 1024 }),
+    submissionNote: text("submissionNote"),
+    submittedAt: timestamp("submittedAt", { withTimezone: true }),
+    validationStatus: varchar("validationStatus", { length: 24 }).default("none").notNull(),
+    validatedAt: timestamp("validatedAt", { withTimezone: true }),
+    validatedBy: integer("validatedBy"),
+    reviewNote: text("reviewNote"),
+    rewardGranted: boolean("rewardGranted").default(false).notNull(),
+  },
+  t => [unique().on(t.userId, t.missionId)]
+);
 
 export const courses = pgTable("courses", {
   id: serial("id").primaryKey(),
@@ -249,6 +293,9 @@ export const learningTracks = pgTable("learning_tracks", {
   emoji: varchar("emoji", { length: 16 }),
   welcomeEnabled: boolean("welcomeEnabled").default(false).notNull(),
   sortOrder: integer("sortOrder").default(0).notNull(),
+  /** NULL = trilha geral do movimento. */
+  brandId: integer("brandId"),
+  description: text("description"),
 });
 
 export const learningSections = pgTable("learning_sections", {

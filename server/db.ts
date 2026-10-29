@@ -5,9 +5,11 @@ import {
   announcementComments,
   announcementLikes,
   announcements,
+  brands,
   communityPosts,
   courses,
   creatorProfiles,
+  creatorSocialStats,
   followerProgress,
   followerHistory,
   InsertCreatorProfile,
@@ -586,6 +588,141 @@ export async function clearTikTokConnection(userId: number) {
   });
 }
 
+export type SocialPlatform = "tiktok" | "instagram";
+
+export async function upsertSocialStats(
+  userId: number,
+  platform: SocialPlatform,
+  stats: {
+    followers: number;
+    likes?: number;
+    views?: number;
+    comments?: number;
+    mediaCount?: number;
+  }
+) {
+  const db = await getDb();
+  if (!db) return;
+  const now = new Date();
+  try {
+    await db
+      .insert(creatorSocialStats)
+      .values({
+        userId,
+        platform,
+        followers: stats.followers,
+        likes: stats.likes ?? 0,
+        views: stats.views ?? 0,
+        comments: stats.comments ?? 0,
+        mediaCount: stats.mediaCount ?? 0,
+        lastSyncAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [creatorSocialStats.userId, creatorSocialStats.platform],
+        set: {
+          followers: stats.followers,
+          likes: stats.likes ?? 0,
+          views: stats.views ?? 0,
+          comments: stats.comments ?? 0,
+          mediaCount: stats.mediaCount ?? 0,
+          lastSyncAt: now,
+          updatedAt: now,
+        },
+      });
+  } catch (e) {
+    console.warn("[SocialStats] upsert failed — aplique migration_social_instagram.sql:", e);
+  }
+}
+
+export async function getSocialStats(userId: number) {
+  const db = await getDb();
+  const empty = {
+    tiktok: null as null | {
+      followers: number;
+      likes: number;
+      views: number;
+      comments: number;
+      mediaCount: number;
+      lastSyncAt: Date | null;
+    },
+    instagram: null as null | {
+      followers: number;
+      likes: number;
+      views: number;
+      comments: number;
+      mediaCount: number;
+      lastSyncAt: Date | null;
+    },
+  };
+  if (!db) return empty;
+  try {
+    const rows = await db.select().from(creatorSocialStats).where(eq(creatorSocialStats.userId, userId));
+    for (const row of rows) {
+      const payload = {
+        followers: row.followers,
+        likes: row.likes,
+        views: row.views,
+        comments: row.comments,
+        mediaCount: row.mediaCount,
+        lastSyncAt: row.lastSyncAt,
+      };
+      if (row.platform === "tiktok") empty.tiktok = payload;
+      if (row.platform === "instagram") empty.instagram = payload;
+    }
+    return empty;
+  } catch {
+    return empty;
+  }
+}
+
+export async function saveInstagramConnection(
+  userId: number,
+  data: {
+    igUserId: string;
+    pageId: string;
+    accessToken: string;
+    expiresAt: Date;
+    displayName?: string | null;
+    username?: string | null;
+  }
+) {
+  await upsertCreatorProfile(userId, {
+    instagramUserId: data.igUserId,
+    instagramPageId: data.pageId,
+    instagramAccessToken: data.accessToken,
+    instagramTokenExpiresAt: data.expiresAt,
+    instagramLinkedAt: new Date(),
+    instagramDisplayName: data.displayName ?? undefined,
+    instagramHandle: data.username ? data.username.replace(/^@/, "") : undefined,
+  });
+}
+
+export async function getInstagramTokens(userId: number) {
+  const profile = await getCreatorProfile(userId);
+  if (!profile?.instagramAccessToken || !profile.instagramUserId) return null;
+  return {
+    igUserId: profile.instagramUserId,
+    pageId: profile.instagramPageId,
+    accessToken: profile.instagramAccessToken,
+    expiresAt: profile.instagramTokenExpiresAt,
+    displayName: profile.instagramDisplayName,
+    username: profile.instagramHandle,
+    linkedAt: profile.instagramLinkedAt,
+  };
+}
+
+export async function clearInstagramConnection(userId: number) {
+  await upsertCreatorProfile(userId, {
+    instagramUserId: null,
+    instagramPageId: null,
+    instagramAccessToken: null,
+    instagramTokenExpiresAt: null,
+    instagramLinkedAt: null,
+    instagramDisplayName: null,
+  });
+}
+
 export async function getMissionsByUserId(userId: number) {
   const db = await getDb();
   if (!db) return [];
@@ -595,6 +732,12 @@ export async function getMissionsByUserId(userId: number) {
 export async function createUserMission(userId: number, missionId: number) {
   const db = await getDb();
   if (!db) return;
+  const existing = await db
+    .select({ id: userMissions.id })
+    .from(userMissions)
+    .where(and(eq(userMissions.userId, userId), eq(userMissions.missionId, missionId)))
+    .limit(1);
+  if (existing[0]) return;
   await db.insert(userMissions).values({ userId, missionId, status: "in_progress" });
 }
 
@@ -1315,7 +1458,270 @@ export async function toggleUserFollow(followerId: number, followingId: number) 
 export async function getAllMissions() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(missions).where(eq(missions.isActive, true));
+  try {
+    const rows = await db
+      .select({
+        id: missions.id,
+        title: missions.title,
+        description: missions.description,
+        category: missions.category,
+        difficulty: missions.difficulty,
+        reward: missions.reward,
+        imageUrl: missions.imageUrl,
+        isActive: missions.isActive,
+        brandId: missions.brandId,
+        requiresProof: missions.requiresProof,
+        createdAt: missions.createdAt,
+        brandName: brands.name,
+        brandSlug: brands.slug,
+      })
+      .from(missions)
+      .leftJoin(brands, eq(brands.id, missions.brandId))
+      .where(eq(missions.isActive, true))
+      .orderBy(desc(missions.createdAt));
+    return rows;
+  } catch {
+    // Colunas da etapa 3 ainda não aplicadas
+    return db.select().from(missions).where(eq(missions.isActive, true));
+  }
+}
+
+export async function adminListMissions() {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    return await db
+      .select({
+        id: missions.id,
+        title: missions.title,
+        description: missions.description,
+        category: missions.category,
+        difficulty: missions.difficulty,
+        reward: missions.reward,
+        isActive: missions.isActive,
+        brandId: missions.brandId,
+        requiresProof: missions.requiresProof,
+        createdAt: missions.createdAt,
+        brandName: brands.name,
+      })
+      .from(missions)
+      .leftJoin(brands, eq(brands.id, missions.brandId))
+      .orderBy(desc(missions.createdAt));
+  } catch {
+    return db.select().from(missions).orderBy(desc(missions.createdAt));
+  }
+}
+
+export async function saveMission(input: {
+  id?: number;
+  title: string;
+  description: string | null;
+  category: "growth" | "engagement" | "learning";
+  difficulty: "easy" | "medium" | "hard";
+  reward: number;
+  brandId: number | null;
+  requiresProof: boolean;
+  isActive: boolean;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco indisponível");
+  if (input.id) {
+    const updated = await db
+      .update(missions)
+      .set({
+        title: input.title,
+        description: input.description,
+        category: input.category,
+        difficulty: input.difficulty,
+        reward: input.reward,
+        brandId: input.brandId,
+        requiresProof: input.requiresProof,
+        isActive: input.isActive,
+      })
+      .where(eq(missions.id, input.id))
+      .returning();
+    return updated[0]!;
+  }
+  const inserted = await db
+    .insert(missions)
+    .values({
+      title: input.title,
+      description: input.description,
+      category: input.category,
+      difficulty: input.difficulty,
+      reward: input.reward,
+      brandId: input.brandId,
+      requiresProof: input.requiresProof,
+      isActive: input.isActive,
+    })
+    .returning();
+  return inserted[0]!;
+}
+
+export async function submitMissionProof(input: {
+  userId: number;
+  missionId: number;
+  submissionUrl: string | null;
+  submissionNote: string | null;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco indisponível");
+  const missionRows = await db.select().from(missions).where(eq(missions.id, input.missionId)).limit(1);
+  const mission = missionRows[0];
+  if (!mission || !mission.isActive) throw new Error("Missão não encontrada");
+
+  const existing = await db
+    .select()
+    .from(userMissions)
+    .where(and(eq(userMissions.userId, input.userId), eq(userMissions.missionId, input.missionId)))
+    .limit(1);
+  const row = existing[0];
+  if (!row || row.status === "pending") throw new Error("Aceite a missão antes de enviar a participação.");
+  if (row.status === "completed" && row.rewardGranted) throw new Error("Esta missão já foi concluída e validada.");
+
+  if (mission.requiresProof && !input.submissionUrl?.trim()) {
+    throw new Error("Esta missão exige o link da participação.");
+  }
+
+  const updated = await db
+    .update(userMissions)
+    .set({
+      status: "in_progress",
+      submissionUrl: input.submissionUrl,
+      submissionNote: input.submissionNote,
+      submittedAt: new Date(),
+      validationStatus: "pending_review",
+    })
+    .where(eq(userMissions.id, row.id))
+    .returning();
+  return updated[0]!;
+}
+
+/** Valida participação. Pontos só na primeira aprovação (rewardGranted). */
+export async function reviewMissionSubmission(input: {
+  userMissionId: number;
+  reviewerId: number;
+  decision: "approved" | "rejected";
+  reviewNote: string | null;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco indisponível");
+  const rows = await db
+    .select({
+      um: userMissions,
+      reward: missions.reward,
+    })
+    .from(userMissions)
+    .innerJoin(missions, eq(missions.id, userMissions.missionId))
+    .where(eq(userMissions.id, input.userMissionId))
+    .limit(1);
+  const row = rows[0];
+  if (!row) throw new Error("Participação não encontrada");
+  if (row.um.validationStatus !== "pending_review") {
+    throw new Error("Só é possível revisar participações enviadas.");
+  }
+
+  if (input.decision === "rejected") {
+    const updated = await db
+      .update(userMissions)
+      .set({
+        validationStatus: "rejected",
+        reviewNote: input.reviewNote,
+        validatedAt: new Date(),
+        validatedBy: input.reviewerId,
+      })
+      .where(eq(userMissions.id, input.userMissionId))
+      .returning();
+    return updated[0]!;
+  }
+
+  const grantPoints = !row.um.rewardGranted;
+  const points = grantPoints ? row.reward : row.um.pointsEarned ?? 0;
+  const updated = await db
+    .update(userMissions)
+    .set({
+      validationStatus: "approved",
+      status: "completed",
+      completedAt: new Date(),
+      reviewNote: input.reviewNote,
+      validatedAt: new Date(),
+      validatedBy: input.reviewerId,
+      pointsEarned: points,
+      rewardGranted: true,
+    })
+    .where(eq(userMissions.id, input.userMissionId))
+    .returning();
+  return updated[0]!;
+}
+
+export async function adminListMissionSubmissions(filter?: { pendingOnly?: boolean }) {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    const rows = await db
+      .select({
+        id: userMissions.id,
+        userId: userMissions.userId,
+        missionId: userMissions.missionId,
+        status: userMissions.status,
+        submissionUrl: userMissions.submissionUrl,
+        submissionNote: userMissions.submissionNote,
+        submittedAt: userMissions.submittedAt,
+        validationStatus: userMissions.validationStatus,
+        reviewNote: userMissions.reviewNote,
+        rewardGranted: userMissions.rewardGranted,
+        pointsEarned: userMissions.pointsEarned,
+        missionTitle: missions.title,
+        missionReward: missions.reward,
+        userName: users.name,
+        userUsername: users.username,
+      })
+      .from(userMissions)
+      .innerJoin(missions, eq(missions.id, userMissions.missionId))
+      .innerJoin(users, eq(users.id, userMissions.userId))
+      .orderBy(desc(userMissions.submittedAt));
+    if (filter?.pendingOnly) return rows.filter(r => r.validationStatus === "pending_review");
+    return rows.filter(r => r.validationStatus !== "none");
+  } catch {
+    return [];
+  }
+}
+
+export async function listLearningTracks() {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    return await db
+      .select({
+        slug: learningTracks.slug,
+        title: learningTracks.title,
+        emoji: learningTracks.emoji,
+        sortOrder: learningTracks.sortOrder,
+        brandId: learningTracks.brandId,
+        description: learningTracks.description,
+        brandName: brands.name,
+        brandSlug: brands.slug,
+      })
+      .from(learningTracks)
+      .leftJoin(brands, eq(brands.id, learningTracks.brandId))
+      .orderBy(asc(learningTracks.sortOrder), asc(learningTracks.title));
+  } catch {
+    return db.select().from(learningTracks).orderBy(asc(learningTracks.sortOrder));
+  }
+}
+
+export async function setLearningTrackBrand(slug: string, brandId: number | null, description?: string | null) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco indisponível");
+  const updated = await db
+    .update(learningTracks)
+    .set({
+      brandId,
+      ...(description !== undefined ? { description } : {}),
+    })
+    .where(eq(learningTracks.slug, slug))
+    .returning();
+  return updated[0] ?? null;
 }
 
 export async function ensureFollowerAchievementsCatalog() {
