@@ -1,1 +1,1 @@
-export const APP_NAME = "Conexões Creator";
+export { APP_NAME } from "../shared/const";

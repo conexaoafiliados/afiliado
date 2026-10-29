@@ -2,6 +2,7 @@ import {
   boolean,
   decimal,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   serial,
@@ -359,3 +360,100 @@ export const analyticsDaily = pgTable("analytics_daily", {
   salesRevenue: decimal("salesRevenue", { precision: 10, scale: 2 }).default("0").notNull(),
   courseCompletions: integer("courseCompletions").default(0).notNull(),
 });
+
+// ---------------------------------------------------------------------------
+// Movimento Conexões Creators — marcas, produtos de marca, ofertas e interesses
+// (supabase/migration_movimento_etapa1.sql). "products" acima é o marketplace legado.
+// ---------------------------------------------------------------------------
+
+export const brands = pgTable("brands", {
+  id: serial("id").primaryKey(),
+  slug: varchar("slug", { length: 80 }).notNull().unique(),
+  name: varchar("name", { length: 120 }).notNull(),
+  logoUrl: varchar("logoUrl", { length: 512 }),
+  coverUrl: varchar("coverUrl", { length: 512 }),
+  description: text("description"),
+  communicationConcept: varchar("communicationConcept", { length: 255 }),
+  accentColor: varchar("accentColor", { length: 7 }),
+  status: varchar("status", { length: 16 }).default("draft").notNull(),
+  sortOrder: integer("sortOrder").default(0).notNull(),
+  publishedAt: timestamp("publishedAt", { withTimezone: true }),
+  archivedAt: timestamp("archivedAt", { withTimezone: true }),
+  createdBy: integer("createdBy").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const brandProducts = pgTable(
+  "brand_products",
+  {
+    id: serial("id").primaryKey(),
+    brandId: integer("brandId").notNull().references(() => brands.id, { onDelete: "restrict" }),
+    slug: varchar("slug", { length: 80 }).notNull(),
+    name: varchar("name", { length: 160 }).notNull(),
+    description: text("description"),
+    category: varchar("category", { length: 80 }),
+    imageUrls: jsonb("imageUrls").$type<string[]>().default([]).notNull(),
+    usageGuidelines: text("usageGuidelines"),
+    approvedInfo: text("approvedInfo"),
+    referenceMaterials: jsonb("referenceMaterials")
+      .$type<{ label: string; url: string }[]>()
+      .default([])
+      .notNull(),
+    status: varchar("status", { length: 16 }).default("draft").notNull(),
+    sortOrder: integer("sortOrder").default(0).notNull(),
+    publishedAt: timestamp("publishedAt", { withTimezone: true }),
+    archivedAt: timestamp("archivedAt", { withTimezone: true }),
+    createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
+  },
+  t => [unique().on(t.brandId, t.slug)]
+);
+
+export const brandProductOffers = pgTable("brand_product_offers", {
+  id: serial("id").primaryKey(),
+  brandProductId: integer("brandProductId")
+    .notNull()
+    .references(() => brandProducts.id, { onDelete: "cascade" }),
+  channel: varchar("channel", { length: 32 }).default("outro").notNull(),
+  label: varchar("label", { length: 120 }),
+  url: varchar("url", { length: 1024 }).notNull(),
+  notes: text("notes"),
+  isActive: boolean("isActive").default(true).notNull(),
+  sortOrder: integer("sortOrder").default(0).notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const userInterests = pgTable(
+  "user_interests",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    interest: varchar("interest", { length: 32 }).notNull(),
+    createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+  },
+  t => [unique().on(t.userId, t.interest)]
+);
+
+export const userBrandInterests = pgTable(
+  "user_brand_interests",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    brandId: integer("brandId").notNull().references(() => brands.id, { onDelete: "cascade" }),
+    createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+  },
+  t => [unique().on(t.userId, t.brandId)]
+);
+
+export const creatorPreferences = pgTable("creator_preferences", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  interestsSavedAt: timestamp("interestsSavedAt", { withTimezone: true }),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type Brand = typeof brands.$inferSelect;
+export type BrandProduct = typeof brandProducts.$inferSelect;
+export type BrandProductOffer = typeof brandProductOffers.$inferSelect;

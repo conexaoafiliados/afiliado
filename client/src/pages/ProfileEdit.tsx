@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import { PreferencesCard } from "@/components/PreferencesCard";
 import { trpc } from "@/lib/trpc";
 import { prepareImageForUpload } from "@/lib/prepareImage";
 import { useState, useEffect, useRef } from "react";
@@ -334,6 +335,10 @@ export default function ProfileEdit() {
           </div>
         </form>
       </Card>
+
+      <div className="mt-6">
+        <PreferencesCard id="interesses" title="Interesses e marcas" />
+      </div>
     </div>
   );
 }

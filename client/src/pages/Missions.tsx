@@ -6,12 +6,6 @@ import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-const FALLBACK = [
-  { id: 1, title: "Poste seu primeiro conteúdo", description: "Publique na comunidade", category: "growth" as const, difficulty: "easy" as const, reward: 50, status: "pending" as const },
-  { id: 2, title: "Alcance 100 seguidores", description: "Atualize seu progresso", category: "growth" as const, difficulty: "medium" as const, reward: 200, status: "pending" as const },
-  { id: 3, title: "Complete um curso", description: "Matricule-se em um curso", category: "learning" as const, difficulty: "hard" as const, reward: 300, status: "pending" as const },
-];
-
 export default function Missions() {
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.missions.feed.useQuery();
@@ -24,7 +18,7 @@ export default function Missions() {
 
   const [filter, setFilter] = useState<"all" | "pending" | "in_progress" | "completed">("all");
 
-  const missions = (data && data.length > 0 ? data : FALLBACK).map(m => ({
+  const missions = (data ?? []).map(m => ({
     id: m.id,
     title: m.title,
     description: m.description ?? "",
@@ -77,8 +71,16 @@ export default function Missions() {
 
       {filtered.length === 0 && !isLoading && (
         <Card className="card-elegant text-center py-12">
-          <p className="text-muted-foreground mb-4">Nenhuma missão nesta categoria</p>
-          <Button variant="outline" onClick={() => setFilter("all")}>Ver todas</Button>
+          {missions.length === 0 ? (
+            <p className="text-muted-foreground">
+              Nenhuma missão publicada no momento. Quando a equipe publicar novas missões, elas aparecerão aqui.
+            </p>
+          ) : (
+            <>
+              <p className="text-muted-foreground mb-4">Nenhuma missão nesta categoria</p>
+              <Button variant="outline" onClick={() => setFilter("all")}>Ver todas</Button>
+            </>
+          )}
         </Card>
       )}
     </div>

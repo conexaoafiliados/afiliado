@@ -1,12 +1,16 @@
-export type ImageUploadProfile = "avatar" | "banner" | "post";
+export type ImageUploadProfile = "avatar" | "banner" | "post" | "logo";
 
 type PreparedImage = { base64: string; mime: string };
 
-const PROFILES = {
+type ProfileConfig = { maxWidth: number; maxHeight: number; maxBytes: number; png?: boolean };
+
+const PROFILES: Record<ImageUploadProfile, ProfileConfig> = {
   avatar: { maxWidth: 800, maxHeight: 800, maxBytes: 450 * 1024 },
   banner: { maxWidth: 1600, maxHeight: 540, maxBytes: 900 * 1024 },
   post: { maxWidth: 1280, maxHeight: 1280, maxBytes: 850 * 1024 },
-} as const;
+  /** Logos mantêm transparência (PNG). */
+  logo: { maxWidth: 640, maxHeight: 640, maxBytes: 600 * 1024, png: true },
+};
 
 const MAX_INPUT_BYTES = 20 * 1024 * 1024;
 
@@ -46,8 +50,8 @@ function loadImage(file: File): Promise<HTMLImageElement> {
   });
 }
 
-function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {
-  return new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", quality));
+function canvasToBlob(canvas: HTMLCanvasElement, quality: number, mime = "image/jpeg"): Promise<Blob | null> {
+  return new Promise(resolve => canvas.toBlob(resolve, mime, quality));
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -94,11 +98,15 @@ export async function prepareImageForUpload(
     canvas.height = height;
     ctx.clearRect(0, 0, width, height);
     ctx.drawImage(img, 0, 0, width, height);
-    blob = await canvasToBlob(canvas, quality);
+    blob = await canvasToBlob(canvas, quality, cfg.png ? "image/png" : "image/jpeg");
 
     if (blob && blob.size <= cfg.maxBytes) break;
 
-    if (quality > 0.5) {
+    if (cfg.png) {
+      // PNG ignora "quality": só reduzir dimensões diminui o arquivo.
+      width = Math.max(120, Math.round(width * 0.8));
+      height = Math.max(120, Math.round(height * 0.8));
+    } else if (quality > 0.5) {
       quality -= 0.07;
     } else {
       width = Math.max(320, Math.round(width * 0.85));
@@ -112,5 +120,5 @@ export async function prepareImageForUpload(
   }
 
   const base64 = await blobToDataUrl(blob);
-  return { ok: true, data: { base64, mime: "image/jpeg" } };
+  return { ok: true, data: { base64, mime: cfg.png ? "image/png" : "image/jpeg" } };
 }

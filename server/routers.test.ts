@@ -47,7 +47,7 @@ describe("appRouter", () => {
       const caller = appRouter.createCaller({ user: null, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] });
       const result = await caller.system.health();
       expect(result.ok).toBe(true);
-      expect(result.app).toBe("Conexões Creator");
+      expect(result.app).toBe("Conexões Creators");
     });
   });
 
