@@ -1,29 +1,53 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { BrandCard } from "@/components/BrandCard";
+import { PreferencesCard } from "@/components/PreferencesCard";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { StatBox } from "@/components/StatBox";
-import { formatGoalLabel, getNextGoalHint } from "@/lib/goals";
+import { formatGoalLabel } from "@/lib/goals";
 import { trpc } from "@/lib/trpc";
-import { Users, Zap, TrendingUp, Award, BookOpen, ShoppingBag, MessageSquare } from "lucide-react";
+import { ArrowRight, GraduationCap, Loader2, Megaphone, MessageSquare, Store, Target, TrendingUp } from "lucide-react";
+import { useEffect } from "react";
 import { Link } from "wouter";
-import { Loader2 } from "lucide-react";
 
+function ActionCard({
+  href,
+  icon,
+  title,
+  status,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  title: string;
+  /** Texto de estado baseado em dados reais (ou estado vazio útil). */
+  status: string;
+}) {
+  return (
+    <Link href={href}>
+      <a className="block h-full">
+        <Card className="h-full p-4 transition-shadow hover:shadow-md">
+          <div className="flex items-center justify-between text-accent">
+            {icon}
+            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <p className="mt-3 font-semibold">{title}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{status}</p>
+        </Card>
+      </a>
+    </Link>
+  );
+}
+
+/** "Meu início": o que posso fazer agora para aprender, criar, participar ou vender. */
 export default function Dashboard() {
   const { user, hasDbUser } = useAuth();
-  const { data: profile } = trpc.profile.get.useQuery(undefined, {
-    enabled: hasDbUser,
-    retry: false,
-  });
-  const { data: progress, isLoading: progressLoading } = trpc.progress.get.useQuery(undefined, {
-    enabled: hasDbUser,
-    retry: false,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: true,
-  });
-  const { data: analytics } = trpc.analytics.overview.useQuery(undefined, {
-    enabled: hasDbUser,
-    retry: false,
-  });
+  const { data: home, isLoading } = trpc.movement.home.useQuery(undefined, { enabled: hasDbUser, retry: false });
+  const { data: progress } = trpc.progress.get.useQuery(undefined, { enabled: hasDbUser, retry: false });
+
+  // Permite links como /dashboard#interesses (a navegação SPA não rola sozinha até a âncora).
+  useEffect(() => {
+    if (!home || typeof window === "undefined" || !window.location.hash) return;
+    document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ behavior: "smooth" });
+  }, [home]);
 
   if (!user) {
     return (
@@ -33,172 +57,140 @@ export default function Dashboard() {
     );
   }
 
-  const targetFollowers = progress?.targetFollowers ?? 2000;
-  const currentFollowers = progress?.currentFollowers ?? 0;
-  const progressPercentage = progress?.progressPercentage
-    ? parseFloat(progress.progressPercentage.toString())
-    : targetFollowers > 0
-      ? (currentFollowers / targetFollowers) * 100
-      : 0;
-  const followersRemaining = Math.max(0, targetFollowers - currentFollowers);
-  const goalLabel = formatGoalLabel(targetFollowers);
+  const firstName = (user.name ?? "").trim().split(/\s+/)[0] || "creator";
+  const nextStep = home?.nextStep;
+  const missions = home?.missions;
+  const brandCount = home?.brandCount ?? 0;
 
-  const welcomeMetaText = progressLoading
-    ? "Carregando sua meta de seguidores…"
-    : followersRemaining === 0
-      ? `Parabéns! Você atingiu ${targetFollowers.toLocaleString("pt-BR")} seguidores no TikTok — próxima meta: ${formatGoalLabel(getNextGoalHint(targetFollowers))}.`
-      : `Sua meta atual é ${targetFollowers.toLocaleString("pt-BR")} seguidores no TikTok (${goalLabel}) — faltam ${followersRemaining.toLocaleString("pt-BR")} para chegar lá.`;
+  const followers = progress?.currentFollowers ?? 0;
+  const target = progress?.targetFollowers ?? 2000;
+  const pct = target > 0 ? Math.min(100, (followers / target) * 100) : 0;
+  const followersSource = progress && "source" in progress ? progress.source : "manual";
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-4xl font-bold mb-2">Bem-vindo, {user.name}!</h1>
-          <p className="text-muted-foreground">
-            {welcomeMetaText}
-            {profile?.tiktokHandle ? ` · @${profile.tiktokHandle}` : ""}
-          </p>
-        </div>
-        <Link href="/profile/edit">
-          <Button className="btn-primary">Editar Perfil</Button>
-        </Link>
+    <div className="space-y-6 max-w-5xl mx-auto">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold">Olá, {firstName}!</h1>
+        <p className="text-muted-foreground mt-1">O que você quer fazer agora: aprender, criar, participar ou vender?</p>
       </div>
 
-      {/* Main Progress Card */}
-      <Card className="card-elegant bg-gradient-to-br from-accent/5 to-secondary/5 border-accent/20">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold mb-2">Jornada para {goalLabel} no TikTok</h2>
-            <p className="text-muted-foreground">
-              {progress?.source === "tiktok"
-                ? "Atualizado automaticamente do TikTok"
-                : "Conecte o TikTok em Progresso para sync automático"}
-            </p>
+      {/* Próximo passo */}
+      <Card className="p-5 sm:p-6 border-accent/30 bg-gradient-to-br from-accent/5 to-transparent">
+        {isLoading || !hasDbUser ? (
+          <div className="flex justify-center py-6">
+            <Loader2 className="h-6 w-6 animate-spin text-accent" />
           </div>
-          <TrendingUp className="w-12 h-12 text-accent opacity-20" />
-        </div>
-
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-2">
-            <span className="font-semibold">
-              {currentFollowers.toLocaleString("pt-BR")} / {targetFollowers.toLocaleString("pt-BR")} seguidores
-            </span>
-            <span className="text-sm font-semibold text-accent">{progressPercentage.toFixed(1)}%</span>
+        ) : nextStep ? (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+            <div className="space-y-1 min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-accent">Seu próximo passo</p>
+              <h2 className="text-xl font-bold">{nextStep.title}</h2>
+              <p className="text-sm text-muted-foreground max-w-xl">{nextStep.description}</p>
+            </div>
+            <Link href={nextStep.href}>
+              <a className="shrink-0">
+                <Button className="btn-primary w-full sm:w-auto">
+                  {nextStep.cta}
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </a>
+            </Link>
           </div>
-          <div className="progress-bar">
-            <div
-              className="progress-bar-fill"
-              style={{ width: `${progressPercentage}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-4">
-          <div className="stat-box">
-            <div className="stat-value">{currentFollowers.toLocaleString()}</div>
-            <div className="stat-label">Seguidores Atuais</div>
-          </div>
-          <div className="stat-box">
-            <div className="stat-value">{followersRemaining.toLocaleString()}</div>
-            <div className="stat-label">Faltam</div>
-          </div>
-          <div className="stat-box">
-            <div className="stat-value">{progressPercentage.toFixed(0)}%</div>
-            <div className="stat-label">Progresso</div>
-          </div>
-        </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Nada pendente por aqui. Explore o menu para ver o que há de novo.</p>
+        )}
       </Card>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatBox
-          icon={<Zap className="w-8 h-8" />}
-          label="Missões Ativas"
-          value="3"
-          trend={{ value: 1, isPositive: true }}
+      {/* Atalhos com estado real */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <ActionCard
+          href="/aprender"
+          icon={<GraduationCap className="h-6 w-6" />}
+          title="Aprender"
+          status="Trilhas e treinamentos disponíveis"
         />
-
-        <StatBox
-          icon={<Award className="w-8 h-8" />}
-          label="Conquistas"
-          value="5"
-          trend={{ value: 2, isPositive: true }}
+        <ActionCard
+          href="/marcas"
+          icon={<Store className="h-6 w-6" />}
+          title="Marcas e produtos"
+          status={
+            brandCount > 0
+              ? `${brandCount} ${brandCount === 1 ? "marca publicada" : "marcas publicadas"}`
+              : "Nenhuma marca publicada ainda"
+          }
         />
-
-        <StatBox
-          icon={<BookOpen className="w-8 h-8" />}
-          label="Cursos em Progresso"
-          value="2"
+        <ActionCard
+          href="/campanhas"
+          icon={<Megaphone className="h-6 w-6" />}
+          title="Campanhas"
+          status="Nenhuma campanha aberta agora"
         />
-
-        <StatBox
-          icon={<ShoppingBag className="w-8 h-8" />}
-          label="Produtos Vendidos"
-          value={analytics?.sales?.paidOrders ?? 0}
+        <ActionCard
+          href="/growth/missions"
+          icon={<Target className="h-6 w-6" />}
+          title="Missões"
+          status={
+            missions && missions.published > 0
+              ? `${missions.published} ${missions.published === 1 ? "missão publicada" : "missões publicadas"}`
+              : "Nenhuma missão publicada agora"
+          }
+        />
+        <ActionCard
+          href="/community/feed"
+          icon={<MessageSquare className="h-6 w-6" />}
+          title="Comunidade"
+          status="Compartilhe aprendizados e conquistas"
+        />
+        <ActionCard
+          href="/growth/progress"
+          icon={<TrendingUp className="h-6 w-6" />}
+          title="Minha evolução"
+          status="Jornada de seguidores e conquistas"
         />
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="card-elegant">
-          <h3 className="text-lg font-semibold mb-4">Próximas Ações</h3>
-          <div className="space-y-3">
-            <Link href="/growth/missions">
-              <Button variant="outline" className="w-full justify-start">
-                <Zap className="w-4 h-4 mr-2" />
-                Aceitar Missões
-              </Button>
-            </Link>
-            <Link href="/growth/achievements">
-              <Button variant="outline" className="w-full justify-start">
-                <Award className="w-4 h-4 mr-2" />
-                Ver Conquistas
-              </Button>
-            </Link>
-            <Link href="/growth/progress">
-              <Button variant="outline" className="w-full justify-start">
-                <TrendingUp className="w-4 h-4 mr-2" />
-                Atualizar Progresso
-              </Button>
-            </Link>
-            <Link href="/courses/browse">
-              <Button variant="outline" className="w-full justify-start">
-                <BookOpen className="w-4 h-4 mr-2" />
-                Explorar Cursos
-              </Button>
-            </Link>
-            <Link href="/shop/browse">
-              <Button variant="outline" className="w-full justify-start">
-                <ShoppingBag className="w-4 h-4 mr-2" />
-                Vender Produtos
-              </Button>
+      {/* Marcas publicadas */}
+      {home && home.brands.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Marcas do movimento</h2>
+            <Link href="/marcas">
+              <a className="text-sm text-accent hover:underline">Ver todas</a>
             </Link>
           </div>
-        </Card>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {home.brands.slice(0, 3).map(brand => (
+              <BrandCard key={brand.id} brand={brand} />
+            ))}
+          </div>
+        </section>
+      )}
 
-        <Card className="card-elegant">
-          <h3 className="text-lg font-semibold mb-4">Comunidade</h3>
-          <div className="space-y-3">
-            <Link href="/community/feed">
-              <Button variant="outline" className="w-full justify-start">
-                <MessageSquare className="w-4 h-4 mr-2" />
-                Ver Feed
-              </Button>
-            </Link>
-            <Link href="/analytics/overview">
-              <Button variant="outline" className="w-full justify-start">
-                <TrendingUp className="w-4 h-4 mr-2" />
-                Meus Analytics
-              </Button>
-            </Link>
-            <Button variant="outline" className="w-full justify-start" disabled>
-              <Users className="w-4 h-4 mr-2" />
-              Eventos (Em breve)
-            </Button>
-          </div>
-        </Card>
-      </div>
+      {/* Jornada de seguidores como uma dimensão de evolução */}
+      <Card className="p-5 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">Minha evolução: seguidores</h2>
+          <Link href="/growth/progress">
+            <a className="text-sm text-accent hover:underline">Detalhes</a>
+          </Link>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="font-medium">
+            {followers.toLocaleString("pt-BR")} / {target.toLocaleString("pt-BR")} seguidores
+          </span>
+          <span className="text-muted-foreground">{pct.toFixed(0)}% da meta de {formatGoalLabel(target)}</span>
+        </div>
+        <div className="progress-bar">
+          <div className="progress-bar-fill" style={{ width: `${pct}%` }} />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {followersSource === "tiktok"
+            ? "Número sincronizado com o TikTok."
+            : "Número informado por você. Não é verificado pela equipe."}
+        </p>
+      </Card>
+
+      <PreferencesCard id="interesses" />
     </div>
   );
 }

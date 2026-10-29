@@ -71,8 +71,16 @@ export default function Missions() {
 
       {filtered.length === 0 && !isLoading && (
         <Card className="card-elegant text-center py-12">
-          <p className="text-muted-foreground mb-4">Nenhuma missão nesta categoria</p>
-          <Button variant="outline" onClick={() => setFilter("all")}>Ver todas</Button>
+          {missions.length === 0 ? (
+            <p className="text-muted-foreground">
+              Nenhuma missão publicada no momento. Quando a equipe publicar novas missões, elas aparecerão aqui.
+            </p>
+          ) : (
+            <>
+              <p className="text-muted-foreground mb-4">Nenhuma missão nesta categoria</p>
+              <Button variant="outline" onClick={() => setFilter("all")}>Ver todas</Button>
+            </>
+          )}
         </Card>
       )}
     </div>
