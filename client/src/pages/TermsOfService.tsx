@@ -1,23 +1,24 @@
-import { APP_NAME } from "@/const";
+import { APP_NAME, LEGAL_ENTITY_CNPJ, LEGAL_ENTITY_NAME } from "@/const";
 import { LegalLayout } from "@/components/LegalLayout";
 
 export default function TermsOfService() {
   return (
-    <LegalLayout title="Termos de Serviço" updatedAt="4 de junho de 2026">
+    <LegalLayout title="Termos de Serviço" updatedAt="30 de outubro de 2026">
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">1. Aceitação</h2>
         <p>
-          Ao acessar ou usar o {APP_NAME} (“Plataforma”), você concorda com estes Termos de Serviço. Se
-          não concordar, não utilize o serviço.
+          Ao acessar ou usar o {APP_NAME} (“Plataforma”), operado por{" "}
+          <strong>{LEGAL_ENTITY_NAME}</strong> (CNPJ {LEGAL_ENTITY_CNPJ}), você concorda com estes
+          Termos de Serviço. Se não concordar, não utilize o serviço.
         </p>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">2. O que é a Plataforma</h2>
         <p>
-          O {APP_NAME} é uma plataforma digital para creators iniciantes, oferecendo ferramentas de
-          crescimento (meta de seguidores no TikTok), missões gamificadas, cursos, loja, comunidade e
-          analytics. O serviço é oferecido em modo beta e pode ser alterado sem aviso prévio.
+          O {APP_NAME} é uma plataforma digital para creators, com comunidade, trilhas, missões,
+          marcas, campanhas e ferramentas de evolução (incluindo métricas de redes quando autorizadas).
+          O serviço pode evoluir e ser alterado ao longo do tempo.
         </p>
       </section>
 
@@ -105,8 +106,8 @@ export default function TermsOfService() {
         <h2 className="text-xl font-semibold">10. Alterações e contato</h2>
         <p>
           Podemos atualizar estes Termos publicando a nova versão nesta página. O uso continuado após
-          a publicação constitui aceitação. Dúvidas: utilize os canais de suporte indicados no site ou
-          e-mail de contato do projeto.
+          a publicação constitui aceitação. Dúvidas: utilize os canais de suporte da Plataforma.
+          Operador: {LEGAL_ENTITY_NAME} — CNPJ {LEGAL_ENTITY_CNPJ}.
         </p>
         <p>
           Leia também nossa{" "}

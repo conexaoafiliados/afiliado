@@ -1,15 +1,20 @@
-import { APP_NAME } from "@/const";
+import { APP_NAME, LEGAL_ENTITY_CNPJ, LEGAL_ENTITY_NAME } from "@/const";
 import { LegalLayout } from "@/components/LegalLayout";
 
 export default function PrivacyPolicy() {
   return (
-    <LegalLayout title="Política de Privacidade" updatedAt="4 de junho de 2026">
+    <LegalLayout title="Política de Privacidade" updatedAt="30 de outubro de 2026">
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">1. Quem somos</h2>
         <p>
           Esta Política descreve como o {APP_NAME} (“nós”, “Plataforma”) trata dados pessoais de
           usuários (“você”) ao usar nosso site e aplicativo web em{" "}
           <strong>afiliado-zeta.vercel.app</strong> e domínios relacionados.
+        </p>
+        <p>
+          O controlador dos dados (responsável pelo tratamento) é a{" "}
+          <strong>{LEGAL_ENTITY_NAME}</strong>, inscrita no CNPJ{" "}
+          <strong>{LEGAL_ENTITY_CNPJ}</strong>.
         </p>
       </section>
 
@@ -60,8 +65,8 @@ export default function PrivacyPolicy() {
             Plataforma;
           </li>
           <li>
-            <strong>consentimento</strong> — conexão TikTok, cookies não essenciais (quando
-            aplicável);
+            <strong>consentimento</strong> — conexão TikTok e/ou Instagram, cookies não essenciais
+            (quando aplicável);
           </li>
           <li>
             <strong>legítimo interesse</strong> — segurança, métricas agregadas e melhoria do produto.
@@ -81,6 +86,10 @@ export default function PrivacyPolicy() {
           </li>
           <li>
             <strong>TikTok</strong> — quando você inicia a conexão OAuth (fluxo oficial);
+          </li>
+          <li>
+            <strong>Meta (Facebook/Instagram)</strong> — quando você autoriza a conexão do Instagram
+            (fluxo oficial);
           </li>
           <li>
             <strong>Stripe</strong> — pagamentos na loja (quando configurado).
@@ -111,8 +120,10 @@ export default function PrivacyPolicy() {
           <li>portabilidade e revogação do consentimento (ex.: desconectar TikTok).</li>
         </ul>
         <p>
-          Para exercer direitos, entre em contato pelos canais de suporte do projeto. Você também pode
-          reclamar à autoridade nacional de proteção de dados (ANPD).
+          Para exercer direitos (incluindo exclusão de dados), entre em contato pelos canais de suporte
+          do projeto, identificando-se e descrevendo o pedido. Controlador: {LEGAL_ENTITY_NAME} — CNPJ{" "}
+          {LEGAL_ENTITY_CNPJ}. Você também pode reclamar à autoridade nacional de proteção de dados
+          (ANPD).
         </p>
       </section>
 
