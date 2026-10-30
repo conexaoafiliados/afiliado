@@ -1,0 +1,43 @@
+ACCOUNT ACCESS MAINTENANCE POLICY
+=================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda
+CNPJ: 45.659.882/0001-50
+Application: Conexões Creators
+Question reference: maintaining-16
+Effective date: 30 October 2026
+
+1. PURPOSE
+----------
+This policy defines how we grant, revoke, and review access for people in our
+organization to systems that can affect Conexões Creators or Meta Platform Data
+(e.g., Vercel, Supabase, GitHub, Meta Developer App roles, business email).
+
+2. ANNUAL ACCESS REVIEW (HIGHLIGHTED)
+-------------------------------------
+>>> We review all access grants at least once every 12 months and revoke access
+>>> that is no longer required. <<<
+
+>>> We review all access grants at least once every 12 months and revoke access
+>>> that is no longer being used. <<<
+
+3. DEPARTURE / PROMPT REVOCATION (HIGHLIGHTED)
+----------------------------------------------
+>>> We promptly revoke all access grants when a person leaves the organization. <<<
+
+Access is also revoked promptly when:
+- Access is no longer required for the person's role; or
+- Access is no longer being used.
+
+4. PROCEDURE
+------------
+1) Maintain a list of people with elevated access to production systems.
+2) At least annually, review each grant against current role and usage; remove unused
+   or unnecessary access.
+3) On departure or role change: same day when possible, remove Vercel/Supabase/GitHub/
+   Meta app roles and rotate shared secrets if the person had access to them.
+
+5. ATTESTATION
+--------------
+Conexões Consultoria e Treinamentos Ltda implements the account maintenance processes
+above.

@@ -1,0 +1,47 @@
+THIRD-PARTY SOFTWARE UPDATE POLICY — BUILD & RUN SYSTEMS
+========================================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda
+CNPJ: 45.659.882/0001-50
+Application: Conexões Creators
+Question reference: antivirus-17.c.i / patches1-17.c
+Effective date: 30 October 2026
+
+1. PURPOSE
+----------
+This policy states how we keep third-party software updated on the systems and
+applications our organization uses to build and run Conexões Creators
+(developer workstations, browsers, OS, antivirus/security tools, IDEs, Node.js,
+and related tooling).
+
+2. IDENTIFYING PATCHES (HIGHLIGHTED)
+------------------------------------
+>>> We maintain a defined and repeatable way of identifying patches in third-party
+>>> software that resolve security vulnerabilities: <<<
+
+- Operating system: Microsoft Windows Update (automatic updates enabled) and/or
+  equivalent OS update channels on any macOS devices used for development.
+- Browsers: automatic update channels (Chrome/Edge/Firefox).
+- Antivirus / endpoint security: vendor update / definition update services.
+- Development runtimes and tooling: Node.js / npm advisories (npm audit), IDE and
+  Git client update notifications.
+
+3. PRIORITIZATION BY RISK (HIGHLIGHTED)
+---------------------------------------
+>>> Available patches are prioritized based on risk (e.g., CVSS / vendor severity): <<<
+
+- Critical / High: apply as soon as reasonably possible after quick compatibility check.
+- Medium: schedule within normal update cycles.
+- Low / Informational: apply in regular maintenance windows.
+
+4. ONGOING APPLICATION OF PATCHES (HIGHLIGHTED)
+-----------------------------------------------
+>>> Applying patches is an ongoing activity as part of our operations. <<<
+
+Operators keep automatic updates enabled where available and periodically verify
+that OS, browser, security software, and development tooling are current.
+
+5. ATTESTATION
+--------------
+Conexões Consultoria e Treinamentos Ltda keeps third-party software used to build
+and run Conexões Creators updated according to this policy.

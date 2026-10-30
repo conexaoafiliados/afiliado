@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Access Revocation Evidence — Conexões Creators</title>
+  <style>
+    body { font-family: Segoe UI, Arial, sans-serif; max-width: 880px; margin: 32px auto; color: #111; }
+    h1 { font-size: 20px; }
+    .meta { color: #444; font-size: 14px; margin-bottom: 20px; }
+    .box { border: 1px solid #d1d5db; border-radius: 8px; padding: 16px; margin: 16px 0; }
+    .btn { display: inline-block; background: #dc2626; color: #fff; padding: 8px 14px; border-radius: 6px; font-weight: 600; }
+    .btn2 { display: inline-block; background: #111827; color: #fff; padding: 8px 14px; border-radius: 6px; font-weight: 600; margin-left: 8px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+    th, td { border: 1px solid #e5e7eb; padding: 10px; text-align: left; font-size: 14px; }
+    th { background: #f9fafb; }
+    .note { background: #eff6ff; border: 1px solid #bfdbfe; padding: 12px; border-radius: 8px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>Evidence: how access revocation is initiated</h1>
+  <div class="meta">
+    Organization: Conexões Consultoria e Treinamentos Ltda — CNPJ 45.659.882/0001-50<br />
+    App: Conexões Creators · Question: maintaining-16.a.ii<br />
+    Policy: meta-account-access-maintenance-policy.txt
+  </div>
+
+  <div class="note">
+    Preferred evidence for Meta: real screenshots from Vercel / Supabase / GitHub member settings
+    showing the <strong>Remove / Revoke</strong> control. This page documents the initiation flow.
+  </div>
+
+  <div class="box">
+    <strong>Initiation of revocation (example UI control)</strong>
+    <p>When access is no longer required, no longer used, or a person leaves the organization,
+      an authorized operator opens the team/members page and initiates revocation:</p>
+    <p>
+      <span class="btn">Remove member</span>
+      <span class="btn2">Revoke access</span>
+    </p>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>System</th><th>Where revocation is initiated</th><th>Trigger</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Vercel</td>
+        <td>Team → Members → Remove</td>
+        <td>Role change / unused / departure</td>
+      </tr>
+      <tr>
+        <td>Supabase</td>
+        <td>Organization → Team → Remove member</td>
+        <td>Role change / unused / departure</td>
+      </tr>
+      <tr>
+        <td>GitHub</td>
+        <td>Org/Repo → People/Collaborators → Remove</td>
+        <td>Role change / unused / departure</td>
+      </tr>
+      <tr>
+        <td>Meta Developer</td>
+        <td>App Roles → Remove role</td>
+        <td>Role change / unused / departure</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p style="margin-top:20px;font-size:13px;color:#555;">
+    Open this file and/or take PNG screenshots of the real Remove member button in each console (redact emails).
+  </p>
+</body>
+</html>

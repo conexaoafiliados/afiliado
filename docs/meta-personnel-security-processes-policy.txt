@@ -1,0 +1,34 @@
+PERSONNEL SECURITY PROCESSES — PLATFORM DATA ACCESS
+===================================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda
+CNPJ: 45.659.882/0001-50
+Application: Conexões Creators
+Question reference: securityprocesses-23
+Effective date: 30 October 2026
+
+1. PURPOSE
+----------
+This policy states security processes for people who have access to Meta Platform Data.
+
+2. PROCESSES IN PLACE (HIGHLIGHTED)
+-----------------------------------
+>>> Before / while accessing Platform Data, personnel are subject to: <<<
+
+- Confidentiality / acceptable use obligations (see meta-acceptable-use-platform-data.txt)
+  before processing Platform Data on devices.
+- Information security awareness as part of onboarding for new personnel with access
+  (MFA policy, token/secret handling, log/review expectations).
+- Regular ongoing awareness at least annually for people with continued access
+  (refresh of AUP, MFA, and incident reporting expectations).
+- Role-related guidance for operators who administer Vercel/Supabase/Meta app credentials.
+- Return of company assets (e.g., laptop) and prompt access revocation upon separation
+  from the organization (see meta-account-access-maintenance-policy.txt).
+
+Background checks may be used when required by role/risk; at minimum, access is limited
+to authorized operators of Conexões Consultoria e Treinamentos Ltda.
+
+3. ATTESTATION
+--------------
+Conexões Consultoria e Treinamentos Ltda maintains personnel security processes for
+people with access to Platform Data as described above.
