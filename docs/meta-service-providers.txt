@@ -1,0 +1,20 @@
+Meta App Review — Service Providers (Other)
+App: Conexões Creators
+Controller / Developer: Conexões Consultoria e Treinamentos Ltda
+CNPJ: 45.659.882/0001-50
+
+We share Platform Data only with the following Service Providers, solely to operate the application. We do not sell or license Platform Data.
+
+1) Supabase Inc.
+   Website: https://supabase.com
+   Role: Cloud database and authentication
+   Platform Data shared: Instagram connection identifiers; access tokens; profile username/display name; follower and insights metrics synced via Instagram Graph API
+   Purpose: Store and process Platform Data for the creator growth dashboard
+   Written agreement: Yes — Supabase Terms of Service / Data Processing Addendum accepted by Conexões Consultoria e Treinamentos Ltda
+
+2) Vercel Inc.
+   Website: https://vercel.com
+   Role: Application hosting and serverless runtime
+   Platform Data shared: Platform Data may transit through or be processed temporarily by the hosted application when users connect Instagram or sync metrics
+   Purpose: Host and run the Conexões Creators web application
+   Written agreement: Yes — Vercel Terms of Service / Data Processing Agreement accepted by Conexões Consultoria e Treinamentos Ltda
