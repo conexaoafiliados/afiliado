@@ -1,0 +1,47 @@
+PROTECTION OF META API USER ACCESS TOKENS
+=========================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda — CNPJ 45.659.882/0001-50
+Application: Conexões Creators
+Question reference: accesstoken-13.c.i
+Effective date: 30 October 2026
+
+1. PURPOSE
+----------
+This policy/procedure explains how we protect Meta API user access tokens from
+unauthorized use and unauthorized read access.
+
+2. HOW TOKENS ARE PROTECTED FROM UNAUTHORIZED READ ACCESS (HIGHLIGHTED)
+----------------------------------------------------------------------
+>>> User access tokens are protected from unauthorized read access as follows: <<<
+
+- Tokens are stored only in the server-side Supabase PostgreSQL database used by
+  Conexões Creators.
+- Tokens are read and used only by the backend application for the authorizing
+  creator's Instagram sync. They are not exposed in the client/frontend responses
+  or public repositories.
+- Access to production database credentials and hosting secrets is limited to
+  authorized operators of Conexões Consultoria e Treinamentos Ltda.
+- Database storage is encrypted at rest by Supabase (AES-256).
+- Production transport uses HTTPS / TLS 1.2+.
+- On Instagram disconnect or when retention is no longer necessary / deletion is
+  requested, tokens are cleared from storage.
+
+3. LOG FILES — CLEARTEXT PROHIBITION (HIGHLIGHTED)
+--------------------------------------------------
+>>> REQUIREMENT: User access tokens MUST NEVER be written to log files in
+>>> cleartext (unencrypted) form. <<<
+
+Operators and developers must:
+- Not print, console.log, or persist access tokens in application logs, error
+  tracking, analytics events, screenshots shared externally, or chat/support tickets.
+- Redact tokens if debugging OAuth flows (show only truncated non-sensitive prefixes
+  if a correlation id is required).
+- Treat accidental logging of a token as a security incident: rotate/revoke the
+  token and remove the log artifact when possible.
+
+4. ATTESTATION
+--------------
+Conexões Consultoria e Treinamentos Ltda attests that Meta user access tokens for
+Conexões Creators are protected as described above, including the prohibition on
+cleartext logging.

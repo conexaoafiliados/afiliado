@@ -1,0 +1,37 @@
+MFA ENFORCEMENT EVIDENCE CHECKLIST — CONEXÕES CREATORS
+======================================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda — CNPJ 45.659.882/0001-50
+Question: mfa-15.b.iii
+Policy reference: meta-mfa-policy.txt
+
+Meta note: a single MFA login screenshot is NOT enough.
+Upload: (1) this checklist + MFA policy, PLUS (2) screenshots of organization /
+account security settings that show MFA required or enabled for operators.
+
+REQUIRED SCREENSHOTS (redact emails partially if needed)
+--------------------------------------------------------
+
+A) Collaboration / email
+   - Google Account → Security → 2-Step Verification = On
+     OR Google Workspace Admin → Security → 2-Step Verification enforcement
+   - If Microsoft 365: Admin → MFA / Security Defaults enabled
+
+B) Code repository
+   - GitHub → Settings → Password and authentication → Two-factor authentication = Enabled
+   - If Organization: Settings → Authentication security →
+     "Require two-factor authentication for everyone in the organization" = Enabled
+     (PREFERRED — this is org-wide enforcement)
+
+C) Deployment / CI-CD
+   - Vercel → Account Settings → Authentication / Two-Factor Authentication = Enabled
+   - Team settings showing security requirements if available
+
+D) Backend admin
+   - Supabase → Account / Organization security → MFA / TOTP enabled
+   - Dashboard security settings screenshot (value of secrets redacted)
+
+ATTESTATION
+-----------
+All people with access to Conexões Creators production tools must keep MFA enabled
+per meta-mfa-policy.txt. Access without MFA is not permitted.

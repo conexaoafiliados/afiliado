@@ -1,0 +1,60 @@
+ADMIN AUDIT LOG POLICY — BACKEND ENVIRONMENT
+============================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda
+CNPJ: 45.659.882/0001-50
+Application: Conexões Creators
+Question reference: auditlog-22.a
+Effective date: 30 October 2026
+
+1. PURPOSE
+----------
+This policy states how we collect admin audit logs for the backend environment
+where Meta Platform Data is stored and processed (Supabase database/auth + Vercel
+application hosting).
+
+2. DEFINITION
+-------------
+Admin audit logs are records of actions taken by users with elevated privileges
+(operators/administrators of Conexões Creators production systems).
+
+3. WHERE LOGS ARE COLLECTED (HIGHLIGHTED)
+-----------------------------------------
+>>> We collect admin audit / administrative activity records via our managed
+>>> platform providers used as the backend environment: <<<
+
+- Supabase project/organization dashboard logs and Auth/admin activity available
+  in the Supabase console (account and project administration).
+- Vercel project/team activity related to deployments, environment variable
+  changes, and administrative account actions in the Vercel dashboard.
+- Source control / deployment history for production releases (when Git-connected).
+
+4. WHAT IS COVERED (HIGHLIGHTED)
+--------------------------------
+>>> Properly configured admin logging includes indicators of privileged actions
+>>> such as: <<<
+
+>>> 1) Executing programs or scripts that change production systems
+>>>    (e.g., production deployments / serverless function releases on Vercel). <<<
+
+>>> 2) Creating or disabling accounts with elevated access
+>>>    (e.g., inviting/removing members in Supabase organization or Vercel team). <<<
+
+>>> 3) Resetting passwords or changing multi-factor authentication configurations
+>>>    on administrative accounts for these platforms. <<<
+
+>>> 4) Editing, moving, or deleting operational logs/configuration that affects
+>>>    observability (tracked via provider dashboards and change history where
+>>>    available; operators must not disable required logging without approval). <<<
+
+5. ACCESS AND RETENTION
+-----------------------
+- Access to admin logs is limited to authorized operators.
+- Logs are retained according to each provider’s retention settings for the
+  project plan; operators must not purge audit evidence needed for security review
+  without a documented business reason.
+
+6. ATTESTATION
+--------------
+Conexões Consultoria e Treinamentos Ltda collects admin audit logs for the
+Conexões Creators backend environment as described above.

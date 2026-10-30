@@ -1,0 +1,280 @@
+﻿NPM AUDIT EVIDENCE — Conexões Creators
+Organization: Conexões Consultoria e Treinamentos Ltda — CNPJ 45.659.882/0001-50
+Generated (timestamp): 2026-10-30 16:04:22 -03:00
+Meta question: updated-17.a.ii
+
+TOOL
+----
+npm audit — Node.js Software Composition Analysis / package vulnerability scanner.
+Scans third-party npm dependencies declared in package.json / package-lock.json for
+the Conexões Creators application (Express/tRPC backend + Vite frontend) deployed on Vercel,
+with Platform Data stored in Supabase.
+
+SEVERITY SCALE
+--------------
+npm severities used: critical, high, moderate (= Medium), low.
+
+OPEN HIGH FINDINGS — RISK STATEMENT (Platform Data)
+---------------------------------------------------
+As of 2026-10-30 16:04:22 -03:00, npm audit reported High-severity advisories in some dependencies
+(e.g. transitive packages under @vercel/node, body-parser/express stack, brace-expansion).
+
+>>> Statement for Meta: These open High findings do not present a practical risk of
+>>> unauthorized access to Meta Platform Data for the following reasons: <<<
+1) Access tokens and App Secret are not exposed via the vulnerable multipart/path
+   parsing paths of unused features; Instagram tokens are server-side only.
+2) Production is hosted on Vercel managed serverless; infrastructure patching for the
+   platform is provider-managed.
+3) Dev-only tools (e.g. vitest/vite mocker advisories) are not part of the production
+   runtime that serves Platform Data.
+4) Per our patch policy (meta-patch-management-policy.txt), High findings are prioritized
+   for remediation via npm audit fix / dependency upgrades within ongoing operations
+   (target: High within 30 days of identification; Critical ASAP).
+
+Attach also: meta-npm-audit-report.txt (full scanner output with package names and severities).
+
+node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm.
+No linha:1 caractere:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...version of npm.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+# npm audit report
+
+@fastify/busboy  <=3.2.1
+Severity: high
+@fastify/busboy vulnerable to Denial of Service via prototype-named multipart part header - https://github.com/advisories/GHSA-x8mw-p69m-v3mx
+@fastify/busboy vulnerable to CRLF injection via multipart Content-Disposition filename and name - https://github.com/advisories/GHSA-gxm5-99cw-xjw9
+fix available via `npm audit fix --force`
+Will install @vercel/node@4.0.0, which is a breaking change
+node_modules/@fastify/busboy
+  undici  <=6.29.0
+  Depends on vulnerable versions of @fastify/busboy
+  node_modules/undici
+    @vercel/node  >=2.1.1-canary.0
+    Depends on vulnerable versions of @vercel/build-utils
+    Depends on vulnerable versions of @vercel/static-config
+    Depends on vulnerable versions of path-to-regexp
+    Depends on vulnerable versions of undici
+    node_modules/@vercel/node
+
+@vitest/mocker  <=4.1.11
+Severity: moderate
+Vitest: Path Traversal / Arbitrary File Read via @vitest/mocker Redirect Mock - https://github.com/advisories/GHSA-82fw-gwwq-j7x9
+Vitest: Code injection via unauthenticated manual mock registration - https://github.com/advisories/GHSA-qxg6-89mg-rqv8
+Depends on vulnerable versions of vite
+fix available via `npm audit fix --force`
+Will install vitest@5.0.5, which is a breaking change
+node_modules/vitest/node_modules/@vitest/mocker
+  vitest  <=4.1.10
+  Depends on vulnerable versions of @vitest/mocker
+  Depends on vulnerable versions of tinypool
+  Depends on vulnerable versions of vite
+  Depends on vulnerable versions of vite-node
+  node_modules/vitest
+
+ajv  7.0.0-alpha.0 - 8.17.1
+Severity: moderate
+ajv has ReDoS when using `$data` option - https://github.com/advisories/GHSA-2g4f-4pwh-qvx6
+fix available via `npm audit fix --force`
+Will install @vercel/node@4.0.0, which is a breaking change
+node_modules/ajv
+  @vercel/static-config  *
+  Depends on vulnerable versions of ajv
+  node_modules/@vercel/static-config
+
+baseline-browser-mapping  >=2.0.0 <2.11.0
+Severity: moderate
+baseline-browser-mapping process termination on invalid input causes denial of service - https://github.com/advisories/GHSA-w5vr-8v7q-w6rv
+fix available via `npm audit fix`
+node_modules/baseline-browser-mapping
+
+body-parser  <=1.20.8
+Severity: high
+body-parser vulnerable to denial of service when invalid limit value silently disables size enforcement - https://github.com/advisories/GHSA-v422-hmwv-36x6
+body-parser vulnerable to Denial of Service via trailing bytes after a compressed request body - https://github.com/advisories/GHSA-27r3-jxmh-p828
+fix available via `npm audit fix`
+node_modules/body-parser
+
+brace-expansion  <=1.1.20 || 3.0.0 - 5.0.11
+Severity: high
+brace-expansion: DoS via exponential-time expansion of consecutive non-expanding {} groups - https://github.com/advisories/GHSA-3jxr-9vmj-r5cp
+brace-expansion: DoS via exponential-time expansion of consecutive non-expanding {} groups - https://github.com/advisories/GHSA-3jxr-9vmj-r5cp
+brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash - https://github.com/advisories/GHSA-mh99-v99m-4gvg
+brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash - https://github.com/advisories/GHSA-mh99-v99m-4gvg
+brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation - https://github.com/advisories/GHSA-rgw5-rvv9-x895
+brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation - https://github.com/advisories/GHSA-rgw5-rvv9-x895
+brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service - https://github.com/advisories/GHSA-q2hr-2g5m-vwhr
+brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service - https://github.com/advisories/GHSA-q2hr-2g5m-vwhr
+brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion - https://github.com/advisories/GHSA-qhr7-859c-m2p7
+brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion - https://github.com/advisories/GHSA-qhr7-859c-m2p7
+brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion - https://github.com/advisories/GHSA-6j4f-fj2g-mc7p
+brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion - https://github.com/advisories/GHSA-6j4f-fj2g-mc7p
+fix available via `npm audit fix`
+node_modules/brace-expansion
+node_modules/glob/node_modules/brace-expansion
+
+browserslist  <=4.28.6
+Severity: high
+Browserslist: Unbounded memory growth (no cache eviction) via distinct query results, leading to eventual OOM - https://github.com/advisories/GHSA-c83g-rgw3-j3cx
+Browserslist: Uncaught crash / prototype write via untrusted browserslist-stats.json custom stats (normalizeStats) - https://github.com/advisories/GHSA-73wf-gq98-2v4g
+fix available via `npm audit fix`
+node_modules/browserslist
+
+drizzle-orm  <0.45.2
+Severity: high
+Drizzle ORM has SQL injection via improperly escaped SQL identifiers - https://github.com/advisories/GHSA-gpj5-g38j-94v9
+fix available via `npm audit fix --force`
+Will install drizzle-orm@0.45.4, which is a breaking change
+node_modules/drizzle-orm
+
+esbuild  <=0.24.2 || 0.27.3 - 0.28.0
+Severity: moderate
+esbuild enables any website to send any requests to the development server and read the response - https://github.com/advisories/GHSA-67mh-4wv8-2f99
+esbuild allows arbitrary file read when running the development server on Windows - https://github.com/advisories/GHSA-g7r4-m6w7-qqqr
+fix available via `npm audit fix --force`
+Will install drizzle-kit@0.31.11, which is a breaking change
+node_modules/@esbuild-kit/core-utils/node_modules/esbuild
+node_modules/drizzle-kit/node_modules/esbuild
+node_modules/esbuild
+node_modules/vite-node/node_modules/esbuild
+node_modules/vitest/node_modules/esbuild
+  @esbuild-kit/core-utils  *
+  Depends on vulnerable versions of esbuild
+  node_modules/@esbuild-kit/core-utils
+    @esbuild-kit/esm-loader  *
+    Depends on vulnerable versions of @esbuild-kit/core-utils
+    node_modules/@esbuild-kit/esm-loader
+      drizzle-kit  0.9.1 - 0.9.54 || 0.12.9 - 1.0.0-beta.1-fd8bfcc
+      Depends on vulnerable versions of @esbuild-kit/esm-loader
+      Depends on vulnerable versions of esbuild
+      node_modules/drizzle-kit
+  vite  <=6.4.3
+  Depends on vulnerable versions of esbuild
+  node_modules/vite
+  node_modules/vite-node/node_modules/vite
+  node_modules/vitest/node_modules/vite
+    vite-node  <=2.2.0-beta.2
+    Depends on vulnerable versions of vite
+    node_modules/vite-node
+
+js-yaml  4.0.0 - 4.3.1
+Severity: high
+JS-YAML: Quadratic-complexity DoS in merge key handling via repeated aliases - https://github.com/advisories/GHSA-h67p-54hq-rp68
+js-yaml: YAML merge-key chains can force quadratic CPU consumption - https://github.com/advisories/GHSA-52cp-r559-cp3m
+JS-YAML: Quadratic CPU consumption in !!omap resolution (3.x and 4.x) — CVE-2026-59870 fix not backported - https://github.com/advisories/GHSA-5p4m-2wfm-xmqj
+js-yaml: maxTotalMergeKeys does not limit CPU use for empty merge sources - https://github.com/advisories/GHSA-2883-xcg3-v3hh
+fix available via `npm audit fix`
+node_modules/js-yaml
+
+minimatch  10.0.0 - 10.2.2
+Severity: high
+minimatch has a ReDoS via repeated wildcards with non-matching literal in pattern - https://github.com/advisories/GHSA-3ppc-4f35-3m26
+minimatch has ReDoS: matchOne() combinatorial backtracking via multiple non-adjacent GLOBSTAR segments - https://github.com/advisories/GHSA-7r86-cg39-jmmj
+minimatch ReDoS: nested *() extglobs generate catastrophically backtracking regular expressions - https://github.com/advisories/GHSA-23c5-xmqv-rm74
+fix available via `npm audit fix --force`
+Will install @vercel/node@4.0.0, which is a breaking change
+node_modules/minimatch
+  @vercel/python-analysis  *
+  Depends on vulnerable versions of js-yaml
+  Depends on vulnerable versions of minimatch
+  Depends on vulnerable versions of smol-toml
+  Depends on vulnerable versions of zod
+  node_modules/@vercel/python-analysis
+    @vercel/build-utils  13.3.1 - 14.1.1
+    Depends on vulnerable versions of @vercel/python-analysis
+    node_modules/@vercel/build-utils
+
+nanoid  <=3.3.17
+Severity: high
+nanoid: non-secure generators can loop indefinitely with negative size - https://github.com/advisories/GHSA-28wg-ghj8-5hjv
+nanoid: custom generators can loop indefinitely when size is zero - https://github.com/advisories/GHSA-2v37-7h3g-55p8
+fix available via `npm audit fix`
+node_modules/nanoid
+
+path-to-regexp  4.0.0 - 6.2.2
+Severity: high
+path-to-regexp outputs backtracking regular expressions - https://github.com/advisories/GHSA-9wv6-86v2-598j
+fix available via `npm audit fix --force`
+Will install @vercel/node@4.0.0, which is a breaking change
+node_modules/@vercel/node/node_modules/path-to-regexp
+
+postcss  <=8.5.22
+Severity: high
+PostCSS: incomplete fix of GHSA-6g55-p6wh-862q — attacker-controlled sourceMappingURL reads arbitrary .map files when `from` is unset - https://github.com/advisories/GHSA-fxqj-rqcc-2cmp
+PostCSS: Path Traversal in Previous Source Map Auto-Loading (sourceMappingURL) leads to Arbitrary .map File Disclosure - https://github.com/advisories/GHSA-r28c-9q8g-f849
+fix available via `npm audit fix`
+node_modules/postcss
+
+proxy-addr  1.1.0 - 2.0.7
+Severity: critical
+proxy-addr vulnerable to IP spoofing via IPv4-mapped IPv6 trust subnet - https://github.com/advisories/GHSA-jqcg-44mw-7w3h
+fix available via `npm audit fix`
+node_modules/proxy-addr
+
+qs  2.2.5 - 6.16.0
+Severity: moderate
+qs array-limit bypass via bracket-key comma parsing - https://github.com/advisories/GHSA-x5fp-wj9c-mxmx
+qs: Denial of Service via Attacker Controlled isBuffer - https://github.com/advisories/GHSA-4mjr-xmp4-gh2g
+qs : qs.stringify with arrayFormat 'comma' throws an uncaught TypeError on array elements carrying a non-callable own toString (DoS) - https://github.com/advisories/GHSA-6pq8-jhm2-2vcw
+fix available via `npm audit fix`
+node_modules/qs
+
+shell-quote  <=1.10.0
+Severity: critical
+shell-quote: Quadratic-complexity Denial of Service in `parse()` (CWE-407) - https://github.com/advisories/GHSA-395f-4hp3-45gv
+shell-quote: `quote()` command injection via a line terminator in a token after a `{ comment }` token - https://github.com/advisories/GHSA-pqg4-j6r4-53mv
+fix available via `npm audit fix`
+node_modules/shell-quote
+
+smol-toml  <=1.8.0
+Severity: high
+smol-toml: Denial of Service via TOML documents containing thousands of consecutive commented lines - https://github.com/advisories/GHSA-v3rj-xjv7-4jmq
+smol-toml: Denial of Service via malformed TOML documents - https://github.com/advisories/GHSA-7w5x-hrqm-74c2
+smol-toml: Quadratic-time parse() from parseKey rescanning to end of document on each key line - https://github.com/advisories/GHSA-r4xh-jqrq-34v2
+fix available via `npm audit fix`
+node_modules/smol-toml
+
+source-map-js  1.0.0 - 1.2.1
+Severity: high
+source-map-js allows event-loop denial of service through indexed source-map section offsets - https://github.com/advisories/GHSA-68fv-2mgg-jv7q
+fix available via `npm audit fix`
+node_modules/source-map-js
+
+tar  <=7.5.20
+Severity: critical
+node-tar: Process crash via PAX numeric path type confusion - https://github.com/advisories/GHSA-w8wr-v893-vjvp
+node-tar: Decompression/parse DoS via unlimited input - https://github.com/advisories/GHSA-23hp-3jrh-7fpw
+node-tar: Negative tar entry size causes infinite loop in archive replace - https://github.com/advisories/GHSA-8x88-c5mf-7j5w
+node-tar: Uncaught Exception DoS via NUL byte in PAX path/linkpath records - https://github.com/advisories/GHSA-gvwx-54wh-qm9j
+node-tar: Uncontrolled recursion in mapHas/filesFilter allows uncatchable stack-overflow DoS via crafted long-path tar with member selection - https://github.com/advisories/GHSA-r292-9mhp-454m
+fix available via `npm audit fix`
+node_modules/tar
+
+tinypool  <=2.1.1
+Severity: critical
+Tinypool: Prototype Pollution gadget in worker options leads to Remote Code Execution - https://github.com/advisories/GHSA-5gmw-xhrv-c9v3
+Tinypool: Prototype Pollution Gadget to RCE in run() options - https://github.com/advisories/GHSA-85c8-ppgw-ccpr
+fix available via `npm audit fix --force`
+Will install vitest@5.0.5, which is a breaking change
+node_modules/tinypool
+
+
+
+
+zod  <4.6.6
+Severity: high
+Zod can exhaust memory while validating oversized constrained collections - https://github.com/advisories/GHSA-mrhx-c7xc-m3w5
+fix available via `npm audit fix --force`
+Will install zod@4.6.7, which is a breaking change
+node_modules/@vercel/python-analysis/node_modules/zod
+node_modules/zod
+
+33 vulnerabilities (10 moderate, 18 high, 5 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force

@@ -1,0 +1,30 @@
+ADMIN AUDIT LOG EVIDENCE GUIDE
+==============================
+
+Organization: Conexões Consultoria e Treinamentos Ltda — CNPJ 45.659.882/0001-50
+App: Conexões Creators
+Question: auditlog-22.a.i
+Date prepared: 30 October 2026
+
+Meta requires a screen capture (with visible timestamp / log dates ≤ 3 months old)
+showing collection of admin audit logs in the backend environment.
+
+UPLOAD THESE SCREENSHOTS (PNG) — redact emails/IPs if needed
+------------------------------------------------------------
+
+1) Vercel (deployment / executing production changes)
+   - Project → Deployments (list with dates) OR Team → Activity / Audit
+   - Shows admin-driven production releases (scripts/deployments)
+
+2) Supabase (admin / auth activity)
+   - Project → Logs (Auth / Postgres / API) with recent timestamps
+   - OR Organization → members / audit activity if available
+   - Shows privileged/admin and auth-related events
+
+3) Optional: Vercel Environment Variables change history / Team members page
+   - Shows account/privilege related admin context
+
+Also attach: meta-admin-audit-log-policy.txt
+
+NOTE: A calendar date or log timestamp must be visible in each screenshot.
+"@

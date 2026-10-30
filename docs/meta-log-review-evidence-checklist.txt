@@ -1,0 +1,32 @@
+APPLICATION EVENT LOG REVIEW — EVIDENCE CHECKLIST
+=================================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda — CNPJ 45.659.882/0001-50
+App: Conexões Creators
+Question: auditlog-22.e.iii
+Policy: meta-log-review-application-events-policy.txt
+
+REVIEW RECORD (example / operational evidence)
+----------------------------------------------
+Review date: 30 October 2026
+Reviewer role: Authorized operator — Conexões Creators
+Cadence: at least every 7 days
+
+Sources reviewed:
+- [ ] Vercel project Logs / Functions (auth errors, API failures, anomalous traffic)
+- [ ] Supabase Logs — Auth / API (failed auth, unusual access)
+
+Indicators checked:
+- [ ] Unauthorized or anomalous authentication activity
+- [ ] Access control failures or privilege escalation attempts
+- [ ] Signs of application exploitation or abuse
+- [ ] Unusual data access or extraction patterns
+
+Outcome on 30 October 2026:
+No critical indicators of unauthorized access to Meta Platform Data identified during this review.
+(If findings occur: document, contain, rotate tokens/secrets as needed.)
+
+UPLOAD WITH THIS FILE
+---------------------
+1) Screenshot(s) of Vercel Logs and/or Supabase Logs with visible timestamps
+2) meta-log-review-application-events-policy.txt

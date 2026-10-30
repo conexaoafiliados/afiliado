@@ -1,0 +1,56 @@
+MULTI-FACTOR AUTHENTICATION (MFA) POLICY
+========================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda
+CNPJ: 45.659.882/0001-50
+Application: Conexões Creators
+Question reference: mfa-15.b.ii
+Effective date: 30 October 2026
+
+1. PURPOSE
+----------
+This policy requires multi-factor authentication (MFA) to prevent account takeover
+for people who access tools that can affect Conexões Creators or Meta Platform Data.
+
+2. MFA REQUIREMENT (HIGHLIGHTED)
+--------------------------------
+>>> MFA is REQUIRED for all access to the following tool categories: <<<
+
+>>> a. Collaboration and communication tools (e.g., business email, Slack/Teams) <<<
+>>> b. Code repository tools (e.g., GitHub/Git) used to track changes to the app,
+>>>    system code, and configuration <<<
+>>> c. Software deployment / CI-CD tools (e.g., Vercel) <<<
+>>> d. Backend administrative tools / cloud administrative portals
+>>>    (e.g., Supabase dashboard, hosting provider admin) <<<
+
+3. SCOPE
+--------
+Applies to all members of Conexões Consultoria e Treinamentos Ltda who can access
+the tools above for Conexões Creators.
+
+4. ACCEPTABLE MFA METHODS
+-------------------------
+Any of the following (provider-supported): authenticator app (TOTP), hardware security
+key, SMS/phone second factor where offered by the vendor, or SSO with MFA enforced
+by the identity provider.
+
+5. PROCEDURE
+------------
+1. Enable MFA on each in-scope account before processing Platform Data or deploying
+   production changes.
+2. Do not share MFA codes or recovery codes.
+3. Store recovery codes offline in a secure location; rotate credentials if a device
+   is lost.
+4. New operators must enable MFA as part of onboarding before receiving production access.
+
+6. ALTERNATIVE CONTROLS
+----------------------
+Primary control is MFA. If a specific vendor tool cannot support MFA, access is not
+permitted until an equivalent control approved by the organization is in place.
+(We do not rely on password-only access for the tool categories listed in section 2.)
+
+7. ATTESTATION
+--------------
+Conexões Consultoria e Treinamentos Ltda requires MFA for collaboration, code
+repository, deployment, and backend administrative tools used for Conexões Creators
+as described above.

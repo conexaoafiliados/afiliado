@@ -1,0 +1,42 @@
+ADMIN AUDIT LOG REVIEW POLICY
+=============================
+
+Organization: Conexões Consultoria e Treinamentos Ltda
+CNPJ: 45.659.882/0001-50
+Application: Conexões Creators
+Question reference: auditlog-22.f.1 / related follow-ups
+Effective date: 30 October 2026
+
+1. PURPOSE
+----------
+This procedure states how we review admin audit logs for signs that an
+administrative account may have been compromised or misused.
+
+2. REVIEW FREQUENCY (HIGHLIGHTED)
+---------------------------------
+>>> Admin audit logs from the backend environment are reviewed at least every
+>>> 7 days. <<<
+
+3. HOW WE REVIEW
+----------------
+Authorized operators review:
+- Vercel team/project administrative activity and deployment history
+- Supabase organization/project member and admin-related activity / logs
+
+4. INDICATORS (HIGHLIGHTED)
+---------------------------
+>>> Reviews look for: <<<
+>>> 1) Unusual admin login patterns (new locations, unusual hours, failed attempts) <<<
+>>> 2) Changes to access controls that could expose Platform Data <<<
+>>> 3) Unexpected new admin accounts or privilege escalations <<<
+>>> 4) Modifications to logging, monitoring, or security configurations <<<
+
+5. RESPONSE
+-----------
+If indicators are found: revoke/reset access, rotate secrets, document the incident,
+and restore secure configuration.
+
+6. ATTESTATION
+--------------
+Conexões Consultoria e Treinamentos Ltda reviews admin audit logs at least every
+7 days for the indicators above.

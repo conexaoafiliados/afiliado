@@ -1,0 +1,63 @@
+ENCRYPTION IN TRANSIT POLICY — TLS 1.2 OR GREATER
+=================================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda
+CNPJ: 45.659.882/0001-50
+Application: Conexões Creators (https://afiliado-zeta.vercel.app)
+Document purpose: Meta Data Protection Assessment — transit encryption
+Question reference: transitencryption-11.a.i
+Effective date: 30 October 2026
+
+1. PURPOSE
+----------
+This policy/procedure states how Conexões Creators protects Meta Platform Data
+when transmitted over networks, using TLS 1.2 or greater.
+
+2. REQUIREMENTS (HIGHLIGHTED)
+-----------------------------
+>>> a. Platform Data is NEVER transmitted without encryption in transit. <<<
+>>>    We do not transmit Platform Data over public networks in clear text
+>>>    (for example via HTTP or FTP). <<<
+
+>>> b. SSL version 2 and SSL version 3 are NEVER used. <<<
+>>>    Only TLS 1.2 or greater is permitted for connections that carry
+>>>    Platform Data. <<<
+
+3. HOW THIS IS IMPLEMENTED
+--------------------------
+Public web application and APIs:
+- Hosted on Vercel with HTTPS enforced for the production site
+  (https://afiliado-zeta.vercel.app). Client and server traffic use TLS
+  provided by the hosting platform (TLS 1.2+).
+
+Database and backend services:
+- Platform Data is stored and accessed via Supabase managed services.
+- Connections to Supabase use TLS in transit (provider default / required for
+  hosted Postgres and API endpoints).
+
+Meta API calls:
+- Requests to Meta/Instagram Graph and OAuth endpoints use HTTPS
+  (graph.facebook.com / facebook.com) with TLS.
+
+Application secrets:
+- Meta App Secret and related credentials are not sent over unencrypted channels.
+- Production secrets are configured as environment variables on the hosting
+  platform over HTTPS admin consoles.
+
+4. PROHIBITED PRACTICES
+-----------------------
+- Serving production endpoints that exchange Platform Data over plain HTTP
+- Using FTP or other unencrypted protocols for Platform Data transfer
+- Enabling or falling back to SSL 2.0 or SSL 3.0
+
+5. PROCEDURE FOR CHANGES
+------------------------
+Before deploying a new endpoint or integration that handles Platform Data,
+operators must verify that HTTPS/TLS 1.2+ is enabled and that no clear-text
+fallback exists for that path.
+
+6. ATTESTATION
+--------------
+Conexões Consultoria e Treinamentos Ltda attests that Platform Data for
+Conexões Creators is transmitted only with encryption in transit as described
+above, using TLS 1.2 or greater, and never SSL 2.0 or SSL 3.0.

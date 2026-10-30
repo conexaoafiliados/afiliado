@@ -1,0 +1,19 @@
+EVIDENCE NOTE — ENCRYPTION AT REST (SUPABASE)
+=============================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda — CNPJ 45.659.882/0001-50
+App: Conexões Creators
+Meta question: backendencryption-9.b.ii
+
+Platform Data (Instagram/Meta tokens, IDs, and synced metrics) is stored in our
+Supabase managed PostgreSQL project.
+
+Supabase documents that database data is encrypted at rest using AES-256:
+https://supabase.com/docs/guides/platform/security
+https://supabase.com/security
+
+Please also see the accompanying screenshot(s) of our Supabase project / provider
+security documentation uploaded with this assessment (sensitive IDs redacted).
+
+Attestation: encryption at rest is enabled by the hosting provider for the database
+that stores Meta Platform Data; we do not disable it.

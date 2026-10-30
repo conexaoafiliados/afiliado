@@ -1,0 +1,52 @@
+SECURITY EVENT INVESTIGATION POLICY — PLATFORM DATA
+===================================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda
+CNPJ: 45.659.882/0001-50
+Application: Conexões Creators
+Question reference: auditlog-22.g.i
+Effective date: 30 October 2026
+
+1. PURPOSE
+----------
+This procedure describes how we investigate further when a security event indicates
+that unauthorized access to Meta Platform Data may have occurred or been attempted.
+
+2. TRIAGE PROCESS (HIGHLIGHTED)
+-------------------------------
+>>> When a potential security event is detected (from weekly log review, alerts, or
+>>> user/report), operators triage to determine if the event is valid (true positive)
+>>> or invalid (false positive): <<<
+
+Step A — Capture: record timestamp, affected system (Vercel/Supabase/app), event type,
+and related Meta user ID if present in logs.
+
+Step B — Validate: compare against expected operations (deployments, known admin work,
+expected OAuth connect/disconnect). Check whether authentication failures, privilege
+changes, exploitation signs, or unusual data access are explained by authorized activity.
+
+Step C — Classify:
+- False positive: document reason; close with no further action beyond monitoring.
+- True positive / inconclusive requiring action: escalate per section 3.
+
+3. ESCALATION, TRACKING, INVESTIGATION, REMEDIATION (HIGHLIGHTED)
+-----------------------------------------------------------------
+>>> For validated or high-risk events, we escalate, track, investigate, and remediate,
+>>> and notify internal stakeholders: <<<
+
+1) Escalate immediately to the responsible operator/leadership of Conexões Consultoria
+   e Treinamentos Ltda (internal stakeholder notification).
+2) Track the incident in a written record (ticket/doc) with status until closed.
+3) Investigate: review admin and application logs, recent deploys, access changes,
+   and Instagram/Meta token usage related to the event.
+4) Remediate as needed: revoke sessions, rotate META_APP_SECRET / user access tokens,
+   disconnect compromised Instagram links, remove unauthorized admin access, patch
+   vulnerable components.
+5) If unauthorized access to Platform Data is confirmed or strongly suspected, promptly
+   report the incident to Meta as required by Meta Platform Terms / policies, in addition
+   to internal notification.
+
+4. ATTESTATION
+--------------
+Conexões Consultoria e Treinamentos Ltda maintains the triage and escalation process
+above for security events involving Platform Data in Conexões Creators.

@@ -1,0 +1,46 @@
+ACCEPTABLE USE POLICY — META PLATFORM DATA ON DEVICES
+=====================================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda
+CNPJ: 45.659.882/0001-50
+Application: Conexões Creators
+Effective date: 30 October 2026
+
+1. PURPOSE
+----------
+This policy governs how people in our organization may process Meta Platform Data
+on organizational or personal devices (e.g. laptops used for development).
+
+2. DEFINITION
+-------------
+"Platform Data" means data received from Meta (including Meta/Instagram user IDs,
+access tokens, app secrets, and related metrics synced via Meta APIs).
+
+3. ALLOWED USE (HIGHLIGHTED)
+----------------------------
+>>> People in our organization may process Platform Data on devices ONLY when there
+>>> is a clear and actionable business purpose (for example: developing, debugging,
+>>> operating, or supporting Conexões Creators). <<<
+
+4. PROHIBITED USE
+-----------------
+- Selling, licensing, or sharing Platform Data outside approved service providers
+- Storing Platform Data in personal cloud drives (e.g. personal Dropbox/Google Drive)
+  except as required for approved business tools
+- Using Platform Data for unrelated personal projects
+
+5. DELETION WHEN PURPOSE ENDS (HIGHLIGHTED)
+-------------------------------------------
+>>> When the business purpose no longer exists, Platform Data must be deleted from
+>>> the device as soon as reasonably possible (for example: remove local .env copies
+>>> with secrets that are no longer needed; clear local exports; revoke unused tokens). <<<
+
+6. TECHNICAL SAFEGUARDS (RECOMMENDED)
+------------------------------------
+Where available, devices should use full-disk encryption (e.g. BitLocker on Windows
+or FileVault on macOS), screen lock, and up-to-date OS security patches.
+
+7. ATTESTATION
+--------------
+Members of Conexões Consultoria e Treinamentos Ltda who handle Conexões Creators
+are obligated to follow this Acceptable Use Policy.

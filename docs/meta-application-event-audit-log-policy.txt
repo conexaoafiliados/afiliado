@@ -1,0 +1,55 @@
+APPLICATION EVENT AUDIT LOG POLICY
+==================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda
+CNPJ: 45.659.882/0001-50
+Application: Conexões Creators
+Question reference: auditlog-22.b.iv
+Effective date: 30 October 2026
+
+1. PURPOSE
+----------
+This policy states how we collect application event audit logs for the backend
+environment where Meta Platform Data is stored and processed.
+
+2. LOGGING SOURCES
+------------------
+Application and platform event logs are collected from:
+- Vercel runtime / function / deployment logs for the Conexões Creators API
+- Supabase Auth, API, and database logs for authentication and data access events
+- Application server logs for Instagram OAuth connect/disconnect/sync outcomes
+
+3. REQUIRED FIELDS IN APPLICATION EVENT AUDIT LOGS (HIGHLIGHTED)
+----------------------------------------------------------------
+>>> Application event audit logs related to Platform Data processing MUST include
+>>> the following fields (or equivalent structured fields): <<<
+
+>>> 1. Meta user ID (when shared with us) — e.g. Instagram/Meta user identifier
+>>>    (instagramUserId) associated with the event when the event concerns a
+>>>    connected Instagram account or Platform Data for that user. <<<
+
+>>> 2. Event type — e.g. authentication attempt, OAuth connect, token sync,
+>>>    disconnect, API error, access control failure, validation failure. <<<
+
+>>> 3. Date and time — timestamp of the event (provider/application log time). <<<
+
+>>> 4. Success or failure indicator — e.g. HTTP status, success/error flag, or
+>>>    explicit success/failure outcome in the log message/record. <<<
+
+4. EXAMPLES OF EVENTS COVERED
+-----------------------------
+- Input/output validation failures on API routes
+- Authentication and access control failures
+- Application errors and system events during Instagram Graph sync
+- Successful and failed OAuth completion / disconnect operations
+
+5. ACCESS
+---------
+Log access is limited to authorized operators. Tokens and App Secret must never
+appear in cleartext in these logs (see access-token and app-secret policies).
+
+6. ATTESTATION
+--------------
+Conexões Consultoria e Treinamentos Ltda collects application event audit logs
+for Conexões Creators including Meta user ID (when shared), event type, date/time,
+and success/failure indicators as stated above.

@@ -1,0 +1,47 @@
+PATCH MANAGEMENT POLICY — BACKEND SOFTWARE
+==========================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda — CNPJ 45.659.882/0001-50
+Application: Conexões Creators
+Question reference: patches1-17.a
+Effective date: 30 October 2026
+
+1. PURPOSE
+----------
+This policy defines how we identify, prioritize, and apply security patches for
+third-party software used to handle Meta Platform Data in our backend systems.
+
+2. SCOPE
+--------
+- Application dependencies (Node.js / npm packages used by Conexões Creators)
+- Runtime and hosting platforms we operate on (Node on Vercel; managed Postgres/API on Supabase)
+- Developer tooling that can affect production builds when relevant
+
+3. PROCESS (HIGHLIGHTED)
+------------------------
+>>> 1) Identify patches: regularly review dependency advisories using npm audit
+>>>    (and GitHub Dependabot / security alerts when enabled on the repository). <<<
+
+>>> 2) Prioritize by risk: address Critical/High severity first (CVSS / npm
+>>>    advisory severity), then Medium, then Low. Emergency patches for actively
+>>>    exploited issues are applied as soon as reasonably possible. <<<
+
+>>> 3) Apply regularly: update packages as part of ongoing development and
+>>>    release operations; redeploy production after security updates that affect
+>>>    the running application. <<<
+
+4. MANAGED PROVIDERS
+--------------------
+Infrastructure patches for Vercel and Supabase managed services are applied by
+those providers under their platform responsibilities. We keep projects on
+supported plans/regions and apply required customer-side updates when notified.
+
+5. CADENCE
+----------
+- Review npm audit / security alerts at least monthly, and before major releases.
+- Apply High/Critical dependency patches promptly after verification in a test build.
+
+6. ATTESTATION
+--------------
+Conexões Consultoria e Treinamentos Ltda maintains the patch process above for
+software used to handle Platform Data in Conexões Creators.

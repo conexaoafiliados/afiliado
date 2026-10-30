@@ -1,0 +1,63 @@
+FULL DISK ENCRYPTION POLICY — ORGANIZATIONAL / PERSONAL DEVICES
+===============================================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda
+CNPJ: 45.659.882/0001-50
+Application: Conexões Creators
+Document purpose: Meta Data Protection Assessment — device storage technical control
+Question reference: devicestorage-10.a.i
+Effective date: 30 October 2026
+
+1. PURPOSE
+----------
+This policy/procedure explains how we protect Meta Platform Data that may be present
+on organizational or personal devices used by our team (for example: development
+laptops that temporarily hold Meta App Secret or related configuration in local
+environment files).
+
+2. SENSITIVITY OF META PLATFORM DATA (HIGHLIGHTED)
+--------------------------------------------------
+>>> Platform Data received from Meta is classified as CONFIDENTIAL / HIGH SENSITIVITY. <<<
+
+This includes Meta App Secret, API access tokens, Meta/Instagram user identifiers,
+and related synced metrics when present on a device for a business purpose.
+
+3. TECHNICAL CONTROL — FULL DISK ENCRYPTION (HIGHLIGHTED)
+---------------------------------------------------------
+>>> We require full disk encryption on devices used to process Platform Data. <<<
+
+Implementation on Windows devices used by Conexões Consultoria e Treinamentos Ltda:
+- Use Microsoft BitLocker (or equivalent OS full-disk encryption) on the system volume
+  that stores the operating system and local project files.
+- Encryption protects data at rest on the device so that, if the laptop is lost or
+  stolen while powered off / locked, Platform Data on disk is not readable without
+  the decryption key / authorized unlock.
+
+On Apple devices (if used): FileVault full-disk encryption must be enabled.
+
+4. PROCEDURE
+------------
+Before processing Platform Data on a device, the operator must:
+1. Confirm full disk encryption is enabled (Windows: BitLocker status for the system drive;
+   macOS: FileVault On).
+2. Use a screen lock / sign-in password or biometric unlock.
+3. Keep the OS and security updates current.
+4. Avoid copying Platform Data to unencrypted removable media (USB) unless encrypted
+   and strictly necessary for a business purpose; delete when the purpose ends.
+
+5. RELATIONSHIP TO ACCEPTABLE USE
+---------------------------------
+This technical control works together with our Acceptable Use Policy for Platform Data:
+processing is allowed only for a clear business purpose, and data must be deleted when
+that purpose no longer exists.
+
+6. EVIDENCE
+-----------
+Evidence may include:
+- BitLocker / FileVault status screen capture for the device(s) used (sensitive IDs redacted)
+- This written policy/procedure
+
+7. ATTESTATION
+--------------
+Conexões Consultoria e Treinamentos Ltda attests that devices used to handle Conexões
+Creators Platform Data are subject to full disk encryption as described above.

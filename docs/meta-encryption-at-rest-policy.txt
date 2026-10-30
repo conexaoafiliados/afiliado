@@ -1,0 +1,72 @@
+ENCRYPTION AT REST POLICY — PLATFORM DATA (META)
+================================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda
+CNPJ: 45.659.882/0001-50
+Application: Conexões Creators (https://afiliado-zeta.vercel.app)
+Document type: Written procedure / policy statement for Meta Data Protection Assessment
+Question reference: backendencryption-9.b.i
+Effective date: 30 October 2026
+
+1. PURPOSE
+----------
+This document states that all Meta Platform Data stored by Conexões Creators in our
+backend environment MUST be protected with encryption at rest.
+
+2. SCOPE — PLATFORM DATA WE STORE
+---------------------------------
+Platform Data received from Meta/Instagram Graph API and persisted in our backend includes:
+- Instagram / Meta user identifiers
+- Meta API user access tokens
+- Related profile identifiers (e.g. Page ID, username/display name)
+- Synced metrics derived from Platform APIs (followers, likes, views, comments, media counts)
+- Meta App Secret and related credentials stored as application secrets in the hosting environment
+
+Sensitivity: Platform Data from Meta is treated as CONFIDENTIAL / HIGH SENSITIVITY and is
+subject to encryption-at-rest requirements below. We do not assign a lower sensitivity tier
+to Meta Platform Data.
+
+3. BACKEND ENVIRONMENT
+----------------------
+Primary persistent storage of Platform Data:
+- Supabase managed PostgreSQL database (https://supabase.com)
+
+Application runtime / hosting (may process Platform Data in memory during OAuth and sync):
+- Vercel (https://vercel.com)
+
+We do not store Platform Data on unmanaged personal devices as the system of record.
+
+4. ENCRYPTION AT REST REQUIREMENT (HIGHLIGHTED)
+-----------------------------------------------
+>>> REQUIREMENT: All Platform Data stored in the backend MUST be encrypted at rest. <<<
+
+Implementation:
+- Supabase encrypts data at rest by default using industry-standard encryption (AES-256)
+  for managed database storage.
+- Application secrets (including Meta App Secret and access tokens configuration) are stored
+  as environment secrets on the hosting platform and are not committed to source control.
+- Access to production databases and secret stores is limited to authorized operators of
+  Conexões Consultoria e Treinamentos Ltda.
+
+5. PROCEDURE
+------------
+When deploying or changing storage of Meta Platform Data, operators must:
+1. Use only approved backends listed in section 3 (or an equivalent provider that enforces
+   encryption at rest by default or by configuration).
+2. Verify that encryption at rest remains enabled for the database project storing Platform Data.
+3. Never disable encryption at rest for volumes/databases that contain Platform Data.
+4. On request for deletion or when retention is no longer necessary, delete Platform Data from
+   encrypted storage as soon as reasonably possible (subject to legal exceptions).
+
+6. RESPONSIBILITY
+-----------------
+Controller / operator: Conexões Consultoria e Treinamentos Ltda (CNPJ 45.659.882/0001-50).
+Questions about this policy: via the support channels described in the Privacy Policy at
+https://afiliado-zeta.vercel.app/privacidade
+
+7. ATTESTATION
+--------------
+We attest that Platform Data stored for Conexões Creators is subject to encryption at rest
+as described above.
+
+Signed for operational purposes by the organization named in the header of this document.

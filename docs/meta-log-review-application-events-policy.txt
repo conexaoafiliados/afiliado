@@ -1,0 +1,54 @@
+APPLICATION EVENT AUDIT LOG REVIEW POLICY
+=========================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda
+CNPJ: 45.659.882/0001-50
+Application: Conexões Creators
+Question reference: auditlog-22.e.ii
+Effective date: 30 October 2026
+
+1. PURPOSE
+----------
+This procedure states how we review application event audit logs to identify
+indicators that unauthorized access to Meta Platform Data may have occurred or
+been attempted in our backend environment (Vercel + Supabase).
+
+2. REVIEW FREQUENCY (HIGHLIGHTED)
+---------------------------------
+>>> Application event audit logs from the backend environment are reviewed at
+>>> least every 7 days. <<<
+
+3. HOW WE REVIEW
+----------------
+Authorized operators open:
+- Vercel project runtime / function / deployment logs
+- Supabase Auth, API, and related project logs
+
+They scan recent events for anomalies and record any security incident for
+follow-up (credential rotation, disconnect Instagram tokens, revoke access).
+
+4. INDICATORS OF UNAUTHORIZED ACCESS (HIGHLIGHTED)
+--------------------------------------------------
+>>> Reviews look for indicators including: <<<
+
+>>> 1) Unauthorized or anomalous authentication activity
+>>>    (unexpected failed logins, unusual auth error spikes). <<<
+
+>>> 2) Access control failures or privilege escalation attempts
+>>>    (forbidden/unauthorized API responses, unexpected admin actions). <<<
+
+>>> 3) Signs of application exploitation or abuse
+>>>    (repeated validation failures, abnormal error rates, suspicious request patterns). <<<
+
+>>> 4) Unusual data access or extraction patterns
+>>>    (unexpected bulk reads, abnormal traffic to endpoints that touch Platform Data). <<<
+
+5. RESPONSE
+-----------
+If indicators are found: contain the issue, rotate affected secrets/tokens as needed,
+document the event, and notify leadership of Conexões Consultoria e Treinamentos Ltda.
+
+6. ATTESTATION
+--------------
+Conexões Consultoria e Treinamentos Ltda reviews application event audit logs at
+least every 7 days for the indicators listed above.

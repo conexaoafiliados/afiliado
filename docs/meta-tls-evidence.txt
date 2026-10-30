@@ -1,0 +1,36 @@
+TLS 1.2+ EVIDENCE — ENCRYPTION IN TRANSIT
+=========================================
+
+Organization: Conexões Consultoria e Treinamentos Ltda — CNPJ 45.659.882/0001-50
+Application domain: https://afiliado-zeta.vercel.app
+Meta question: transitencryption-11.a.ii
+Date: 30 October 2026
+
+1. SUMMARY
+----------
+Production traffic for Conexões Creators is served over HTTPS on Vercel.
+A direct connectivity test from our environment confirmed the site accepts
+TLS 1.2 (HTTP 200 over SslProtocols.Tls12).
+
+TLS 1.2 handshake result: SUCCESS (HTTPS GET https://afiliado-zeta.vercel.app/ → HTTP 200)
+
+2. HOSTING / PROVIDER
+---------------------
+- Web app hosting: Vercel (HTTPS / TLS terminated by platform; TLS 1.2+)
+- Database/API: Supabase (TLS in transit for hosted services)
+- Meta Graph/OAuth calls: HTTPS endpoints only
+
+3. PUBLIC SCAN (RECOMMENDED ATTACHMENT)
+---------------------------------------
+Qualys SSL Labs report URL (open and attach a full-page screenshot/PDF):
+https://www.ssllabs.com/ssltest/analyze.html?d=afiliado-zeta.vercel.app&latest
+
+SSL Labs result obtained on 30 October 2026:
+- Endpoint 216.198.79.195 → Grade A+
+- Endpoint 64.29.17.195 → Grade A
+Raw JSON also saved as meta-tls-ssllabs-raw.json in this docs folder.
+
+4. ATTESTATION
+--------------
+Platform Data transmitted to/from our production application uses encrypted
+transit with TLS 1.2 or greater. SSL 2.0 and SSL 3.0 are not used.

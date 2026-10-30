@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Access Token Protection Evidence — Conexões Creators</title>
+  <style>
+    body { font-family: Segoe UI, Arial, sans-serif; max-width: 900px; margin: 32px auto; color: #111; }
+    h1 { font-size: 20px; }
+    .meta { color: #444; font-size: 14px; margin-bottom: 24px; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th, td { border: 1px solid #ccc; padding: 10px 12px; text-align: left; font-size: 14px; }
+    th { background: #f3f4f6; }
+    .redacted { background: #111; color: #111; letter-spacing: 2px; user-select: none; }
+    .ok { color: #065f46; font-weight: 600; }
+    .note { background: #eff6ff; border: 1px solid #bfdbfe; padding: 12px; border-radius: 8px; }
+    code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Evidence: Meta API user access token protection (backend)</h1>
+  <div class="meta">
+    Organization: Conexões Consultoria e Treinamentos Ltda — CNPJ 45.659.882/0001-50<br />
+    App: Conexões Creators · Question: accesstoken-13.c.ii<br />
+    Storage: Supabase PostgreSQL (server-side only) · Values redacted
+  </div>
+
+  <p><strong>Token field name shown; token VALUE redacted (not disclosed).</strong></p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Column / key name</th>
+        <th>Stored value (redacted)</th>
+        <th>Client exposed?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>instagramAccessToken</code></td>
+        <td><span class="redacted">████████████████████████████████</span></td>
+        <td class="ok">No — server only</td>
+      </tr>
+      <tr>
+        <td><code>instagramUserId</code></td>
+        <td><span class="redacted">████████████</span></td>
+        <td class="ok">No raw token returned</td>
+      </tr>
+      <tr>
+        <td><code>instagramTokenExpiresAt</code></td>
+        <td><span class="redacted">████-██-██</span></td>
+        <td class="ok">Metadata only if needed</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <strong>Protections demonstrated:</strong>
+    <ul>
+      <li>Access token exists as a named backend column/key (<code>instagramAccessToken</code>), not shipped to the browser API as the secret value.</li>
+      <li><code>instagram.status</code> returns only <code>linked: true/false</code>, handle and display name — never the token string.</li>
+      <li>Database at rest encrypted by Supabase (AES-256); transit HTTPS/TLS 1.2+.</li>
+      <li>Token cleared on disconnect; must never be written to logs in cleartext.</li>
+    </ul>
+  </div>
+
+  <p style="margin-top:24px;font-size:13px;color:#555;">
+    Open this file in a browser and upload a full-page screenshot (PNG) to Meta, or upload this HTML/PDF printout.
+  </p>
+</body>
+</html>
