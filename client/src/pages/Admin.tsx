@@ -2,6 +2,7 @@ import { UserAvatar } from "@/components/UserAvatar";
 import { BrandsAdmin } from "@/components/admin/BrandsAdmin";
 import { CampaignsAdmin } from "@/components/admin/CampaignsAdmin";
 import { MissionsAdmin } from "@/components/admin/MissionsAdmin";
+import { ProgramAdmin } from "@/components/admin/ProgramAdmin";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ import {
   Megaphone,
   Shield,
   ShoppingBag,
+  Star,
   Store,
   Trash2,
   TrendingUp,
@@ -41,6 +43,7 @@ type TabId =
   | "engagement"
   | "brands"
   | "campaigns"
+  | "program"
   | "commerce"
   | "learning"
   | "moderation";
@@ -52,6 +55,7 @@ const TABS: { id: TabId; label: string; icon: typeof BarChart3; perm?: (a: Retur
   { id: "engagement", label: "Engajamento", icon: Zap, perm: a => a.canViewAnalytics },
   { id: "brands", label: "Marcas e produtos", icon: Store, perm: a => a.canBrands },
   { id: "campaigns", label: "Campanhas", icon: Megaphone, perm: a => a.canCampaigns },
+  { id: "program", label: "Programa", icon: Star, perm: a => a.canBrands || a.canCampaigns },
   { id: "commerce", label: "Loja", icon: ShoppingBag, perm: a => a.canShop || a.canViewAnalytics },
   { id: "learning", label: "Aprendizado", icon: BookOpen, perm: a => a.canLearning || a.canViewAnalytics },
   { id: "moderation", label: "Moderação", icon: Shield, perm: a => a.canModerate },
@@ -615,6 +619,7 @@ export default function Admin() {
       {activeTab === "engagement" && access.canViewAnalytics && <EngagementTab />}
       {activeTab === "brands" && access.canBrands && <BrandsAdmin />}
       {activeTab === "campaigns" && access.canCampaigns && <CampaignsAdmin />}
+      {activeTab === "program" && (access.canBrands || access.canCampaigns) && <ProgramAdmin />}
       {activeTab === "commerce" && (access.canShop || access.canViewAnalytics) && <CommerceTab />}
       {activeTab === "learning" && (access.canLearning || access.canViewAnalytics) && <LearningTab />}
       {activeTab === "moderation" && access.canModerate && <ModerationTab />}

@@ -35,6 +35,7 @@ import { adminRouter } from "./admin";
 import { brandsRouter } from "./brands";
 import { campaignsRouter } from "./campaigns";
 import { movementRouter } from "./movement";
+import { affiliateProgramRouter } from "./affiliateProgram";
 
 export const appRouter = router({
   system: systemRouter,
@@ -187,6 +188,7 @@ export const appRouter = router({
   brands: brandsRouter,
   campaigns: campaignsRouter,
   movement: movementRouter,
+  affiliateProgram: affiliateProgramRouter,
 
   users: router({
     search: protectedProcedure

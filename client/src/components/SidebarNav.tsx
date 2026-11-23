@@ -4,15 +4,20 @@ import {
   Award,
   BarChart3,
   ChevronDown,
+  Flag,
+  FolderOpen,
   GraduationCap,
   Home,
   Megaphone,
+  Radio,
   Shield,
+  Star,
   Store,
   Target,
   TrendingUp,
   User,
   Users,
+  Clapperboard,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -36,6 +41,11 @@ type NavSection = {
 /** Acessos principais do movimento. */
 const mainItems: NavItem[] = [
   { label: "Meu início", path: "/dashboard", icon: Home },
+  { label: "Desafios", path: "/afiliado/desafios", icon: Flag },
+  { label: "Meus pontos", path: "/afiliado/pontos", icon: Star },
+  { label: "Lives", path: "/afiliado/lives", icon: Radio },
+  { label: "Materiais", path: "/afiliado/materiais", icon: FolderOpen },
+  { label: "Meus conteúdos", path: "/afiliado/conteudos", icon: Clapperboard },
   { label: "Marcas e produtos", path: "/marcas", icon: Store },
   { label: "Campanhas", path: "/campanhas", icon: Megaphone, alsoActive: ["/start/campanhas"] },
   { label: "Missões", path: "/growth/missions", icon: Target },

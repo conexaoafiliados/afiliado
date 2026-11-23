@@ -23,9 +23,8 @@ export const FIRST_STEP_MODULE = {
       title: "Conheça nosso App!",
       lessons: [
         {
-          slug: "como-usar-o-club",
-          title: "Como usar o Club?",
-          durationSeconds: 223,
+          slug: "como-usar-conexao-creators",
+          title: "Como usar Conexão Creators",
           icon: "▶️",
         },
       ],
@@ -35,15 +34,13 @@ export const FIRST_STEP_MODULE = {
       title: "Conheça o Time",
       lessons: [
         {
-          slug: "mayra-gestora",
-          title: "Mayra - Gestora da Comunidade",
-          durationSeconds: 10,
+          slug: "camila-almeida-gestora",
+          title: "Camila Almeida - Gestora da Comunidade",
           icon: "▶️",
         },
         {
-          slug: "leo-gerente",
-          title: "Leo - Gerente de Contas",
-          durationSeconds: 8,
+          slug: "marcelo-conelheiros-ceo",
+          title: "Marcelo Conelheiros - CEO Grupo",
           icon: "▶️",
         },
       ],
@@ -53,13 +50,13 @@ export const FIRST_STEP_MODULE = {
       title: "Entenda a jornada de crescimento!",
       lessons: [
         {
-          slug: "sobre-amplify-agenciamento",
-          title: "Sobre a Amplify e o Agenciamento",
+          slug: "sobre-conexao-creators",
+          title: "Sobre o Conexão Creators",
           icon: "📄",
         },
         {
-          slug: "beneficios-agencia-gmv",
-          title: "Benefícios da Agência e como aumentar meu GMV?",
+          slug: "beneficios-da-agencia",
+          title: "Benefícios da Agência",
           icon: "📄",
         },
         {
@@ -82,12 +79,6 @@ export const FIRST_STEP_MODULE = {
           slug: "treinamentos",
           title: "Treinamentos",
           icon: "📄",
-        },
-        {
-          slug: "amostras-campanhas",
-          title: "Amostras e Campanhas",
-          durationSeconds: 34,
-          icon: "▶️",
         },
       ],
     },

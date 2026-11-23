@@ -40,6 +40,11 @@ import Brands from "./pages/Brands";
 import BrandDetail from "./pages/BrandDetail";
 import ProductDetail from "./pages/ProductDetail";
 import Learn from "./pages/Learn";
+import AffiliateChallenges from "./pages/AffiliateChallenges";
+import AffiliatePoints from "./pages/AffiliatePoints";
+import AffiliateLives from "./pages/AffiliateLives";
+import AffiliateMaterials from "./pages/AffiliateMaterials";
+import AffiliateContents from "./pages/AffiliateContents";
 import PublicLayout from "./components/PublicLayout";
 import DashboardLayout from "./components/DashboardLayout";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -104,6 +109,11 @@ const CampaignsPage = withProtected(Campaigns);
 const CampaignDetailPage = withProtected(CampaignDetail);
 const AdminPage = withProtected(Admin);
 const LearnPage = withProtected(Learn);
+const AffiliateChallengesPage = withProtected(AffiliateChallenges);
+const AffiliatePointsPage = withProtected(AffiliatePoints);
+const AffiliateLivesPage = withProtected(AffiliateLives);
+const AffiliateMaterialsPage = withProtected(AffiliateMaterials);
+const AffiliateContentsPage = withProtected(AffiliateContents);
 const BrandsPage = withMaybeProtected(Brands);
 const BrandDetailPage = withMaybeProtected(BrandDetail);
 const ProductDetailPage = withMaybeProtected(ProductDetail);
@@ -127,6 +137,11 @@ function Router() {
       <Route path={"/termos"} component={TermsOfService} />
       <Route path={"/privacidade"} component={PrivacyPolicy} />
       <Route path={"/dashboard"} component={DashboardPage} />
+      <Route path={"/afiliado/desafios"} component={AffiliateChallengesPage} />
+      <Route path={"/afiliado/pontos"} component={AffiliatePointsPage} />
+      <Route path={"/afiliado/lives"} component={AffiliateLivesPage} />
+      <Route path={"/afiliado/materiais"} component={AffiliateMaterialsPage} />
+      <Route path={"/afiliado/conteudos"} component={AffiliateContentsPage} />
       <Route path={"/profile/edit"} component={ProfileEditPage} />
       <Route path={"/profile/:username"} component={PublicProfilePage} />
       <Route path={"/growth/missions"} component={MissionsPage} />
