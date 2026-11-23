@@ -1,18 +1,16 @@
 import { createHmac, randomBytes } from "crypto";
 import { ENV } from "./env";
 
-const FB_AUTH = "https://www.facebook.com/v21.0/dialog/oauth";
-const FB_TOKEN = "https://graph.facebook.com/v21.0/oauth/access_token";
-const FB_GRAPH = "https://graph.facebook.com/v21.0";
+const IG_AUTH = "https://www.instagram.com/oauth/authorize";
+const IG_TOKEN = "https://api.instagram.com/oauth/access_token";
+const IG_GRAPH = "https://graph.instagram.com/v21.0";
 
-/** Escopos mínimos para ler perfil IG Business/Creator ligado a uma Página. */
-const SCOPES = [
-  "pages_show_list",
-  "pages_read_engagement",
-  "instagram_basic",
-  "instagram_manage_insights",
-  "business_management",
-].join(",");
+/**
+ * Login direto no Instagram (conta profissional).
+ * Não usa Facebook Login: pages_* e business_management são recusados nesse diálogo
+ * e geram "Invalid Scopes".
+ */
+const SCOPES = "instagram_business_basic";
 
 export function isInstagramConfigured() {
   return Boolean(ENV.metaAppId && ENV.metaAppSecret);
@@ -55,44 +53,58 @@ export function getInstagramAuthorizeUrl(userId: number) {
     state: buildInstagramState(userId),
     scope: SCOPES,
     response_type: "code",
+    enable_fb_login: "0",
   });
-  return `${FB_AUTH}?${params.toString()}`;
+  return `${IG_AUTH}?${params.toString()}`;
+}
+
+function igErrorMessage(json: { error_message?: string; error?: { message?: string } }, fallback: string) {
+  return json.error_message || json.error?.message || fallback;
 }
 
 export async function exchangeInstagramCode(code: string) {
-  const params = new URLSearchParams({
+  const body = new URLSearchParams({
     client_id: ENV.metaAppId,
     client_secret: ENV.metaAppSecret,
+    grant_type: "authorization_code",
     redirect_uri: getInstagramRedirectUri(),
-    code,
+    code: code.replace(/#_$/, ""),
   });
-  const res = await fetch(`${FB_TOKEN}?${params.toString()}`);
+  const res = await fetch(IG_TOKEN, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
   const json = (await res.json()) as {
     access_token?: string;
-    expires_in?: number;
+    user_id?: string | number;
+    data?: Array<{ access_token?: string; user_id?: string | number }>;
+    error_message?: string;
     error?: { message?: string };
   };
-  if (!res.ok || !json.access_token) {
-    throw new Error(json.error?.message ?? "Falha ao obter token do Instagram/Meta");
+  const payload = json.data?.[0] ?? json;
+  if (!res.ok || !payload.access_token) {
+    throw new Error(igErrorMessage(json, "Falha ao obter token do Instagram"));
   }
   return {
-    accessToken: json.access_token,
-    expiresIn: json.expires_in ?? 60 * 24 * 3600,
+    accessToken: payload.access_token,
+    userId: payload.user_id != null ? String(payload.user_id) : null,
+    expiresIn: 3600,
   };
 }
 
 /** Troca por token de longa duração (~60 dias). */
 export async function exchangeLongLivedToken(shortLivedToken: string) {
   const params = new URLSearchParams({
-    grant_type: "fb_exchange_token",
-    client_id: ENV.metaAppId,
+    grant_type: "ig_exchange_token",
     client_secret: ENV.metaAppSecret,
-    fb_exchange_token: shortLivedToken,
+    access_token: shortLivedToken,
   });
-  const res = await fetch(`${FB_TOKEN}?${params.toString()}`);
+  const res = await fetch(`${IG_GRAPH}/access_token?${params.toString()}`);
   const json = (await res.json()) as {
     access_token?: string;
     expires_in?: number;
+    error_message?: string;
     error?: { message?: string };
   };
   if (!res.ok || !json.access_token) {
@@ -112,35 +124,37 @@ type IgAccount = {
   name: string | null;
 };
 
-/** Encontra a primeira conta Instagram Business/Creator nas Páginas do usuário. */
-export async function resolveInstagramAccount(accessToken: string): Promise<IgAccount> {
-  const pagesRes = await fetch(
-    `${FB_GRAPH}/me/accounts?fields=id,name,access_token,instagram_business_account{id,username,name}&limit=25&access_token=${encodeURIComponent(accessToken)}`
+/** Lê a conta profissional que acabou de autorizar o app. Não exige Página do Facebook. */
+export async function resolveInstagramAccount(accessToken: string, fallbackUserId?: string | null): Promise<IgAccount> {
+  const profileRes = await fetch(
+    `${IG_GRAPH}/me?fields=user_id,username,name,account_type&access_token=${encodeURIComponent(accessToken)}`
   );
-  const pagesJson = (await pagesRes.json()) as {
-    data?: Array<{
-      id: string;
-      name?: string;
-      instagram_business_account?: { id: string; username?: string; name?: string };
-    }>;
+  const profile = (await profileRes.json()) as {
+    user_id?: string | number;
+    id?: string;
+    username?: string;
+    name?: string;
+    account_type?: string;
     error?: { message?: string };
+    error_message?: string;
   };
-  if (!pagesRes.ok) {
-    throw new Error(pagesJson.error?.message ?? "Não foi possível listar Páginas do Facebook");
+  if (!profileRes.ok) {
+    throw new Error(igErrorMessage(profile, "Não foi possível ler o perfil do Instagram"));
   }
 
-  const withIg = (pagesJson.data ?? []).find(p => p.instagram_business_account?.id);
-  if (!withIg?.instagram_business_account?.id) {
-    throw new Error(
-      "Nenhuma conta Instagram Business/Creator ligada a uma Página do Facebook foi encontrada. Converta o Instagram para profissional e vincule a uma Página."
-    );
+  const igUserId = String(profile.user_id ?? profile.id ?? fallbackUserId ?? "");
+  if (!igUserId) {
+    throw new Error("O Instagram não devolveu o identificador da conta.");
+  }
+  if (profile.account_type === "PERSONAL") {
+    throw new Error("A conta precisa ser profissional (Business ou Creator) para conectar.");
   }
 
   return {
-    igUserId: withIg.instagram_business_account.id,
-    pageId: withIg.id,
-    username: withIg.instagram_business_account.username ?? null,
-    name: withIg.instagram_business_account.name ?? withIg.name ?? null,
+    igUserId,
+    pageId: "instagram-login",
+    username: profile.username ?? null,
+    name: profile.name ?? null,
   };
 }
 
@@ -156,7 +170,7 @@ export type InstagramStats = {
 
 export async function fetchInstagramStats(accessToken: string, igUserId: string): Promise<InstagramStats> {
   const profileRes = await fetch(
-    `${FB_GRAPH}/${igUserId}?fields=followers_count,media_count,username,name&access_token=${encodeURIComponent(accessToken)}`
+    `${IG_GRAPH}/${igUserId}?fields=followers_count,media_count,username,name&access_token=${encodeURIComponent(accessToken)}`
   );
   const profile = (await profileRes.json()) as {
     followers_count?: number;
@@ -176,7 +190,7 @@ export async function fetchInstagramStats(accessToken: string, igUserId: string)
   // Soma curtidas/comentários dos posts recentes (até ~50). Views/impressões via insights quando disponível.
   try {
     const mediaRes = await fetch(
-      `${FB_GRAPH}/${igUserId}/media?fields=id,like_count,comments_count,media_type,timestamp&limit=50&access_token=${encodeURIComponent(accessToken)}`
+      `${IG_GRAPH}/${igUserId}/media?fields=id,like_count,comments_count,media_type&limit=50&access_token=${encodeURIComponent(accessToken)}`
     );
     const mediaJson = (await mediaRes.json()) as {
       data?: Array<{ id: string; like_count?: number; comments_count?: number; media_type?: string }>;
@@ -193,7 +207,7 @@ export async function fetchInstagramStats(accessToken: string, igUserId: string)
         const metric =
           m.media_type === "VIDEO" || m.media_type === "REELS" ? "plays,reach" : "impressions,reach";
         const insightRes = await fetch(
-          `${FB_GRAPH}/${m.id}/insights?metric=${metric}&access_token=${encodeURIComponent(accessToken)}`
+          `${IG_GRAPH}/${m.id}/insights?metric=${metric}&access_token=${encodeURIComponent(accessToken)}`
         );
         if (!insightRes.ok) continue;
         const insightJson = (await insightRes.json()) as {

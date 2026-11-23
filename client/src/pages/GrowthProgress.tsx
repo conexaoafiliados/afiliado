@@ -19,7 +19,6 @@ export default function GrowthProgress() {
     enabled: hasDbUser,
     retry: false,
   });
-  const { data: tiktok } = trpc.tiktok.status.useQuery(undefined, { enabled: hasDbUser, retry: false });
   const { data: instagram } = trpc.instagram.status.useQuery(undefined, { enabled: hasDbUser, retry: false });
 
   const update = trpc.progress.update.useMutation({
@@ -31,19 +30,9 @@ export default function GrowthProgress() {
     onError: () => toast.error("Não foi possível salvar. Verifique o banco."),
   });
 
-  const completeTikTok = trpc.tiktok.completeConnect.useMutation({
-    onSuccess: data => {
-      utils.progress.get.invalidate();
-      utils.tiktok.status.invalidate();
-      utils.analytics.overview.invalidate();
-      toast.success(`TikTok conectado! ${data.followers.toLocaleString("pt-BR")} seguidores`);
-      setLocation("/growth/progress");
-    },
-    onError: err => toast.error(err.message),
-  });
-
   const completeInstagram = trpc.instagram.completeConnect.useMutation({
     onSuccess: data => {
+      utils.progress.get.invalidate();
       utils.instagram.status.invalidate();
       utils.analytics.overview.invalidate();
       toast.success(`Instagram conectado! ${data.followers.toLocaleString("pt-BR")} seguidores`);
@@ -52,28 +41,13 @@ export default function GrowthProgress() {
     onError: err => toast.error(err.message),
   });
 
-  const syncTikTok = trpc.tiktok.syncNow.useMutation({
-    onSuccess: data => {
-      utils.progress.get.invalidate();
-      utils.analytics.overview.invalidate();
-      toast.success(`TikTok: ${data.followers.toLocaleString("pt-BR")} seguidores`);
-    },
-    onError: err => toast.error(err.message),
-  });
-
   const syncInstagram = trpc.instagram.syncNow.useMutation({
     onSuccess: data => {
+      utils.progress.get.invalidate();
       utils.analytics.overview.invalidate();
       toast.success(`Instagram: ${data.followers.toLocaleString("pt-BR")} seguidores`);
     },
     onError: err => toast.error(err.message),
-  });
-
-  const disconnectTikTok = trpc.tiktok.disconnect.useMutation({
-    onSuccess: () => {
-      utils.tiktok.status.invalidate();
-      toast.success("TikTok desconectado");
-    },
   });
 
   const disconnectInstagram = trpc.instagram.disconnect.useMutation({
@@ -84,7 +58,7 @@ export default function GrowthProgress() {
   });
 
   const [followers, setFollowers] = useState("");
-  const [connecting, setConnecting] = useState<"tiktok" | "instagram" | null>(null);
+  const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -94,24 +68,19 @@ export default function GrowthProgress() {
     window.history.replaceState(null, "", "/growth/progress");
     if (state?.startsWith("ig.")) {
       completeInstagram.mutate({ code, state });
-    } else {
-      completeTikTok.mutate({ code, state });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- OAuth callback once
   }, []);
 
-  async function handleConnect(provider: "tiktok" | "instagram") {
+  async function handleConnectInstagram() {
     try {
-      setConnecting(provider);
-      const { url } =
-        provider === "tiktok"
-          ? await utils.tiktok.getConnectUrl.fetch()
-          : await utils.instagram.getConnectUrl.fetch();
+      setConnecting(true);
+      const { url } = await utils.instagram.getConnectUrl.fetch();
       window.location.href = url;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Não foi possível abrir a autorização";
       toast.error(msg);
-      setConnecting(null);
+      setConnecting(false);
     }
   }
 
@@ -124,7 +93,7 @@ export default function GrowthProgress() {
 
   const milestones = getMilestonesForTarget(target, current);
   const goalLabel = formatGoalLabel(target);
-  const oauthPending = completeTikTok.isPending || completeInstagram.isPending;
+  const oauthPending = completeInstagram.isPending;
 
   if (isLoading && hasDbUser) {
     return (
@@ -139,73 +108,24 @@ export default function GrowthProgress() {
       <div>
         <h1 className="text-4xl font-bold mb-2">Progresso — meta {goalLabel}</h1>
         <p className="text-muted-foreground">
-          Autorize TikTok e/ou Instagram para puxar seguidores, views, curtidas e comentários. Cada creator conecta a
-          própria conta.
+          Autorize o Instagram para puxar seguidores, curtidas e comentários da conta profissional. A conexão do TikTok
+          fica de fora até a liberação da API.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="card-elegant border-accent/20 p-6 space-y-4">
-          <div>
-            <h2 className="text-xl font-bold mb-1">TikTok</h2>
-            <p className="text-sm text-muted-foreground">
-              Login Kit oficial. Atualiza a jornada de seguidores e as métricas do Analytics.
-            </p>
-          </div>
-
-          {!tiktok?.configured ? (
-            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
-              Admin: configure <code className="text-xs">TIKTOK_CLIENT_KEY</code> e{" "}
-              <code className="text-xs">TIKTOK_CLIENT_SECRET</code>. Redirect:{" "}
-              <strong>{window.location.origin}/growth/progress</strong>
-            </p>
-          ) : tiktok.linked ? (
-            <div className="flex flex-wrap gap-3 items-center">
-              <span className="text-sm font-medium">
-                @{tiktok.handle ?? "conectado"}
-                {tiktok.displayName ? ` · ${tiktok.displayName}` : ""}
-              </span>
-              <Button variant="outline" size="sm" disabled={syncTikTok.isPending} onClick={() => syncTikTok.mutate()}>
-                {syncTikTok.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
-                Atualizar
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive"
-                onClick={() => disconnectTikTok.mutate()}
-              >
-                <Unplug className="h-4 w-4 mr-2" />
-                Desconectar
-              </Button>
-            </div>
-          ) : (
-            <Button
-              className="btn-primary"
-              disabled={connecting === "tiktok"}
-              onClick={() => handleConnect("tiktok")}
-            >
-              {connecting === "tiktok" ? "Abrindo TikTok…" : "Autorizar TikTok"}
-            </Button>
-          )}
-        </Card>
-
-        <Card className="card-elegant border-accent/20 p-6 space-y-4">
+      <Card className="card-elegant border-accent/20 p-6 space-y-4">
           <div>
             <h2 className="text-xl font-bold mb-1">Instagram</h2>
             <p className="text-sm text-muted-foreground">
-              Conta Business/Creator ligada a uma Página do Facebook. O creator autoriza e o app lê os números.
+              Login direto na conta profissional. O creator autoriza e o app lê os números.
             </p>
           </div>
 
           {!instagram?.configured ? (
             <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
               Admin: configure <code className="text-xs">META_APP_ID</code> e{" "}
-              <code className="text-xs">META_APP_SECRET</code> (developers.facebook.com). Redirect:{" "}
+              <code className="text-xs">META_APP_SECRET</code>. No app da Meta, cadastre este redirect no
+              produto Instagram Login:{" "}
               <strong>{window.location.origin}/growth/progress</strong>
             </p>
           ) : instagram.linked ? (
@@ -240,14 +160,13 @@ export default function GrowthProgress() {
           ) : (
             <Button
               className="btn-primary"
-              disabled={connecting === "instagram"}
-              onClick={() => handleConnect("instagram")}
+              disabled={connecting}
+              onClick={() => void handleConnectInstagram()}
             >
-              {connecting === "instagram" ? "Abrindo Instagram…" : "Autorizar Instagram"}
+              {connecting ? "Abrindo Instagram…" : "Autorizar Instagram"}
             </Button>
           )}
-        </Card>
-      </div>
+      </Card>
 
       {oauthPending && (
         <p className="text-sm text-muted-foreground flex items-center gap-2">
@@ -268,7 +187,7 @@ export default function GrowthProgress() {
         <div className="flex justify-between text-sm font-medium mb-2">
           <span>
             {current.toLocaleString("pt-BR")} / {target.toLocaleString("pt-BR")} seguidores
-            {progress?.source === "tiktok" && <span className="text-accent ml-2">· via TikTok</span>}
+            {progress?.source === "instagram" && <span className="text-accent ml-2">· via Instagram</span>}
             {progress?.source === "manual" && (
               <span className="text-amber-700 ml-2">· informado por você</span>
             )}

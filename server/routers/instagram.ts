@@ -4,6 +4,7 @@ import {
   clearInstagramConnection,
   getCreatorProfile,
   getInstagramTokens,
+  recordFollowerSnapshot,
   saveInstagramConnection,
   upsertSocialStats,
 } from "../db";
@@ -25,6 +26,7 @@ async function syncInstagramForUser(userId: number) {
   }
 
   const stats = await fetchInstagramStats(tokens.accessToken, tokens.igUserId);
+  await recordFollowerSnapshot(userId, stats.followers, "instagram");
   await upsertSocialStats(userId, "instagram", {
     followers: stats.followers,
     likes: stats.likes,
@@ -71,7 +73,7 @@ export const instagramRouter = router({
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
         message:
-          "Instagram/Meta não configurado (META_APP_ID e META_APP_SECRET). Crie um app em developers.facebook.com com Instagram Graph API.",
+          "Instagram não configurado (META_APP_ID e META_APP_SECRET). No app da Meta, use o produto Instagram Login e cadastre o redirect em Configurações do Instagram, não só no Facebook Login.",
       });
     }
     return { url: getInstagramAuthorizeUrl(ctx.user.id) };
@@ -90,20 +92,25 @@ export const instagramRouter = router({
         }
       }
 
-      const short = await exchangeInstagramCode(input.code);
-      const longLived = await exchangeLongLivedToken(short.accessToken);
-      const account = await resolveInstagramAccount(longLived.accessToken);
+      try {
+        const short = await exchangeInstagramCode(input.code);
+        const longLived = await exchangeLongLivedToken(short.accessToken);
+        const account = await resolveInstagramAccount(longLived.accessToken, short.userId);
 
-      await saveInstagramConnection(ctx.user.id, {
-        igUserId: account.igUserId,
-        pageId: account.pageId,
-        accessToken: longLived.accessToken,
-        expiresAt: new Date(Date.now() + longLived.expiresIn * 1000),
-        displayName: account.name,
-        username: account.username,
-      });
+        await saveInstagramConnection(ctx.user.id, {
+          igUserId: account.igUserId,
+          pageId: account.pageId,
+          accessToken: longLived.accessToken,
+          expiresAt: new Date(Date.now() + longLived.expiresIn * 1000),
+          displayName: account.name,
+          username: account.username,
+        });
 
-      return syncInstagramForUser(ctx.user.id);
+        return await syncInstagramForUser(ctx.user.id);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Não foi possível conectar o Instagram";
+        throw new TRPCError({ code: "BAD_REQUEST", message });
+      }
     }),
 
   syncNow: protectedProcedure.mutation(async ({ ctx }) => syncInstagramForUser(ctx.user.id)),

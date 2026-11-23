@@ -192,19 +192,11 @@ export default function Analytics() {
             <SourceBadge kind="community" />
           </div>
           <p className="text-3xl font-bold">{community?.platformFollowers ?? 0}</p>
-          <p className="text-xs text-muted-foreground">Seguidores dentro da plataforma (não é Instagram/TikTok)</p>
+          <p className="text-xs text-muted-foreground">Seguidores dentro da plataforma</p>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PlatformCard
-          title="TikTok"
-          linked={Boolean(data?.tiktok.linked)}
-          handle={data?.tiktok.handle ?? null}
-          lastSyncAt={data?.tiktok.lastSyncAt ?? null}
-          stats={data?.tiktok.stats ?? null}
-          connectHref="/growth/progress"
-        />
         <PlatformCard
           title="Instagram"
           linked={Boolean(data?.instagram.linked)}
@@ -224,7 +216,7 @@ export default function Analytics() {
           <p className="text-sm text-muted-foreground">
             {journey?.current
               ? "Salve mais uma atualização em Progresso para ver a curva."
-              : "Conecte TikTok/Instagram ou informe seguidores manualmente em Progresso."}
+              : "Conecte o Instagram ou informe seguidores manualmente em Progresso."}
           </p>
         ) : (
           <ResponsiveContainer width="100%" height={280}>
@@ -251,7 +243,7 @@ export default function Analytics() {
           <SourceBadge kind="community" />
         </div>
         <p className="text-sm text-muted-foreground">
-          Curtidas e comentários nos posts do feed do app — não confundir com Instagram/TikTok.
+          Curtidas e comentários nos posts do feed do app.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <StatBox icon={<Heart className="w-7 h-7" />} label="Curtidas nos seus posts" value={community?.likesReceived ?? 0} />

@@ -311,7 +311,7 @@ export async function upsertFollowerProgress(userId: number, progress: Partial<I
 export async function recordFollowerSnapshot(
   userId: number,
   followers: number,
-  source: "manual" | "tiktok" = "manual"
+  source: "manual" | "tiktok" | "instagram" = "manual"
 ) {
   const db = await getDb();
   if (!db) return;
