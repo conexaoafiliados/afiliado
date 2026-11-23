@@ -606,6 +606,53 @@ export const campaignDeliveries = pgTable("campaign_deliveries", {
   updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const affiliateChallenges = pgTable("affiliate_challenges", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 200 }).notNull(),
+  description: text("description"),
+  brandId: integer("brandId").references(() => brands.id, { onDelete: "set null" }),
+  instagramHandle: varchar("instagramHandle", { length: 100 }).notNull(),
+  startsAt: timestamp("startsAt", { withTimezone: true }),
+  endsAt: timestamp("endsAt", { withTimezone: true }),
+  status: varchar("status", { length: 16 }).default("active").notNull(),
+  createdBy: integer("createdBy").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const affiliatePointRules = pgTable("affiliate_point_rules", {
+  id: integer("id").primaryKey().default(1),
+  storyPoints: integer("storyPoints").default(10).notNull(),
+  feedPoints: integer("feedPoints").default(5).notNull(),
+  reelPoints: integer("reelPoints").default(10).notNull(),
+  salePoints: integer("salePoints").default(15).notNull(),
+  redeemMinPoints: integer("redeemMinPoints").default(100).notNull(),
+  redeemMinSales: integer("redeemMinSales").default(5).notNull(),
+  redeemItemLimit: integer("redeemItemLimit").default(1).notNull(),
+  redeemDays: integer("redeemDays").default(15).notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const affiliateProductPoints = pgTable("affiliate_product_points", {
+  brandProductId: integer("brandProductId")
+    .primaryKey()
+    .references(() => brandProducts.id, { onDelete: "cascade" }),
+  pointsCost: integer("pointsCost").notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const affiliateMaterials = pgTable("affiliate_materials", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 160 }).notNull(),
+  fileUrl: varchar("fileUrl", { length: 1024 }).notNull(),
+  mimeType: varchar("mimeType", { length: 80 }),
+  sizeBytes: integer("sizeBytes"),
+  kind: varchar("kind", { length: 24 }).default("imagem").notNull(),
+  brandId: integer("brandId").references(() => brands.id, { onDelete: "set null" }),
+  createdBy: integer("createdBy").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export type Campaign = typeof campaigns.$inferSelect;
 export type CampaignProduct = typeof campaignProducts.$inferSelect;
 export type CampaignApplication = typeof campaignApplications.$inferSelect;
