@@ -1,6 +1,5 @@
 import { desc, eq } from "drizzle-orm";
 import {
-  affiliateChallenges,
   affiliateMaterials,
   affiliatePointRules,
   affiliateProductPoints,
@@ -21,64 +20,6 @@ async function database() {
   const db = await getDb();
   if (!db) throw new Error("Banco indisponível");
   return db;
-}
-
-export async function listChallenges() {
-  try {
-    const db = await database();
-    const rows = await db
-      .select({
-        id: affiliateChallenges.id,
-        title: affiliateChallenges.title,
-        description: affiliateChallenges.description,
-        brandId: affiliateChallenges.brandId,
-        brandName: brands.name,
-        instagramHandle: affiliateChallenges.instagramHandle,
-        startsAt: affiliateChallenges.startsAt,
-        endsAt: affiliateChallenges.endsAt,
-        status: affiliateChallenges.status,
-      })
-      .from(affiliateChallenges)
-      .leftJoin(brands, eq(brands.id, affiliateChallenges.brandId))
-      .orderBy(desc(affiliateChallenges.createdAt));
-    return { ready: true as const, challenges: rows };
-  } catch (error) {
-    if (missingTable(error)) return { ready: false as const, challenges: [], message: MIGRATION };
-    throw error;
-  }
-}
-
-export async function createChallenge(input: {
-  title: string;
-  description?: string;
-  brandId?: number | null;
-  instagramHandle: string;
-  startsAt?: Date | null;
-  endsAt?: Date | null;
-  createdBy: number;
-}) {
-  const db = await database();
-  const [row] = await db
-    .insert(affiliateChallenges)
-    .values({
-      title: input.title,
-      description: input.description || null,
-      brandId: input.brandId ?? null,
-      instagramHandle: input.instagramHandle.replace(/^@/, ""),
-      startsAt: input.startsAt ?? null,
-      endsAt: input.endsAt ?? null,
-      createdBy: input.createdBy,
-    })
-    .returning();
-  return row;
-}
-
-export async function setChallengeStatus(id: number, status: "active" | "ended") {
-  const db = await database();
-  await db
-    .update(affiliateChallenges)
-    .set({ status, updatedAt: new Date() })
-    .where(eq(affiliateChallenges.id, id));
 }
 
 export async function getPointRules(): Promise<PointRules & { ready: boolean; message?: string }> {

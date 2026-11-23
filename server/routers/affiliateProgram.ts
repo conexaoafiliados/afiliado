@@ -1,19 +1,15 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { ADMIN_PERMISSIONS } from "../../shared/adminPermissions";
-import { DEFAULT_POINT_RULES } from "../../shared/affiliateProgram";
 import { materialKind, uploadPublicFile } from "../_core/storage";
 import { permissionProcedure, protectedProcedure, router } from "../_core/trpc";
 import {
-  createChallenge,
   createMaterial,
   deleteMaterial,
   getPointRules,
-  listChallenges,
   listMaterials,
   listProductPoints,
   savePointRules,
-  setChallengeStatus,
   setProductPoints,
 } from "../affiliateProgramDb";
 
@@ -39,19 +35,13 @@ function fail(error: unknown): never {
 }
 
 export const affiliateProgramRouter = router({
-  challenges: protectedProcedure.query(() => listChallenges()),
   points: protectedProcedure.query(async () => {
-    const [rules, challenges, products] = await Promise.all([
-      getPointRules(),
-      listChallenges(),
-      listProductPoints(),
-    ]);
-    const active = challenges.challenges.find(item => item.status === "active");
+    const [rules, products] = await Promise.all([getPointRules(), listProductPoints()]);
     return {
-      ready: rules.ready && challenges.ready,
-      message: rules.message ?? challenges.message,
+      ready: rules.ready && products.ready,
+      message: rules.message ?? (products.ready ? undefined : products.message),
       rules,
-      mentionHandle: active?.instagramHandle ?? null,
+      mentionHandle: null as string | null,
       products: products.products.filter(item => (item.pointsCost ?? 0) > 0),
       balance: { points: 0, sales: 0, stories: 0, feed: 0, reels: 0 },
     };
@@ -59,40 +49,6 @@ export const affiliateProgramRouter = router({
   materials: protectedProcedure.query(() => listMaterials()),
 
   admin: router({
-    challenges: staff.query(() => listChallenges()),
-    createChallenge: staff
-      .input(
-        z.object({
-          title: z.string().min(3).max(200),
-          description: z.string().max(2000).optional(),
-          brandId: z.number().int().positive().nullable().optional(),
-          instagramHandle: z.string().min(2).max(100),
-          startsAt: z.string().nullable().optional(),
-          endsAt: z.string().nullable().optional(),
-        })
-      )
-      .mutation(async ({ ctx, input }) => {
-        try {
-          return await createChallenge({
-            ...input,
-            startsAt: input.startsAt ? new Date(input.startsAt) : null,
-            endsAt: input.endsAt ? new Date(input.endsAt) : null,
-            createdBy: ctx.user.id,
-          });
-        } catch (error) {
-          fail(error);
-        }
-      }),
-    setChallengeStatus: staff
-      .input(z.object({ id: z.number().int().positive(), status: z.enum(["active", "ended"]) }))
-      .mutation(async ({ input }) => {
-        try {
-          await setChallengeStatus(input.id, input.status);
-          return { ok: true };
-        } catch (error) {
-          fail(error);
-        }
-      }),
     rules: staff.query(() => getPointRules()),
     saveRules: staff.input(rulesInput).mutation(async ({ input }) => {
       try {
@@ -156,5 +112,3 @@ export const affiliateProgramRouter = router({
       }),
   }),
 });
-
-export { DEFAULT_POINT_RULES };

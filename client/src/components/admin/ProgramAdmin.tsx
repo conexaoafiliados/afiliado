@@ -2,55 +2,21 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import type { PointRules } from "@shared/affiliateProgram";
 import { Loader2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-function toIso(value: string) {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
 export function ProgramAdmin() {
   const utils = trpc.useUtils();
-  const challenges = trpc.affiliateProgram.admin.challenges.useQuery();
   const rules = trpc.affiliateProgram.admin.rules.useQuery();
   const products = trpc.affiliateProgram.admin.products.useQuery();
   const materials = trpc.affiliateProgram.admin.materials.useQuery();
-  const brands = trpc.brands.listPublished.useQuery();
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [handle, setHandle] = useState("");
-  const [brandId, setBrandId] = useState("");
-  const [startsAt, setStartsAt] = useState("");
-  const [endsAt, setEndsAt] = useState("");
   const [ruleDraft, setRuleDraft] = useState<PointRules | null>(null);
   const [materialTitle, setMaterialTitle] = useState("");
   const [file, setFile] = useState<{ base64: string; mime: string } | null>(null);
-
-  const create = trpc.affiliateProgram.admin.createChallenge.useMutation({
-    onSuccess: () => {
-      utils.affiliateProgram.admin.challenges.invalidate();
-      utils.affiliateProgram.challenges.invalidate();
-      setTitle("");
-      setDescription("");
-      setHandle("");
-      toast.success("Desafio publicado");
-    },
-    onError: error => toast.error(error.message),
-  });
-  const setStatus = trpc.affiliateProgram.admin.setChallengeStatus.useMutation({
-    onSuccess: () => {
-      utils.affiliateProgram.admin.challenges.invalidate();
-      utils.affiliateProgram.challenges.invalidate();
-    },
-    onError: error => toast.error(error.message),
-  });
   const saveRules = trpc.affiliateProgram.admin.saveRules.useMutation({
     onSuccess: () => {
       utils.affiliateProgram.admin.rules.invalidate();
@@ -96,7 +62,7 @@ export function ProgramAdmin() {
       }
     : null;
   const draft = ruleDraft ?? loadedRules;
-  const migration = challenges.data?.message || rules.data?.message;
+  const migration = rules.data?.message;
 
   return (
     <div className="space-y-6">
@@ -107,89 +73,9 @@ export function ProgramAdmin() {
       )}
 
       <Card className="p-5 space-y-3">
-        <h2 className="font-semibold">Novo desafio</h2>
-        <p className="text-sm text-muted-foreground">
-          Fica em andamento até você encerrar. O @ informado entra no regulamento no lugar do nome da marca.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <Label>Título</Label>
-            <Input value={title} onChange={event => setTitle(event.target.value)} />
-          </div>
-          <div>
-            <Label>Instagram da marca</Label>
-            <Input value={handle} placeholder="@marca" onChange={event => setHandle(event.target.value)} />
-          </div>
-          <div>
-            <Label>Começa</Label>
-            <Input type="datetime-local" value={startsAt} onChange={event => setStartsAt(event.target.value)} />
-          </div>
-          <div>
-            <Label>Termina</Label>
-            <Input type="datetime-local" value={endsAt} onChange={event => setEndsAt(event.target.value)} />
-          </div>
-          <div className="sm:col-span-2">
-            <Label>Marca no portal (opcional)</Label>
-            <select
-              className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
-              value={brandId}
-              onChange={event => setBrandId(event.target.value)}
-            >
-              <option value="">Sem marca vinculada</option>
-              {(brands.data ?? []).map(brand => (
-                <option key={brand.id} value={brand.id}>
-                  {brand.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="sm:col-span-2">
-            <Label>Descrição</Label>
-            <Textarea value={description} onChange={event => setDescription(event.target.value)} />
-          </div>
-        </div>
-        <Button
-          type="button"
-          disabled={create.isPending}
-          onClick={() =>
-            create.mutate({
-              title,
-              description,
-              instagramHandle: handle,
-              brandId: brandId ? Number(brandId) : null,
-              startsAt: toIso(startsAt),
-              endsAt: toIso(endsAt),
-            })
-          }
-        >
-          Publicar desafio
-        </Button>
-        <ul className="divide-y divide-border">
-          {(challenges.data?.challenges ?? []).map(item => (
-            <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-sm">
-              <div>
-                <p className="font-medium">{item.title}</p>
-                <p className="text-muted-foreground">@{item.instagramHandle.replace(/^@/, "")} · {item.status === "active" ? "em andamento" : "encerrado"}</p>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  setStatus.mutate({ id: item.id, status: item.status === "active" ? "ended" : "active" })
-                }
-              >
-                {item.status === "active" ? "Encerrar" : "Reabrir"}
-              </Button>
-            </li>
-          ))}
-        </ul>
-      </Card>
-
-      <Card className="p-5 space-y-3">
         <h2 className="font-semibold">Pontos do regulamento</h2>
         <p className="text-sm text-muted-foreground">
-          Os pontos dos desafios são trocados por produto. Estes números valem para stories, feed, reels e vendas.
+          Os pontos são trocados por produto. Estes números valem para stories, feed, reels e vendas. As metas em si ficam em Missões.
         </p>
         {draft && (
           <div className="grid gap-3 sm:grid-cols-2">

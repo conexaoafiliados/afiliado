@@ -62,7 +62,7 @@ export type PointRules = typeof DEFAULT_POINT_RULES;
 
 export function formatMention(handle: string | null | undefined) {
   const clean = (handle ?? "").trim().replace(/^@/, "");
-  return clean ? `@${clean}` : "o @ da marca deste desafio";
+  return clean ? `@${clean}` : "o @ oficial da marca";
 }
 
 export function pointsRegulation(handle: string | null | undefined, rules: PointRules = DEFAULT_POINT_RULES) {

@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Route, Switch, Redirect } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
@@ -40,7 +40,6 @@ import Brands from "./pages/Brands";
 import BrandDetail from "./pages/BrandDetail";
 import ProductDetail from "./pages/ProductDetail";
 import Learn from "./pages/Learn";
-import AffiliateChallenges from "./pages/AffiliateChallenges";
 import AffiliatePoints from "./pages/AffiliatePoints";
 import AffiliateLives from "./pages/AffiliateLives";
 import AffiliateMaterials from "./pages/AffiliateMaterials";
@@ -109,7 +108,6 @@ const CampaignsPage = withProtected(Campaigns);
 const CampaignDetailPage = withProtected(CampaignDetail);
 const AdminPage = withProtected(Admin);
 const LearnPage = withProtected(Learn);
-const AffiliateChallengesPage = withProtected(AffiliateChallenges);
 const AffiliatePointsPage = withProtected(AffiliatePoints);
 const AffiliateLivesPage = withProtected(AffiliateLives);
 const AffiliateMaterialsPage = withProtected(AffiliateMaterials);
@@ -137,7 +135,7 @@ function Router() {
       <Route path={"/termos"} component={TermsOfService} />
       <Route path={"/privacidade"} component={PrivacyPolicy} />
       <Route path={"/dashboard"} component={DashboardPage} />
-      <Route path={"/afiliado/desafios"} component={AffiliateChallengesPage} />
+      <Route path={"/afiliado/desafios"}>{() => <Redirect to="/growth/missions" />}</Route>
       <Route path={"/afiliado/pontos"} component={AffiliatePointsPage} />
       <Route path={"/afiliado/lives"} component={AffiliateLivesPage} />
       <Route path={"/afiliado/materiais"} component={AffiliateMaterialsPage} />

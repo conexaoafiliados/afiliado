@@ -4,7 +4,6 @@ import {
   Award,
   BarChart3,
   ChevronDown,
-  Flag,
   FolderOpen,
   GraduationCap,
   Home,
@@ -41,7 +40,6 @@ type NavSection = {
 /** Acessos principais do movimento. */
 const mainItems: NavItem[] = [
   { label: "Meu início", path: "/dashboard", icon: Home },
-  { label: "Desafios", path: "/afiliado/desafios", icon: Flag },
   { label: "Meus pontos", path: "/afiliado/pontos", icon: Star },
   { label: "Lives", path: "/afiliado/lives", icon: Radio },
   { label: "Materiais", path: "/afiliado/materiais", icon: FolderOpen },

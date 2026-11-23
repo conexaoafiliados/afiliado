@@ -11,7 +11,7 @@ export default function AffiliateContents() {
       <div>
         <h1 className="text-2xl font-bold">Meus conteúdos</h1>
         <p className="text-muted-foreground">
-          Stories, posts e reels em que você marca o @ da marca do desafio. Eles só aparecem depois que a menção chega da
+          Stories, posts e reels em que você marca o @ da marca. Eles só aparecem depois que a menção chega da
           Meta.
         </p>
       </div>
@@ -42,7 +42,7 @@ export default function AffiliateContents() {
           o arquivo tem que ser guardado na hora. Conta pessoal não entra nessa API.
         </p>
         <p>
-          Enquanto isso, o @ que vale a marcação é o que a equipe coloca em cada desafio. Os pontos dessas publicações
+          Enquanto isso, o @ que vale a marcação é o da marca da missão. Os pontos dessas publicações
           continuam em zero.
         </p>
         <Link href="/growth/progress">
