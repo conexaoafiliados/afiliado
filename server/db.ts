@@ -790,12 +790,17 @@ export async function updateUserById(
   fields: { name?: string; role?: "user" | "admin" }
 ) {
   const db = await getDb();
-  if (!db) return;
+  if (!db) throw new Error("Banco indisponível para gravar o nome.");
   const update: Record<string, unknown> = { updatedAt: new Date() };
   if (fields.name !== undefined) update.name = fields.name;
   if (fields.role !== undefined) update.role = fields.role;
-  if (Object.keys(update).length <= 1) return;
-  await db.update(users).set(update).where(eq(users.id, userId));
+  const [row] = await db
+    .update(users)
+    .set(update)
+    .where(eq(users.id, userId))
+    .returning({ id: users.id, name: users.name });
+  if (!row) throw new Error("Não encontrei seu usuário para gravar o nome.");
+  return row;
 }
 
 export async function searchUsersByUsername(query: string, limit = 8) {

@@ -43,12 +43,19 @@ export const appRouter = router({
   auth: authRouter,
 
   profile: router({
-    get: protectedProcedure.query(async ({ ctx }) => (await getCreatorProfile(ctx.user.id)) || null),
+    get: protectedProcedure.query(async ({ ctx }) => {
+      const profile = await getCreatorProfile(ctx.user.id);
+      return {
+        ...(profile ?? {}),
+        userId: ctx.user.id,
+        name: ctx.user.name ?? "",
+      };
+    }),
 
     update: protectedProcedure
       .input(
         z.object({
-          name: z.string().min(2).max(120).optional(),
+          name: z.string().trim().min(2, "O nome precisa ter pelo menos 2 letras").max(120).optional(),
           bio: z.string().max(500).optional(),
           profileImageUrl: z.string().url().optional(),
           bannerImageUrl: z.string().url().optional(),
@@ -60,7 +67,7 @@ export const appRouter = router({
           tiktokHandle: z.string().max(100).optional(),
           youtubeHandle: z.string().max(100).optional(),
           twitterHandle: z.string().max(100).optional(),
-          websiteUrl: z.string().url().optional().or(z.literal("")),
+          websiteUrl: z.union([z.string().url("O site precisa começar com http:// ou https://"), z.literal("")]).optional(),
           age: z.number().int().min(13).max(120).optional(),
           platformObjective: z.string().max(500).optional(),
         })
@@ -76,12 +83,20 @@ export const appRouter = router({
           ...profileFields
         } = input;
 
-        if (name) await updateUserById(ctx.user.id, { name });
+        let savedName = ctx.user.name ?? "";
+        if (name) {
+          const row = await updateUserById(ctx.user.id, { name });
+          savedName = row.name ?? name;
+        }
 
-        const profileUpdate: Record<string, unknown> = { ...profileFields };
+        const profileUpdate: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(profileFields)) {
+          if (value !== undefined) profileUpdate[key] = value;
+        }
         if (websiteUrl === "") profileUpdate.websiteUrl = null;
         else if (websiteUrl) profileUpdate.websiteUrl = websiteUrl;
 
+        const stamp = Date.now();
         if (profileImageBase64) {
           const url = await uploadImage("avatars", `profile-${ctx.user.id}`, profileImageBase64, profileImageMime);
           if (!url) {
@@ -90,7 +105,7 @@ export const appRouter = router({
               message: "Não consegui gravar a foto. Confira o bucket avatars no Supabase.",
             });
           }
-          profileUpdate.profileImageUrl = url;
+          profileUpdate.profileImageUrl = `${url}?v=${stamp}`;
         }
         if (bannerImageBase64) {
           const url = await uploadImage("avatars", `banner-${ctx.user.id}`, bannerImageBase64, bannerImageMime);
@@ -100,11 +115,14 @@ export const appRouter = router({
               message: "Não consegui gravar o banner. Confira o bucket avatars no Supabase.",
             });
           }
-          profileUpdate.bannerImageUrl = url;
+          profileUpdate.bannerImageUrl = `${url}?v=${stamp}`;
         }
 
-        await upsertCreatorProfile(ctx.user.id, profileUpdate);
-        return getCreatorProfile(ctx.user.id);
+        if (Object.keys(profileUpdate).length > 0) {
+          await upsertCreatorProfile(ctx.user.id, profileUpdate as Partial<import("../../drizzle/schema").InsertCreatorProfile>);
+        }
+        const profile = await getCreatorProfile(ctx.user.id);
+        return { ...(profile ?? {}), userId: ctx.user.id, name: savedName };
       }),
 
     getPublic: publicProcedure

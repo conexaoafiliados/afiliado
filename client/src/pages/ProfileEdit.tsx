@@ -48,31 +48,25 @@ export default function ProfileEdit() {
   const [processingPhoto, setProcessingPhoto] = useState(false);
   const [processingBanner, setProcessingBanner] = useState(false);
 
-  useEffect(() => {
-    if (profile) {
-      setFormData(prev => ({
-        ...prev,
-        bio: profile.bio || "",
-        instagramHandle: profile.instagramHandle || "",
-        tiktokHandle: profile.tiktokHandle || "",
-        youtubeHandle: profile.youtubeHandle || "",
-        twitterHandle: profile.twitterHandle || "",
-        websiteUrl: profile.websiteUrl || "",
-        age: profile.age ? String(profile.age) : "",
-        platformObjective: profile.platformObjective || "",
-      }));
-      if (profile.profileImageUrl) setPhotoPreview(profile.profileImageUrl);
-      if (profile.bannerImageUrl) setBannerPreview(profile.bannerImageUrl);
-    }
-  }, [profile]);
-
-  const nameReady = useRef(false);
+  const hydrated = useRef(false);
 
   useEffect(() => {
-    if (!user || nameReady.current) return;
-    nameReady.current = true;
-    setFormData(prev => ({ ...prev, name: user.name || "" }));
-  }, [user]);
+    if (!profile || hydrated.current) return;
+    hydrated.current = true;
+    setFormData({
+      name: profile.name || user?.name || "",
+      bio: profile.bio || "",
+      instagramHandle: profile.instagramHandle || "",
+      tiktokHandle: profile.tiktokHandle || "",
+      youtubeHandle: profile.youtubeHandle || "",
+      twitterHandle: profile.twitterHandle || "",
+      websiteUrl: profile.websiteUrl || "",
+      age: profile.age ? String(profile.age) : "",
+      platformObjective: profile.platformObjective || "",
+    });
+    if (profile.profileImageUrl) setPhotoPreview(profile.profileImageUrl);
+    if (profile.bannerImageUrl) setBannerPreview(profile.bannerImageUrl);
+  }, [profile, user?.name]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -91,6 +85,13 @@ export default function ProfileEdit() {
       }
       setPhotoPreview(result.data.base64);
       setPhotoUpload(result.data);
+      await updateProfile.mutateAsync({
+        profileImageBase64: result.data.base64,
+        profileImageMime: result.data.mime,
+      });
+      setPhotoUpload(null);
+    } catch (error) {
+      console.error(error);
     } finally {
       setProcessingPhoto(false);
       e.target.value = "";
@@ -109,6 +110,13 @@ export default function ProfileEdit() {
       }
       setBannerPreview(result.data.base64);
       setBannerUpload(result.data);
+      await updateProfile.mutateAsync({
+        bannerImageBase64: result.data.base64,
+        bannerImageMime: result.data.mime,
+      });
+      setBannerUpload(null);
+    } catch (error) {
+      console.error(error);
     } finally {
       setProcessingBanner(false);
       e.target.value = "";
@@ -117,9 +125,13 @@ export default function ProfileEdit() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.name.trim().length < 2) {
+      toast.error("O nome precisa ter pelo menos 2 letras.");
+      return;
+    }
     try {
-      await updateProfile.mutateAsync({
-        name: formData.name || undefined,
+      const saved = await updateProfile.mutateAsync({
+        name: formData.name.trim(),
         bio: formData.bio || undefined,
         instagramHandle: formData.instagramHandle || undefined,
         tiktokHandle: formData.tiktokHandle || undefined,
@@ -133,6 +145,9 @@ export default function ProfileEdit() {
         bannerImageBase64: bannerUpload?.base64,
         bannerImageMime: bannerUpload?.mime,
       });
+      if (saved?.name) setFormData(prev => ({ ...prev, name: saved.name }));
+      if (saved?.bannerImageUrl) setBannerPreview(saved.bannerImageUrl);
+      if (saved?.profileImageUrl) setPhotoPreview(saved.profileImageUrl);
       setPhotoUpload(null);
       setBannerUpload(null);
     } catch (error) {
