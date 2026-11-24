@@ -49,13 +49,20 @@ export async function createContext({ req, res = {} }: CreateContextInput): Prom
       const claims = await verifySupabaseToken(token);
       if (claims?.sub) {
         try {
-          await upsertUser({
+          const identity: {
+            openId: string;
+            email: string | null;
+            loginMethod: "supabase";
+            lastSignedIn: Date;
+            name?: string;
+          } = {
             openId: claims.sub,
             email: claims.email ?? null,
-            name: claims.name ?? null,
             loginMethod: "supabase",
             lastSignedIn: new Date(),
-          });
+          };
+          if (claims.name) identity.name = claims.name;
+          await upsertUser(identity);
         } catch (e) {
           console.warn("[Auth] upsertUser skipped:", e);
         }

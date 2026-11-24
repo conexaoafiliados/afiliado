@@ -117,7 +117,10 @@ export default function GrowthProgress() {
           <div>
             <h2 className="text-xl font-bold mb-1">Instagram</h2>
             <p className="text-sm text-muted-foreground">
-              Login direto na conta profissional. O creator autoriza e o app lê os números.
+              Login direto na conta profissional. Se a tela do Instagram disser Invalid platform app, o ID usado é o do
+              Facebook. No painel da Meta, em Instagram, API setup with Instagram login, copie o Instagram App ID e o
+              Instagram App Secret para INSTAGRAM_APP_ID e INSTAGRAM_APP_SECRET, e cadastre o redirect{" "}
+              <strong>{typeof window !== "undefined" ? window.location.origin : ""}/growth/progress</strong>.
             </p>
           </div>
 

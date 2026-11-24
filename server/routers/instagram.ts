@@ -73,7 +73,7 @@ export const instagramRouter = router({
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
         message:
-          "Instagram não configurado (META_APP_ID e META_APP_SECRET). No app da Meta, use o produto Instagram Login e cadastre o redirect em Configurações do Instagram, não só no Facebook Login.",
+          "O Instagram recusou o aplicativo. Em developers.facebook.com, abra Instagram > API setup with Instagram login e copie o Instagram App ID e o Instagram App Secret para INSTAGRAM_APP_ID e INSTAGRAM_APP_SECRET. O ID do Facebook (META_APP_ID) gera Invalid platform app. Cadastre o redirect nesse mesmo produto.",
       });
     }
     return { url: getInstagramAuthorizeUrl(ctx.user.id) };

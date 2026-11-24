@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { PreferencesCard } from "@/components/PreferencesCard";
 import { trpc } from "@/lib/trpc";
+import { formatTrpcErrorMessage } from "@/lib/formatTrpcError";
 import { prepareImageForUpload, IMAGE_SIZE_HINTS } from "@/lib/prepareImage";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
@@ -20,9 +21,10 @@ export default function ProfileEdit() {
   const updateProfile = trpc.profile.update.useMutation({
     onSuccess: () => {
       utils.auth.me.invalidate();
+      utils.profile.get.invalidate();
       toast.success("Perfil atualizado com sucesso!");
     },
-    onError: () => toast.error("Erro ao atualizar perfil"),
+    onError: error => toast.error(formatTrpcErrorMessage(error)),
   });
 
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -64,11 +66,13 @@ export default function ProfileEdit() {
     }
   }, [profile]);
 
+  const nameReady = useRef(false);
+
   useEffect(() => {
-    if (user?.name) {
-      setFormData(prev => ({ ...prev, name: user.name || "" }));
-    }
-  }, [user?.name]);
+    if (!user || nameReady.current) return;
+    nameReady.current = true;
+    setFormData(prev => ({ ...prev, name: user.name || "" }));
+  }, [user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

@@ -210,7 +210,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     const value = user[field];
     if (value === undefined) continue;
     values[field] = value ?? null;
-    updateSet[field] = value ?? null;
+    if (value) updateSet[field] = value;
   }
 
   if (user.lastSignedIn !== undefined) {

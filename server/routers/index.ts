@@ -84,11 +84,23 @@ export const appRouter = router({
 
         if (profileImageBase64) {
           const url = await uploadImage("avatars", `profile-${ctx.user.id}`, profileImageBase64, profileImageMime);
-          if (url) profileUpdate.profileImageUrl = url;
+          if (!url) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Não consegui gravar a foto. Confira o bucket avatars no Supabase.",
+            });
+          }
+          profileUpdate.profileImageUrl = url;
         }
         if (bannerImageBase64) {
           const url = await uploadImage("avatars", `banner-${ctx.user.id}`, bannerImageBase64, bannerImageMime);
-          if (url) profileUpdate.bannerImageUrl = url;
+          if (!url) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Não consegui gravar o banner. Confira o bucket avatars no Supabase.",
+            });
+          }
+          profileUpdate.bannerImageUrl = url;
         }
 
         await upsertCreatorProfile(ctx.user.id, profileUpdate);
