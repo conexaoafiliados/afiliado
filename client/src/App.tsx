@@ -44,6 +44,11 @@ import AffiliatePoints from "./pages/AffiliatePoints";
 import AffiliateLives from "./pages/AffiliateLives";
 import AffiliateMaterials from "./pages/AffiliateMaterials";
 import AffiliateContents from "./pages/AffiliateContents";
+import AffiliateProducts from "./pages/AffiliateProducts";
+import AffiliateLinks from "./pages/AffiliateLinks";
+import Storefront from "./pages/Storefront";
+import OfferLanding from "./pages/OfferLanding";
+import OfferReturn from "./pages/OfferReturn";
 import PublicLayout from "./components/PublicLayout";
 import DashboardLayout from "./components/DashboardLayout";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -112,6 +117,8 @@ const AffiliatePointsPage = withProtected(AffiliatePoints);
 const AffiliateLivesPage = withProtected(AffiliateLives);
 const AffiliateMaterialsPage = withProtected(AffiliateMaterials);
 const AffiliateContentsPage = withProtected(AffiliateContents);
+const AffiliateProductsPage = withProtected(AffiliateProducts);
+const AffiliateLinksPage = withProtected(AffiliateLinks);
 const BrandsPage = withMaybeProtected(Brands);
 const BrandDetailPage = withMaybeProtected(BrandDetail);
 const ProductDetailPage = withMaybeProtected(ProductDetail);
@@ -140,6 +147,11 @@ function Router() {
       <Route path={"/afiliado/lives"} component={AffiliateLivesPage} />
       <Route path={"/afiliado/materiais"} component={AffiliateMaterialsPage} />
       <Route path={"/afiliado/conteudos"} component={AffiliateContentsPage} />
+      <Route path={"/afiliado/produtos"} component={AffiliateProductsPage} />
+      <Route path={"/afiliado/cupom"} component={AffiliateLinksPage} />
+      <Route path={"/loja"} component={Storefront} />
+      <Route path={"/oferta/retorno"} component={OfferReturn} />
+      <Route path={"/oferta/:brandSlug/:productSlug"} component={OfferLanding} />
       <Route path={"/profile/edit"} component={ProfileEditPage} />
       <Route path={"/profile/:username"} component={PublicProfilePage} />
       <Route path={"/growth/missions"} component={MissionsPage} />

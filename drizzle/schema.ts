@@ -641,6 +641,93 @@ export const affiliateProductPoints = pgTable("affiliate_product_points", {
   updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const affiliateSaleProducts = pgTable("affiliate_sale_products", {
+  brandProductId: integer("brandProductId")
+    .primaryKey()
+    .references(() => brandProducts.id, { onDelete: "cascade" }),
+  priceCents: integer("priceCents").notNull(),
+  compareAtCents: integer("compareAtCents"),
+  commissionCents: integer("commissionCents").default(0).notNull(),
+  promo: boolean("promo").default(false).notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const affiliateOrders = pgTable("affiliate_orders", {
+  id: serial("id").primaryKey(),
+  orderNsu: varchar("orderNsu", { length: 64 }).notNull().unique(),
+  brandProductId: integer("brandProductId")
+    .notNull()
+    .references(() => brandProducts.id, { onDelete: "restrict" }),
+  affiliateUserId: integer("affiliateUserId").references(() => users.id, { onDelete: "set null" }),
+  amountCents: integer("amountCents").notNull(),
+  commissionCents: integer("commissionCents").default(0).notNull(),
+  status: varchar("status", { length: 16 }).default("pending").notNull(),
+  checkoutUrl: varchar("checkoutUrl", { length: 1024 }),
+  transactionNsu: varchar("transactionNsu", { length: 80 }),
+  invoiceSlug: varchar("invoiceSlug", { length: 80 }),
+  captureMethod: varchar("captureMethod", { length: 32 }),
+  couponCode: varchar("couponCode", { length: 32 }),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+  paidAt: timestamp("paidAt", { withTimezone: true }),
+});
+
+export const affiliateCoproducers = pgTable(
+  "affiliate_coproducers",
+  {
+    id: serial("id").primaryKey(),
+    brandProductId: integer("brandProductId")
+      .notNull()
+      .references(() => brandProducts.id, { onDelete: "cascade" }),
+    userId: integer("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    amountCents: integer("amountCents").notNull(),
+    createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+  },
+  table => [unique("affiliate_coproducers_unique").on(table.brandProductId, table.userId)]
+);
+
+export const affiliateCoupons = pgTable("affiliate_coupons", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  code: varchar("code", { length: 32 }).notNull().unique(),
+  discountPercent: integer("discountPercent").default(0).notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const affiliateLinks = pgTable("affiliate_links", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  label: varchar("label", { length: 120 }).notNull(),
+  destination: varchar("destination", { length: 16 }).notNull(),
+  brandProductId: integer("brandProductId").references(() => brandProducts.id, { onDelete: "cascade" }),
+  note: varchar("note", { length: 40 }),
+  custom: boolean("custom").default(false).notNull(),
+  clicks: integer("clicks").default(0).notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const affiliateOrderShares = pgTable(
+  "affiliate_order_shares",
+  {
+    id: serial("id").primaryKey(),
+    orderId: integer("orderId")
+      .notNull()
+      .references(() => affiliateOrders.id, { onDelete: "cascade" }),
+    userId: integer("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: varchar("role", { length: 16 }).notNull(),
+    amountCents: integer("amountCents").notNull(),
+  },
+  table => [unique("affiliate_order_shares_unique").on(table.orderId, table.userId, table.role)]
+);
+
 export const affiliateMaterials = pgTable("affiliate_materials", {
   id: serial("id").primaryKey(),
   title: varchar("title", { length: 160 }).notNull(),

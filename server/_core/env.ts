@@ -58,4 +58,7 @@ export const ENV = {
   metaAppId: process.env.INSTAGRAM_APP_ID ?? process.env.META_APP_ID ?? process.env.FACEBOOK_APP_ID ?? "",
   metaAppSecret:
     process.env.INSTAGRAM_APP_SECRET ?? process.env.META_APP_SECRET ?? process.env.FACEBOOK_APP_SECRET ?? "",
+  /** InfiniteTag sem o $ inicial. A chave fica só no servidor. */
+  infinitePayHandle: (process.env.INFINITEPAY_HANDLE ?? "").replace(/^\$/, "").trim(),
+  infinitePayApiKey: process.env.INFINITEPAY_API_KEY ?? "",
 };

@@ -13,6 +13,7 @@ export function ProgramAdmin() {
   const rules = trpc.affiliateProgram.admin.rules.useQuery();
   const products = trpc.affiliateProgram.admin.products.useQuery();
   const materials = trpc.affiliateProgram.admin.materials.useQuery();
+  const sales = trpc.affiliateProgram.admin.sales.useQuery();
 
   const [ruleDraft, setRuleDraft] = useState<PointRules | null>(null);
   const [materialTitle, setMaterialTitle] = useState("");
@@ -47,6 +48,43 @@ export function ProgramAdmin() {
       utils.affiliateProgram.admin.materials.invalidate();
       utils.affiliateProgram.materials.invalidate();
     },
+  });
+  const saveSale = trpc.affiliateProgram.admin.saveSale.useMutation({
+    onSuccess: () => {
+      utils.affiliateProgram.admin.sales.invalidate();
+      utils.affiliateProgram.catalog.invalidate();
+      toast.success("Preço e comissão salvos");
+    },
+    onError: error => toast.error(error.message),
+  });
+  const coproducers = trpc.affiliateProgram.admin.coproducers.useQuery();
+  const coupons = trpc.affiliateProgram.admin.coupons.useQuery();
+  const [couponUser, setCouponUser] = useState("");
+  const [couponCode, setCouponCode] = useState("");
+  const [couponDiscount, setCouponDiscount] = useState("0");
+  const addPartner = trpc.affiliateProgram.admin.addCoproducer.useMutation({
+    onSuccess: () => {
+      utils.affiliateProgram.admin.coproducers.invalidate();
+      toast.success("Co-produção salva");
+    },
+    onError: error => toast.error(error.message),
+  });
+  const removePartner = trpc.affiliateProgram.admin.removeCoproducer.useMutation({
+    onSuccess: () => utils.affiliateProgram.admin.coproducers.invalidate(),
+    onError: error => toast.error(error.message),
+  });
+  const saveCoupon = trpc.affiliateProgram.admin.saveCoupon.useMutation({
+    onSuccess: () => {
+      utils.affiliateProgram.admin.coupons.invalidate();
+      setCouponUser("");
+      setCouponCode("");
+      setCouponDiscount("0");
+      toast.success("Cupom salvo");
+    },
+    onError: error => toast.error(error.message),
+  });
+  const removeCoupon = trpc.affiliateProgram.admin.deleteCoupon.useMutation({
+    onSuccess: () => utils.affiliateProgram.admin.coupons.invalidate(),
   });
 
   const loadedRules: PointRules | null = rules.data
@@ -158,6 +196,71 @@ export function ProgramAdmin() {
       </Card>
 
       <Card className="p-5 space-y-3">
+        <h2 className="font-semibold">Preço, comissão e co-produção</h2>
+        <p className="text-sm text-muted-foreground">
+          O preço é o que o cliente paga. A comissão fica com a afiliada do link ou do cupom. A co-produção é o derramamento: cada usuário listado ganha o valor em toda venda paga deste produto.
+        </p>
+        {sales.data && !sales.data.ready && <p className="text-sm text-muted-foreground">{sales.data.message}</p>}
+        <ul className="divide-y divide-border">
+          {(sales.data?.products ?? []).map(product => (
+            <SaleRow
+              key={product.id}
+              name={product.name}
+              brandName={product.brandName}
+              priceCents={product.priceCents}
+              compareAtCents={product.compareAtCents}
+              commissionCents={product.commissionCents}
+              promo={product.promo ?? false}
+              pending={saveSale.isPending}
+              partners={(coproducers.data?.people ?? []).filter(person => person.brandProductId === product.id)}
+              onSave={values => saveSale.mutate({ brandProductId: product.id, ...values })}
+              onAddPartner={(username, amountCents) =>
+                addPartner.mutate({ brandProductId: product.id, username, amountCents })
+              }
+              onRemovePartner={id => removePartner.mutate({ id })}
+            />
+          ))}
+        </ul>
+      </Card>
+
+      <Card className="p-5 space-y-3">
+        <h2 className="font-semibold">Cupons das afiliadas</h2>
+        <p className="text-sm text-muted-foreground">
+          Um cupom por pessoa. O desconto sai do preço na página de compra. A comissão continua sendo a do produto.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-4">
+          <Input value={couponUser} placeholder="usuário" onChange={event => setCouponUser(event.target.value)} />
+          <Input value={couponCode} placeholder="CUPOM" onChange={event => setCouponCode(event.target.value.toUpperCase())} />
+          <Input value={couponDiscount} placeholder="% desconto" onChange={event => setCouponDiscount(event.target.value)} />
+          <Button
+            type="button"
+            disabled={couponUser.trim().length < 1 || couponCode.trim().length < 4 || saveCoupon.isPending}
+            onClick={() =>
+              saveCoupon.mutate({
+                username: couponUser.trim(),
+                code: couponCode.trim(),
+                discountPercent: Math.min(90, Math.max(0, Number(couponDiscount) || 0)),
+              })
+            }
+          >
+            Salvar cupom
+          </Button>
+        </div>
+        <ul className="divide-y divide-border">
+          {(coupons.data?.coupons ?? []).map(coupon => (
+            <li key={coupon.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+              <span>
+                {coupon.code} · @{coupon.username} · {coupon.discountPercent}% · {coupon.uses} usos pagos
+              </span>
+              <button type="button" onClick={() => removeCoupon.mutate({ id: coupon.id })} aria-label="Remover cupom">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </Card>
+
+      <Card className="p-5 space-y-3">
         <h2 className="font-semibold">Materiais</h2>
         <p className="text-sm text-muted-foreground">PNG, JPG, WEBP, GIF, PDF ou MP4 até 8 MB. A afiliada baixa ao clicar.</p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -207,5 +310,122 @@ export function ProgramAdmin() {
         </ul>
       </Card>
     </div>
+  );
+}
+
+function centsToInput(cents: number | null | undefined) {
+  if (cents == null) return "";
+  return (cents / 100).toFixed(2).replace(".", ",");
+}
+
+function inputToCents(value: string) {
+  const parsed = Number(value.replace(/\./g, "").replace(",", "."));
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return Math.round(parsed * 100);
+}
+
+function SaleRow({
+  name,
+  brandName,
+  priceCents,
+  compareAtCents,
+  commissionCents,
+  promo,
+  pending,
+  partners,
+  onSave,
+  onAddPartner,
+  onRemovePartner,
+}: {
+  name: string;
+  brandName: string;
+  priceCents: number | null;
+  compareAtCents: number | null;
+  commissionCents: number | null;
+  promo: boolean;
+  pending: boolean;
+  partners: { id: number; username: string | null; name: string | null; amountCents: number }[];
+  onSave: (values: {
+    priceCents: number;
+    compareAtCents: number | null;
+    commissionCents: number;
+    promo: boolean;
+  }) => void;
+  onAddPartner: (username: string, amountCents: number) => void;
+  onRemovePartner: (id: number) => void;
+}) {
+  const [price, setPrice] = useState(centsToInput(priceCents));
+  const [compare, setCompare] = useState(centsToInput(compareAtCents));
+  const [commission, setCommission] = useState(centsToInput(commissionCents));
+  const [isPromo, setIsPromo] = useState(promo);
+  const [partnerUser, setPartnerUser] = useState("");
+  const [partnerAmount, setPartnerAmount] = useState("");
+
+  function save(nextPromo = isPromo) {
+    const nextPrice = inputToCents(price);
+    if (!nextPrice) return;
+    const nextCompare = compare.trim() ? inputToCents(compare) : null;
+    const nextCommission = inputToCents(commission) ?? 0;
+    onSave({
+      priceCents: nextPrice,
+      compareAtCents: nextCompare,
+      commissionCents: nextCommission,
+      promo: nextPromo,
+    });
+  }
+
+  return (
+    <li className="grid gap-2 py-3 sm:grid-cols-[1fr_repeat(3,7rem)_auto]">
+      <div>
+        <p className="text-sm font-medium">{name}</p>
+        <p className="text-xs text-muted-foreground">{brandName}</p>
+      </div>
+      <Input value={price} placeholder="Preço" onChange={event => setPrice(event.target.value)} onBlur={() => save()} />
+      <Input value={compare} placeholder="De" onChange={event => setCompare(event.target.value)} onBlur={() => save()} />
+      <Input value={commission} placeholder="Comissão" onChange={event => setCommission(event.target.value)} onBlur={() => save()} />
+      <label className="flex items-center gap-2 text-xs">
+        <input
+          type="checkbox"
+          checked={isPromo}
+          disabled={pending}
+          onChange={event => {
+            setIsPromo(event.target.checked);
+            save(event.target.checked);
+          }}
+        />
+        Promo
+      </label>
+      <div className="sm:col-span-5 space-y-2 rounded-xl bg-muted/50 p-3">
+        <p className="text-xs font-medium">Co-produção deste produto</p>
+        {partners.map(person => (
+          <div key={person.id} className="flex items-center justify-between gap-2 text-sm">
+            <span>
+              @{person.username ?? person.name} · {centsToInput(person.amountCents)} por venda
+            </span>
+            <button type="button" onClick={() => onRemovePartner(person.id)} aria-label="Remover co-produção">
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+        <div className="flex flex-wrap gap-2">
+          <Input className="w-36" value={partnerUser} placeholder="usuário" onChange={event => setPartnerUser(event.target.value)} />
+          <Input className="w-28" value={partnerAmount} placeholder="R$ por venda" onChange={event => setPartnerAmount(event.target.value)} />
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!partnerUser.trim() || !inputToCents(partnerAmount)}
+            onClick={() => {
+              const amount = inputToCents(partnerAmount);
+              if (!amount) return;
+              onAddPartner(partnerUser.trim(), amount);
+              setPartnerUser("");
+              setPartnerAmount("");
+            }}
+          >
+            Adicionar
+          </Button>
+        </div>
+      </div>
+    </li>
   );
 }

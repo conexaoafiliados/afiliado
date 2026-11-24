@@ -2,14 +2,32 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { ADMIN_PERMISSIONS } from "../../shared/adminPermissions";
 import { materialKind, uploadPublicFile } from "../_core/storage";
-import { permissionProcedure, protectedProcedure, router } from "../_core/trpc";
+import { permissionProcedure, protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { ENV } from "../_core/env";
+import { checkInfinitePayPayment, createInfinitePayLink, isInfinitePayConfigured } from "../_core/infinitepay";
 import {
+  confirmAffiliateOrder,
+  createAffiliateOrder,
   createMaterial,
   deleteMaterial,
+  addCoproducer,
+  createAffiliateLink,
+  deleteCoupon,
+  findCoupon,
+  findUserIdByUsername,
+  getAffiliateDesk,
   getPointRules,
+  getPublishedSale,
+  listCoproducers,
+  listCoupons,
   listMaterials,
   listProductPoints,
+  listSaleCatalog,
+  registerLinkClick,
+  removeCoproducer,
+  saveCoupon,
   savePointRules,
+  saveSaleProduct,
   setProductPoints,
 } from "../affiliateProgramDb";
 
@@ -47,6 +65,121 @@ export const affiliateProgramRouter = router({
     };
   }),
   materials: protectedProcedure.query(() => listMaterials()),
+  catalog: protectedProcedure.query(() => listSaleCatalog(true)),
+  vitrine: publicProcedure.query(() => listSaleCatalog(true)),
+  offer: publicProcedure
+    .input(z.object({ brandSlug: z.string().min(1).max(80), productSlug: z.string().min(1).max(80) }))
+    .query(async ({ input }) => getPublishedSale(input.brandSlug, input.productSlug)),
+  checkout: publicProcedure
+    .input(
+      z.object({
+        brandSlug: z.string().min(1).max(80),
+        productSlug: z.string().min(1).max(80),
+        affiliateUsername: z.string().min(1).max(50).optional(),
+        couponCode: z.string().min(4).max(32).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      if (!isInfinitePayConfigured()) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Pagamento ainda não configurado. Defina INFINITEPAY_HANDLE no servidor.",
+        });
+      }
+      const found = await getPublishedSale(input.brandSlug, input.productSlug);
+      if (!found.ready) throw new TRPCError({ code: "PRECONDITION_FAILED", message: found.message ?? "Catálogo indisponível" });
+      const product = found.product;
+      if (!product?.priceCents) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Este produto ainda não tem preço de venda." });
+      }
+      let affiliateUserId = input.affiliateUsername ? await findUserIdByUsername(input.affiliateUsername) : null;
+      let amountCents = product.priceCents;
+      let couponCode: string | null = null;
+      if (input.couponCode) {
+        const coupon = await findCoupon(input.couponCode);
+        if (!coupon) throw new TRPCError({ code: "BAD_REQUEST", message: "Cupom não encontrado." });
+        couponCode = coupon.code;
+        amountCents = product.priceCents - Math.floor((product.priceCents * coupon.discountPercent) / 100);
+        if (amountCents < 100) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "O desconto desse cupom passa do preço do produto." });
+        }
+        if (!affiliateUserId) affiliateUserId = coupon.userId;
+      }
+      const orderNsu = `cx${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+      const origin = ENV.appUrl;
+      const url = await createInfinitePayLink({
+        orderNsu,
+        description: product.name,
+        priceCents: amountCents,
+        redirectUrl: `${origin}/oferta/retorno`,
+        webhookUrl: `${origin}/api/infinitepay/webhook`,
+      });
+      await createAffiliateOrder({
+        orderNsu,
+        brandProductId: product.id,
+        affiliateUserId,
+        amountCents,
+        commissionCents: affiliateUserId ? product.commissionCents ?? 0 : 0,
+        checkoutUrl: url,
+        couponCode,
+      });
+      return { url };
+    }),
+  desk: protectedProcedure.query(({ ctx }) => getAffiliateDesk(ctx.user.id)),
+  createLink: protectedProcedure
+    .input(
+      z.object({
+        label: z.string().min(2).max(120),
+        destination: z.enum(["loja", "produto"]),
+        brandProductId: z.number().int().positive().nullable(),
+        custom: z.boolean(),
+        note: z.string().max(40).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.destination === "produto" && !input.brandProductId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Escolha o produto desse link." });
+      }
+      try {
+        const link = await createAffiliateLink({
+          userId: ctx.user.id,
+          label: input.label,
+          destination: input.destination,
+          brandProductId: input.destination === "produto" ? input.brandProductId : null,
+          custom: input.custom,
+          note: input.note ?? null,
+        });
+        return { id: link?.id ?? null };
+      } catch (error) {
+        fail(error);
+      }
+    }),
+  recordClick: publicProcedure
+    .input(z.object({ linkId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      await registerLinkClick(input.linkId);
+      return { ok: true };
+    }),
+  confirmReturn: publicProcedure
+    .input(
+      z.object({
+        orderNsu: z.string().min(1).max(80),
+        transactionNsu: z.string().min(1).max(80),
+        slug: z.string().min(1).max(80),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const check = await checkInfinitePayPayment(input);
+      const order = await confirmAffiliateOrder({
+        orderNsu: input.orderNsu,
+        transactionNsu: input.transactionNsu,
+        invoiceSlug: input.slug,
+        captureMethod: check.captureMethod,
+        paid: check.paid,
+      });
+      if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Pedido não encontrado" });
+      return { paid: check.paid, status: order.status };
+    }),
 
   admin: router({
     rules: staff.query(() => getPointRules()),
@@ -59,6 +192,79 @@ export const affiliateProgramRouter = router({
       }
     }),
     products: staff.query(() => listProductPoints()),
+    sales: staff.query(() => listSaleCatalog(false)),
+    coproducers: staff.query(() => listCoproducers()),
+    addCoproducer: staff
+      .input(
+        z.object({
+          brandProductId: z.number().int().positive(),
+          username: z.string().min(1).max(50),
+          amountCents: z.number().int().positive().max(10_000_000),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          await addCoproducer(input.brandProductId, input.username, input.amountCents);
+          return { ok: true };
+        } catch (error) {
+          fail(error);
+        }
+      }),
+    removeCoproducer: staff.input(z.object({ id: z.number().int().positive() })).mutation(async ({ input }) => {
+      try {
+        await removeCoproducer(input.id);
+        return { ok: true };
+      } catch (error) {
+        fail(error);
+      }
+    }),
+    coupons: staff.query(() => listCoupons()),
+    saveCoupon: staff
+      .input(
+        z.object({
+          username: z.string().min(1).max(50),
+          code: z.string().min(4).max(32),
+          discountPercent: z.number().int().min(0).max(90),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          await saveCoupon(input);
+          return { ok: true };
+        } catch (error) {
+          fail(error);
+        }
+      }),
+    deleteCoupon: staff.input(z.object({ id: z.number().int().positive() })).mutation(async ({ input }) => {
+      try {
+        await deleteCoupon(input.id);
+        return { ok: true };
+      } catch (error) {
+        fail(error);
+      }
+    }),
+    saveSale: staff
+      .input(
+        z.object({
+          brandProductId: z.number().int().positive(),
+          priceCents: z.number().int().positive().max(10_000_000),
+          compareAtCents: z.number().int().positive().max(10_000_000).nullable(),
+          commissionCents: z.number().int().min(0).max(10_000_000),
+          promo: z.boolean(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          if (input.compareAtCents != null && input.compareAtCents <= input.priceCents) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "O preço antigo precisa ser maior que o preço de venda." });
+          }
+          await saveSaleProduct(input);
+          return { ok: true };
+        } catch (error) {
+          if (error instanceof TRPCError) throw error;
+          fail(error);
+        }
+      }),
     setProductPoints: staff
       .input(z.object({ brandProductId: z.number().int().positive(), pointsCost: z.number().int().min(0).max(100000) }))
       .mutation(async ({ input }) => {
