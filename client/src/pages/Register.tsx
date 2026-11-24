@@ -8,6 +8,7 @@ import { useCep } from "@/hooks/useCep";
 import { applyAuthSession } from "@/lib/authSession";
 import { formatTrpcErrorMessage } from "@/lib/formatTrpcError";
 import { getSupabaseConfigError, supabase } from "@/lib/supabase";
+import { IMAGE_SIZE_HINTS } from "@/lib/prepareImage";
 import { USERNAME_HINT } from "@shared/username";
 import { trpc } from "@/lib/trpc";
 import { Link, useLocation } from "wouter";
@@ -161,6 +162,7 @@ export default function Register() {
               Escolher foto de perfil
             </Label>
             <Input id="photo" type="file" accept="image/*" className="hidden" onChange={onPhotoChange} />
+            <p className="text-xs text-muted-foreground text-center">{IMAGE_SIZE_HINTS.avatar}</p>
           </div>
 
           {/* Acesso */}

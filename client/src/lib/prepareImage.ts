@@ -1,5 +1,17 @@
 export type ImageUploadProfile = "avatar" | "banner" | "post" | "logo";
 
+/** Tamanho para produzir o arquivo, no lugar em que a foto entra. */
+export const IMAGE_SIZE_HINTS = {
+  avatar: "800×800 px, quadrada. No perfil aparece redonda.",
+  banner: "1500×500 px, proporção 3:1.",
+  logo: "640×640 px, PNG com fundo transparente.",
+  cover: "1600×540 px, faixa horizontal.",
+  product: "1080×1080 px, quadrada. É a foto da loja, do link e do card.",
+  campaign: "1600×800 px, proporção 2:1.",
+  post: "1080×1080 px.",
+  material: "Feed 1080×1080 px ou story 1080×1920 px. A miniatura da aba fica quadrada; o arquivo baixado mantém o tamanho enviado.",
+} as const;
+
 type PreparedImage = { base64: string; mime: string };
 
 type ProfileConfig = { maxWidth: number; maxHeight: number; maxBytes: number; png?: boolean };

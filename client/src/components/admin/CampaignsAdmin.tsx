@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { prepareImageForUpload } from "@/lib/prepareImage";
+import { prepareImageForUpload, IMAGE_SIZE_HINTS } from "@/lib/prepareImage";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import {
@@ -148,6 +148,7 @@ function CoverField({ value, onChange }: { value: string; onChange: (url: string
             )}
           </div>
           <Input value={value} onChange={e => onChange(e.target.value)} placeholder="ou cole uma URL https://…" className="text-xs" />
+          <p className="text-xs text-muted-foreground">{IMAGE_SIZE_HINTS.campaign}</p>
         </div>
       </div>
     </div>

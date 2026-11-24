@@ -4,7 +4,7 @@ import { MentionTextarea } from "@/components/MentionTextarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MOCK_GROUP_MEMBERS, MOCK_GROUP_MESSAGES, type GroupMessage } from "@/data/mockGroupChat";
-import { prepareImageForUpload } from "@/lib/prepareImage";
+import { prepareImageForUpload, IMAGE_SIZE_HINTS } from "@/lib/prepareImage";
 import { trpc } from "@/lib/trpc";
 import { ArrowUp, ImageIcon, Loader2, Megaphone, Search, Users, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -205,7 +205,7 @@ export default function OpenGroup() {
                 className="shrink-0 h-10 w-10"
                 onClick={() => imageInputRef.current?.click()}
                 disabled={processingImage}
-                title="Anexar imagem da galeria ou arquivos"
+                title={`${IMAGE_SIZE_HINTS.post} Anexar imagem da galeria ou arquivos`}
               >
                 {processingImage ? (
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -237,7 +237,7 @@ export default function OpenGroup() {
               </Button>
             </div>
             <p className="text-[10px] text-muted-foreground hidden sm:block">
-              Enter para enviar · Shift+Enter para nova linha · Use @usuario para marcar alguém
+              Foto da mensagem: {IMAGE_SIZE_HINTS.post} Enter para enviar · Shift+Enter para nova linha · Use @usuario para marcar alguém
             </p>
           </div>
         </div>

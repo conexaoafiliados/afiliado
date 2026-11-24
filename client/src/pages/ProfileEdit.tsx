@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { PreferencesCard } from "@/components/PreferencesCard";
 import { trpc } from "@/lib/trpc";
-import { prepareImageForUpload } from "@/lib/prepareImage";
+import { prepareImageForUpload, IMAGE_SIZE_HINTS } from "@/lib/prepareImage";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Camera, Loader2 } from "lucide-react";
@@ -176,7 +176,7 @@ export default function ProfileEdit() {
                   "Alterar Foto"
                 )}
               </Button>
-              <p className="text-xs text-muted-foreground mt-2">Qualquer tamanho — redimensionamos automaticamente.</p>
+              <p className="text-xs text-muted-foreground mt-2">{IMAGE_SIZE_HINTS.avatar}</p>
             </div>
           </div>
         </div>
@@ -207,9 +207,7 @@ export default function ProfileEdit() {
               "Alterar Banner"
             )}
           </Button>
-          <p className="text-xs text-muted-foreground mt-2">
-            Fotos grandes do celular são aceitas — cortamos e comprimimos para caber no perfil.
-          </p>
+          <p className="text-xs text-muted-foreground mt-2">{IMAGE_SIZE_HINTS.banner}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
+import { IMAGE_SIZE_HINTS } from "@/lib/prepareImage";
 import type { PointRules } from "@shared/affiliateProgram";
 import { Loader2, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -262,7 +263,9 @@ export function ProgramAdmin() {
 
       <Card className="p-5 space-y-3">
         <h2 className="font-semibold">Materiais</h2>
-        <p className="text-sm text-muted-foreground">PNG, JPG, WEBP, GIF, PDF ou MP4 até 8 MB. A afiliada baixa ao clicar.</p>
+        <p className="text-sm text-muted-foreground">
+          PNG, JPG, WEBP, GIF, PDF ou MP4 até 8 MB. A afiliada baixa ao clicar. {IMAGE_SIZE_HINTS.material}
+        </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <Label>Título</Label>

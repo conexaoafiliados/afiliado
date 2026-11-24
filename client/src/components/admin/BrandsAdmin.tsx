@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { prepareImageForUpload } from "@/lib/prepareImage";
+import { prepareImageForUpload, IMAGE_SIZE_HINTS } from "@/lib/prepareImage";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import {
@@ -261,6 +261,9 @@ function ImageField({
             placeholder="ou cole uma URL https://…"
             className="text-xs"
           />
+          <p className="text-xs text-muted-foreground">
+            {kind === "logo" ? IMAGE_SIZE_HINTS.logo : kind === "cover" ? IMAGE_SIZE_HINTS.cover : IMAGE_SIZE_HINTS.product}
+          </p>
         </div>
       </div>
     </div>
