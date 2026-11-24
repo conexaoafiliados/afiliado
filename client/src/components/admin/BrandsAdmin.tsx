@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { prepareImageForUpload, IMAGE_SIZE_HINTS } from "@/lib/prepareImage";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
+import { formatTrpcErrorMessage } from "@/lib/formatTrpcError";
 import {
   BRAND_STATUS_LABELS,
   OFFER_CHANNEL_LABELS,
@@ -314,7 +315,7 @@ function BrandEditor({
       if (isNew) onCreated(saved.id);
       else await utils.brands.admin.get.invalidate({ id: saved.id });
     },
-    onError: err => toast.error(err.message),
+    onError: err => toast.error(formatTrpcErrorMessage(err)),
   });
 
   const setStatus = trpc.brands.admin.setBrandStatus.useMutation({
@@ -322,7 +323,7 @@ function BrandEditor({
       toast.success("Status atualizado");
       await Promise.all([utils.brands.admin.list.invalidate(), utils.brands.admin.get.invalidate({ id: form.id! })]);
     },
-    onError: err => toast.error(err.message),
+    onError: err => toast.error(formatTrpcErrorMessage(err)),
   });
 
   const publishIssues = useMemo(() => getBrandPublishIssues(form), [form]);
@@ -606,7 +607,7 @@ function ProductEditor({
       await utils.brands.admin.get.invalidate({ id: brandId });
       if (isNew) onBack();
     },
-    onError: err => toast.error(err.message),
+    onError: err => toast.error(formatTrpcErrorMessage(err)),
   });
 
   const setStatus = trpc.brands.admin.setProductStatus.useMutation({
@@ -614,7 +615,7 @@ function ProductEditor({
       toast.success("Status do produto atualizado");
       await utils.brands.admin.get.invalidate({ id: brandId });
     },
-    onError: err => toast.error(err.message),
+    onError: err => toast.error(formatTrpcErrorMessage(err)),
   });
 
   const saveOfferMut = trpc.brands.admin.saveOffer.useMutation({
@@ -623,7 +624,7 @@ function ProductEditor({
       setOfferDraft(emptyOffer());
       await utils.brands.admin.get.invalidate({ id: brandId });
     },
-    onError: err => toast.error(err.message),
+    onError: err => toast.error(formatTrpcErrorMessage(err)),
   });
 
   const removeOffer = trpc.brands.admin.deleteOffer.useMutation({
@@ -631,7 +632,7 @@ function ProductEditor({
       toast.success("Oferta removida");
       await utils.brands.admin.get.invalidate({ id: brandId });
     },
-    onError: err => toast.error(err.message),
+    onError: err => toast.error(formatTrpcErrorMessage(err)),
   });
 
   const publishIssues = useMemo(() => getProductPublishIssues(form), [form]);

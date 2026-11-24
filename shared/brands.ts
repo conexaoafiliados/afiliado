@@ -89,6 +89,17 @@ export function isHttpUrl(value: string): boolean {
   }
 }
 
+/** Arquivo já publicado no site, como /brands/lizin-logo.png. */
+export function isSitePath(value: string): boolean {
+  if (!value.startsWith("/") || value.startsWith("//")) return false;
+  if (value.includes("..") || value.includes("\\") || /[\s?#]/.test(value)) return false;
+  return /^\/[A-Za-z0-9/_\-.]+$/.test(value);
+}
+
+export function isMediaUrl(value: string): boolean {
+  return isHttpUrl(value) || isSitePath(value);
+}
+
 export type ReferenceMaterial = { label: string; url: string };
 
 export type BrandPublishInput = {

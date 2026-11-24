@@ -4,6 +4,8 @@ import {
   getBrandPublishIssues,
   getProductPublishIssues,
   isHttpUrl,
+  isMediaUrl,
+  isSitePath,
   isValidSlug,
   readableTextColor,
   slugify,
@@ -34,6 +36,15 @@ describe("isHttpUrl", () => {
     expect(isHttpUrl("javascript:alert(1)")).toBe(false);
     expect(isHttpUrl("data:text/html;base64,AAAA")).toBe(false);
     expect(isHttpUrl("não é url")).toBe(false);
+  });
+
+  it("aceita arquivo do próprio site e recusa caminho perigoso", () => {
+    expect(isSitePath("/brands/lizin-logo.png")).toBe(true);
+    expect(isMediaUrl("/brands/lizin-logo.png")).toBe(true);
+    expect(isMediaUrl("https://exemplo.com/logo.png")).toBe(true);
+    expect(isSitePath("//evil.test/a.png")).toBe(false);
+    expect(isSitePath("/brands/../secret")).toBe(false);
+    expect(isMediaUrl("javascript:alert(1)")).toBe(false);
   });
 });
 

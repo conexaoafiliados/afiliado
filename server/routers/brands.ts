@@ -10,6 +10,7 @@ import {
   getBrandPublishIssues,
   getProductPublishIssues,
   isHttpUrl,
+  isMediaUrl,
   isValidSlug,
 } from "../../shared/brands";
 import {
@@ -57,6 +58,13 @@ const slugSchema = z
   .toLowerCase()
   .refine(isValidSlug, { message: `Identificador de URL inválido. ${SLUG_HINT}` });
 
+const mediaUrl = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .refine(isMediaUrl, { message: "Use um link http(s) ou um caminho do site, como /brands/logo.png" });
+
 const httpUrl = (max: number) =>
   z
     .string()
@@ -66,7 +74,7 @@ const httpUrl = (max: number) =>
 
 const optionalUrl = (max: number) =>
   z
-    .union([httpUrl(max), z.literal(""), z.null()])
+    .union([mediaUrl(max), z.literal(""), z.null()])
     .optional()
     .transform(v => (v ? v : null));
 
@@ -102,7 +110,7 @@ const productInput = z.object({
   name: z.string().trim().min(2, "Informe o nome do produto").max(160),
   description: optionalText(5000),
   category: optionalText(80),
-  imageUrls: z.array(httpUrl(512)).max(8).default([]),
+  imageUrls: z.array(mediaUrl(512)).max(8).default([]),
   usageGuidelines: optionalText(5000),
   approvedInfo: optionalText(5000),
   referenceMaterials: z
